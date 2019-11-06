@@ -8,8 +8,8 @@
 #include <uav_abstraction_layer/GoToWaypoint.h>
 
 
-std::vector<geometry_msgs::Point> velocities(400);
-std::vector<geometry_msgs::Point> positions(400);
+std::vector<geometry_msgs::Point> velocities;
+std::vector<geometry_msgs::Point> positions;
 Eigen::Vector3f current_pose;
 const double look_ahead = 1.0;
 ros::ServiceClient go_to_waypoint_client;
@@ -23,10 +23,11 @@ void ualPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg){
 }
 void trajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg){
     ROS_INFO("Drone %d: trajectory received", drone_id);
-    pose_on_path = 0;
-    target_pose = 0;
-    positions = msg->positions;
-    velocities = msg->velocities;
+    for(int i =0; i<msg->positions.size();i++){
+        positions.push_back(msg->positions[i]);
+        velocities.push_back(msg->velocities[i]);
+    }
+  
 
     /*uav_abstraction_layer::GoToWaypoint srv;
     srv.request.blocking = true;
@@ -105,13 +106,15 @@ int main(int _argc, char **_argv)
 
     while(ros::ok){
         ROS_INFO("Drone %d: waiting for trajectory. Pose on path: %d",drone_id,pose_on_path);
-        while(pose_on_path!=positions.size()){
+        while(!positions.empty() && !velocities.empty()){
             pose_on_path = cal_pose_on_path(positions);
             ROS_INFO("pose on path: %d", pose_on_path);
             target_pose = cal_pose_look_ahead(positions,look_ahead, pose_on_path);
             if(target_pose==positions.size()){
                 ROS_INFO("Drone %d: end of the trajectory",drone_id);
-                pose_on_path = positions.size();
+                positions.clear();
+                velocities.clear();
+                pose_on_path = 0;
                 break;
             }
             ROS_INFO("look ahead: %d",target_pose);
