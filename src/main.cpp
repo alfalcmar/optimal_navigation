@@ -185,8 +185,7 @@ int main(int _argc, char **_argv)
             publishTrajectory(x,y,z,vx,vy,vz);
 
         // log solver output to csv file
-        //logToCsv(x,y,z,vx,vy,vz,n_steps);
-
+        logToCsv(x,y,z,vx,vy,vz);
         // publish path to rviz visualizer
 
         // double point_1[2]= {-13.1,-35.55};
