@@ -89,7 +89,7 @@ int main(int _argc, char **_argv)
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
     double control_rate = 10.0;
     double height_take_off = 3.0;
-    nh.param<float>("control_rate", control_rate, 1.0);
+    //nh.param<float>("control_rate", control_rate, 1.0);
     //nh.param<float>("height_take_off", height_take_off, 4.0);
 
     const int hover_final_pose = 5;

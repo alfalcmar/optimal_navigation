@@ -11,12 +11,19 @@
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <optimal_control_interface.h>
 #include <uav_abstraction_layer/State.h>
+#include <multidrone_msgs/DroneAction.h>
+#include <multidrone_msgs/ExecuteAction.h>
+#include <actionlib/server/simple_action_server.h>
+
 
 
 
 ros::Publisher set_pose_pub;
 ros::Publisher set_velocity_pub;
 ros::Subscriber uav_state_sub;
+actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>* server_;
+
+
 
 // solver output
 std::vector<double> x;   
@@ -41,6 +48,28 @@ int ual_state;
 void uavTrajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg, int id){
     uavs_trajectory.clear();
     uavs_trajectory[id] = msg->positions;
+}
+/** \brief Preempt function for ros actions
+ */
+void preemptCallback(){
+
+}
+
+/** \brief callback for multidrone action client
+ */
+
+void actionCallback(){
+
+    multidrone_msgs::DroneAction goal_ =server_->acceptNewGoal()->action_goal;
+    if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
+
+    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){
+
+    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_LAND){
+
+    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){
+
+    }
 }
 
 
@@ -73,9 +102,6 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
 void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     target_pose.pose = msg->pose.pose;
-}
-void targetPrediction(){
-
 }
 
 
@@ -150,6 +176,13 @@ int main(int _argc, char **_argv)
     else {
         ROS_WARN("fail to get no_fly_zone");
     }
+    //action service
+    server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "action_server", false);
+    server_->registerGoalCallback(boost::bind(&actionCallback));
+    server_->registerPreemptCallback(boost::bind(&preemptCallback));
+
+    server_->start();
+
 
     // subscribers and publishers
     ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
