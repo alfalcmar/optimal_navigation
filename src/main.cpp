@@ -22,6 +22,7 @@ ros::Publisher set_pose_pub;
 ros::Publisher set_velocity_pub;
 ros::Subscriber uav_state_sub;
 actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>* server_;
+ros::NodeHandle nh;
 
 
 
@@ -60,14 +61,23 @@ void preemptCallback(){
 
 void actionCallback(){
 
-    multidrone_msgs::DroneAction goal_ =server_->acceptNewGoal()->action_goal;
-    if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
+    multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
+    if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
 
-    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){
+        // taking off
+        ros::ServiceClient take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
+        uav_abstraction_layer::TakeOff srv;
+        srv.request.blocking = true;
+        srv.request.height = goal.path[0].point.z;
+        if(!take_off_srv.call(srv)){
+            ROS_WARN("Drone %d: the take off is not available",drone_id);
+        }else{
+            ROS_INFO("Drone %d: taking_off",drone_id);
+        }
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_LAND){
 
-    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_LAND){
-
-    }else if(goal_.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){
 
     }
 }
@@ -111,7 +121,7 @@ void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 int main(int _argc, char **_argv)
 {
     ros::init(_argc, _argv, "optimal_control_interface_node");
-    ros::NodeHandle nh = ros::NodeHandle();
+    nh = ros::NodeHandle();
     ros::NodeHandle pnh = ros::NodeHandle("~");
     //utility vars
     int n_steps;
@@ -213,7 +223,6 @@ int main(int _argc, char **_argv)
         calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
         ros::spinOnce();
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
-        sleep(2);
         if(solver_success){
             publishTrajectory(x,y,z,vx,vy,vz);
 

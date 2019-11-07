@@ -93,16 +93,7 @@ int main(int _argc, char **_argv)
     //nh.param<float>("height_take_off", height_take_off, 4.0);
 
     const int hover_final_pose = 5;
-    // taking off
-    ros::ServiceClient take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = height_take_off;
-    if(!take_off_srv.call(srv)){
-        ROS_WARN("the take off is not available");
-    }else{
-        ROS_INFO("taking_off");
-    }
+
 
     while(ros::ok){
         ROS_INFO("Drone %d: waiting for trajectory. Pose on path: %d",drone_id,pose_on_path);
