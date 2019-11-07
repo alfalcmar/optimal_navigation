@@ -23,6 +23,9 @@ ros::Publisher set_velocity_pub;
 ros::Subscriber uav_state_sub;
 actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>* server_;
 ros::NodeHandle nh;
+ros::ServiceClient go_to_waypoint_client;
+ros::ServiceClient take_off_srv;
+
 
 
 
@@ -64,9 +67,8 @@ void actionCallback(){
     multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
     if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
 
-    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){ // TAKE OFF NAVIGATION ACTION
         // taking off
-        ros::ServiceClient take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
         uav_abstraction_layer::TakeOff srv;
         srv.request.blocking = true;
         srv.request.height = goal.path[0].point.z;
@@ -75,9 +77,34 @@ void actionCallback(){
         }else{
             ROS_INFO("Drone %d: taking_off",drone_id);
         }
-    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_LAND){
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_LAND){ // LAND NAVIGATION ACTION
 
-    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){
+    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){ // GO TO WAYPOINT NAVIGATION ACTION
+        uav_abstraction_layer::GoToWaypoint go_to_waypoint_srv;
+        geometry_msgs::PoseStamped setpoint_pose;
+        for(int i=0; i<goal.path.size();i++){
+            setpoint_pose.header.stamp     = ros::Time::now();
+            setpoint_pose.header.frame_id  = "map";
+            setpoint_pose.pose.position.x  = goal.path[i].point.x;
+            setpoint_pose.pose.position.y  = goal.path[i].point.y;
+            setpoint_pose.pose.position.z  = goal.path[i].point.z;
+            setpoint_pose.pose.orientation = uavs_pose[drone_id].pose.orientation;  // the same orientation as the previous waypoint
+            go_to_waypoint_srv.request.waypoint = setpoint_pose;
+            go_to_waypoint_srv.request.blocking = true;
+            go_to_waypoint_client.call(go_to_waypoint_srv);
+            ROS_INFO("Executer: calling the go_to_waypoint service");
+        }
+        setpoint_pose.pose.position.x  = goal.path[goal.path.size()].point.x;
+        setpoint_pose.pose.position.y  = goal.path[goal.path.size()].point.y;
+        setpoint_pose.pose.position.z  = goal.path[goal.path.size()].point.z;
+        setpoint_pose.pose.orientation.x  = goal.final_yaw_if_gotowaypoint.x;
+        setpoint_pose.pose.orientation.y  = goal.final_yaw_if_gotowaypoint.y;
+        setpoint_pose.pose.orientation.z  = goal.final_yaw_if_gotowaypoint.z;
+        setpoint_pose.pose.orientation.w = goal.final_yaw_if_gotowaypoint.w;        
+        go_to_waypoint_srv.request.waypoint = setpoint_pose;
+        go_to_waypoint_srv.request.blocking = true;
+        go_to_waypoint_client.call(go_to_waypoint_srv);
+        ROS_INFO("Executer: calling the go_to_waypoint service");
 
     }
 }
@@ -200,6 +227,10 @@ int main(int _argc, char **_argv)
     set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("/desired_point",1);
     uav_state_sub = nh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback);
+    go_to_waypoint_client = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
+    take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
+
+
 
 
     for(int i=0; i<drones.size(); i++){
