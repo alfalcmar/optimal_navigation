@@ -150,7 +150,7 @@ int main(int _argc, char **_argv)
     ros::NodeHandle nh = ros::NodeHandle();
 
     // parameters
-    nh.param<float>("solver_rate", solver_rate, 10.0);
+    nh.param<float>("solver_rate", solver_rate, 0.2);
     std::string target_topic;
     nh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
     std::vector<double> desired_wp; 
@@ -233,8 +233,7 @@ int main(int _argc, char **_argv)
 
     // init solver
     init(nh);
-    ros::Rate rate(0.0001); //hz
-    sleep(4);
+    ros::Rate rate(solver_rate); //hz
     /* main loop to call the solver. */
     while(ros::ok){
         ros::spinOnce();
