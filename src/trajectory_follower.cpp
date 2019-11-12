@@ -6,16 +6,21 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <uav_abstraction_layer/TakeOff.h>
 #include <uav_abstraction_layer/GoToWaypoint.h>
+#include <std_srvs/SetBool.h>
+#include <fstream>
+#include <nav_msgs/Path.h>
 
 
-std::vector<geometry_msgs::Point> velocities;
-std::vector<geometry_msgs::Point> positions;
-Eigen::Vector3f current_pose;
+std::vector<geometry_msgs::Point> velocities; //trajectory to follow
+std::vector<geometry_msgs::Point> positions;  //trajectory to follow
+Eigen::Vector3f current_pose;                 
 const double look_ahead = 1.0;
-ros::ServiceClient go_to_waypoint_client;
-int pose_on_path;
-int target_pose;
+int pose_on_path = 0;
+int target_pose; // look ahead pose
 int drone_id = 1;
+bool start_trajectory = false;  //flag to start the trajectory
+std::string path_csv = "/home/alfonso/traj1";
+ros::Publisher csv_trajectory_pub;
 
 /** \brief Calback for ual pose
  */
@@ -77,7 +82,89 @@ Eigen::Vector3f calculate_vel(Eigen::Vector3f pose, Eigen::Vector3f vel){
    return vel_to_command*vel_module;
 }
 
+/**
+ */
 
+void visualizeCsvTrajectory(){
+    nav_msgs::Path path_to_publish;
+    path_to_publish.header.frame_id = "map";
+    geometry_msgs::PoseStamped aux_pose_stamped;
+
+    for(int i=0; i<positions.size();i++){
+        aux_pose_stamped.pose.position.x = positions[i].x;
+        aux_pose_stamped.pose.position.y = positions[i].y;
+        aux_pose_stamped.pose.position.z = positions[i].z;
+        path_to_publish.poses.push_back(aux_pose_stamped);
+    }
+    csv_trajectory_pub.publish(path_to_publish);
+}
+/** \brief callcak for start trajectory
+ *  if the start trajectory is received, this callback will read trajectories from csv
+ */
+bool startServerCallback(std_srvs::SetBool::Request  &req, std_srvs::SetBool::Response &res){
+    ROS_INFO("Drone %d: start trajectory received",drone_id);
+    std::fstream read_csv;
+    read_csv.open(path_csv+"_positions.csv");
+    if (read_csv.is_open()) {
+        while (read_csv.good()) {
+            std::string x, y, z;
+            double dx, dy, dz;
+            getline(read_csv, x, ',');
+            getline(read_csv, y, ',');
+            getline(read_csv, z, '\n');
+            std::stringstream sx(x);
+            std::stringstream sy(y);
+            std::stringstream sz(z);
+            sx >> dx;
+            sy >> dy;
+            sz >> dz;
+            geometry_msgs::Point aux_point;
+            aux_point.x = dx;
+            aux_point.y = dy;
+            aux_point.z = dz;
+            positions.push_back(aux_point);
+        }
+    }else{
+        ROS_WARN("Follower %d: error opening csv file",drone_id);
+    }
+    std::fstream read_csv2;
+    read_csv2.open(path_csv+"_vels.csv");
+    if (read_csv2.is_open()) {
+        while (read_csv2.good()) {
+            std::string x, y, z;
+            double dx, dy, dz;
+            getline(read_csv2, x, ',');
+            getline(read_csv2, y, ',');
+            getline(read_csv2, z, '\n');
+            std::stringstream sx(x);
+            std::stringstream sy(y);
+            std::stringstream sz(z);
+            sx >> dx;
+            sy >> dy;
+            sz >> dz;
+            geometry_msgs::Point aux_point;
+            aux_point.x = dx;
+            aux_point.y = dy;
+            aux_point.z = dz;
+            velocities.push_back(aux_point);
+        }
+    }else{
+        ROS_WARN("Follower %d: error opening csv file",drone_id);
+    }
+
+    if(positions.size()==velocities.size()){
+        ROS_INFO("Follower %d: trajectory has %d points",drone_id,velocities.size());
+    }else
+    {
+        ROS_WARN("Follower %d: invalid trajectory. Discarting",drone_id);
+    }
+    
+    visualizeCsvTrajectory();
+    start_trajectory = req.data;
+    res.success = true;
+    res.message = "";
+    return true;
+}
 
 int main(int _argc, char **_argv)
 {
@@ -87,18 +174,14 @@ int main(int _argc, char **_argv)
     ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::SolvedTrajectory>("solver", 1, trajectoryCallback);
     ros::Subscriber ual_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose", 1, ualPoseCallback);
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
-    double control_rate = 10.0;
-    double height_take_off = 3.0;
-    //nh.param<float>("control_rate", control_rate, 1.0);
-    //nh.param<float>("height_take_off", height_take_off, 4.0);
-
-    const int hover_final_pose = 5;
-
+    csv_trajectory_pub =nh.advertise<nav_msgs::Path>("csv_trajectory",1);
+    ros::ServiceServer start_trajectory_signal = nh.advertiseService("start_shooting",startServerCallback);
+    nh.getParam("path_csv", path_csv);
 
     while(ros::ok){
         ROS_INFO("Drone %d: waiting for trajectory. Pose on path: %d",drone_id,pose_on_path);
         //wait for receiving trajectories
-        while(!positions.empty() && !velocities.empty()){
+        while((!positions.empty() && !velocities.empty())|| start_trajectory){ // if start trajectory is provided by topic or by csv
             pose_on_path = cal_pose_on_path(positions);
             ROS_INFO("pose on path: %d", pose_on_path);
             target_pose = cal_pose_look_ahead(positions,look_ahead, pose_on_path);
@@ -116,17 +199,17 @@ int main(int _argc, char **_argv)
             Eigen::Vector3f velocity_to_command = calculate_vel(pose_to_go, vel_to_go);
             // publish topic to ual
             geometry_msgs::TwistStamped vel;
+            vel.header.frame_id = "map";
             vel.twist.linear.x = velocity_to_command.x();
             vel.twist.linear.y = velocity_to_command.y();
             vel.twist.linear.z = velocity_to_command.z();
             velocity_ual_pub.publish(vel);
             ros::spinOnce();
+            ros::Duration(0.1).sleep();
         }
         ros::spinOnce();
-        sleep(1);
+       ros::Duration(1).sleep();
     }
 
     return 0;
 }
-
-// cada vez que una trayectoria sea recibida, resetear

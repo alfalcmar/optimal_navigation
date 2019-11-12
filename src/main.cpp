@@ -22,11 +22,8 @@ ros::Publisher set_pose_pub;
 ros::Publisher set_velocity_pub;
 ros::Subscriber uav_state_sub;
 actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>* server_;
-ros::NodeHandle nh;
 ros::ServiceClient go_to_waypoint_client;
 ros::ServiceClient take_off_srv;
-
-
 
 
 // solver output
@@ -37,18 +34,13 @@ std::vector<double> vx;
 std::vector<double> vy;
 std::vector<double> vz;
 
-// trajectory to send to UAL
-std::vector<double> x_ual;
-std::vector<double> y_ual;
-std::vector<double> z_ual;
-std::vector<double> vx_ual;
-std::vector<double> vy_ual;
-std::vector<double> vz_ual;
-
-
+// solver variables
 bool solver_success; 
+// ual variables
 int ual_state;
 
+/** \brief This callback receives the solved trajectory of uavs
+ */
 void uavTrajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg, int id){
     uavs_trajectory.clear();
     uavs_trajectory[id] = msg->positions;
@@ -110,8 +102,8 @@ void actionCallback(){
 }
 
 
-
-/** callback for ual pose*/
+/** \brief callback for the pose of uavs
+ */
 
 void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
     if(!trajectory_solved_received[id]){
@@ -139,6 +131,7 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
 void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     target_pose.pose = msg->pose.pose;
+    ROS_INFO("callback target");
 }
 
 
@@ -148,22 +141,23 @@ void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 int main(int _argc, char **_argv)
 {
     ros::init(_argc, _argv, "optimal_control_interface_node");
-    nh = ros::NodeHandle();
-    ros::NodeHandle pnh = ros::NodeHandle("~");
+
     //utility vars
     int n_steps;
     float solver_rate;
 
+    ros::NodeHandle nh = ros::NodeHandle();
+
     // parameters
-    pnh.param<float>("solver_rate", solver_rate, 10.0);
+    nh.param<float>("solver_rate", solver_rate, 10.0);
     std::string target_topic;
-    pnh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
+    nh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
     std::vector<double> desired_wp; 
     std::vector<double> desired_vel;
     std::vector<double> obst;
     std::vector<double> target_vel = {0, 0};
     std::vector<double> target_pose_init = {0, 0};
-
+    // parameters
     if (ros::param::has("~drones")) {
         ros::param::get("~drones",drones);
     }
@@ -217,21 +211,16 @@ int main(int _argc, char **_argv)
     server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "action_server", false);
     server_->registerGoalCallback(boost::bind(&actionCallback));
     server_->registerPreemptCallback(boost::bind(&preemptCallback));
-
-    server_->start();
+    server_->start(); 
 
 
     // subscribers and publishers
-    ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
-    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("ual/set_pose",1);
-    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
-    desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("/desired_point",1);
     uav_state_sub = nh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback);
     go_to_waypoint_client = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
     take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-
-
-
+    ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
+    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("ual/set_pose",1);
+    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
 
     for(int i=0; i<drones.size(); i++){
         drone_pose_sub[drones[i]] = nh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
@@ -243,16 +232,15 @@ int main(int _argc, char **_argv)
     // init solver
     init(nh);
     ros::Rate rate(0.0001); //hz
-    sleep(5);
+    sleep(4);
     /* main loop to call the solver. */
     while(ros::ok){
+        ros::spinOnce();
         // solver function
           x.clear();
           y.clear();
           z.clear();
-        ROS_INFO("calling solver");
         calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
-        ros::spinOnce();
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
         if(solver_success){
             publishTrajectory(x,y,z,vx,vy,vz);
@@ -270,7 +258,6 @@ int main(int _argc, char **_argv)
 
         publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
         publishPath(x,y,z,desired_wp);
-
         }
         
         if(drone_id==1){

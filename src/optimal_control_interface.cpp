@@ -2,7 +2,6 @@
 #include <optimal_control_interface.h>
 
 
-int offset = 10;
 
 #ifdef __cplusplus
 extern "C"
@@ -24,20 +23,23 @@ namespace plt = matplotlibcpp;
  */
 void ownPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-    own_pose.pose = msg->pose;
+    ROS_INFO("callback own pose");
+    uavs_pose[drone_id].pose = msg->pose;
     csv_ual << msg->pose.position.x << ", " << msg->pose.position.y << ", " << msg->pose.position.z << std::endl;
 }
 /** Drone velocity callback
  */
 void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 {
+    ROS_INFO("callback velocity");
     own_velocity.twist = msg->twist;
 }
 
 
 void init(ros::NodeHandle nh){
-    sub_position = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose",1,ownPoseCallback);
-    sub_velocity = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
+
+  
+    desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("/desired_point",1);
     solved_trajectory_pub = nh.advertise<optimal_control_interface::SolvedTrajectory>("solver",1);
     path_rviz_pub = nh.advertise<nav_msgs::Path>("solver/path",1);
     target_path_rviz_pub = nh.advertise<nav_msgs::Path>("/target/path",1);
@@ -45,6 +47,7 @@ void init(ros::NodeHandle nh){
     csv_pose.open("/home/alfonso/pose.csv");
     csv_pose << std::fixed << std::setprecision(5);
     csv_ual.open("/home/alfonso/ual.csv");
+    csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id)+".csv");
 }
 ///////////////// UTILITY FUNCTIONS ////////////////////
 void targetTrajectory(const std::vector<double> target_init_pose, const std::vector<double> target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
@@ -89,7 +92,7 @@ void calculateDesiredPoint(int shooting_type, const geometry_msgs::PoseStamped &
 
 bool checkHovering(bool control_position){
     Eigen::Vector3f current_pose, current_target_pose;
-    current_pose = Eigen::Vector3f(own_pose.pose.position.x, own_pose.pose.position.y, own_pose.pose.position.z);
+    current_pose = Eigen::Vector3f(uavs_pose[drone_id].pose.position.x, uavs_pose[drone_id].pose.position.y, uavs_pose[drone_id].pose.position.z);
     current_target_pose = Eigen::Vector3f(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
     if((current_target_pose - current_pose).norm() > hovering_distance) return false;
     else return true;
@@ -213,6 +216,26 @@ void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::ve
 }
 
 
+void saveParametersToCsv(const FORCESNLPsolver_params &params){
+    csv_debug<<"Time horizon"<<time_horizon<<std::endl;
+    csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
+    csv_debug<<"My pose: "<<uavs_pose[1].pose.position.x<<", "<<uavs_pose[1].pose.position.y<<", "<<uavs_pose[1].pose.position.z<<std::endl;
+    csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
+    csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
+    csv_debug<<"Target pose: "<<target_pose.pose.position.x<<", "<<target_pose.pose.position.y<<", "<<std::endl;
+    for(int j=0; j<time_horizon;j++){
+        for(int i=npar*j; i<npar*j+npar;i++){
+            csv_debug << params.all_parameters[i] << ", ";
+        }
+        csv_debug<<std::endl;
+    }
+    csv_debug<<std::endl<<std::endl<<"Initial guess: "<<std::endl;
+    csv_debug<<"Number os guesses: "<<sizeof(params.x0)/sizeof(params.x0[0]);
+    for(int i=0; i<sizeof(params.x0)/sizeof(params.x0[0]);i++){
+        csv_debug<<params.x0[i]<<std::endl;
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -256,8 +279,8 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
 
     // set initial postion and velocity
     initial_time = clock(); 
-    myparams.xinit[0] = own_pose.pose.position.x;
-    myparams.xinit[1] = own_pose.pose.position.y;
+    myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
+    myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
     myparams.xinit[2] = 3;
     myparams.xinit[3] = 0.0;//own_velocity.twist.linear.x;
     myparams.xinit[4] = 0.0;//own_velocity.twist.linear.y;
@@ -319,6 +342,10 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
 
 
     // call the solver
+
+    if(debug){
+        saveParametersToCsv(myparams);
+    }
     exitflag = FORCESNLPsolver_solve(&myparams, &myoutput, &myinfo, stdout, pt2Function);
     // save the output in a vector
     x.push_back(myoutput.x001[position_x]);
