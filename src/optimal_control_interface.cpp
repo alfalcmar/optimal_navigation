@@ -18,15 +18,6 @@ namespace plt = matplotlibcpp;
 /////////////////////////////////// CALLBACKS //////////////////////////////////////////////
 
 
-
-/** Drone pose callback
- */
-void ownPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
-{
-    ROS_INFO("callback own pose");
-    uavs_pose[drone_id].pose = msg->pose;
-    csv_ual << msg->pose.position.x << ", " << msg->pose.position.y << ", " << msg->pose.position.z << std::endl;
-}
 /** Drone velocity callback
  */
 void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
@@ -37,7 +28,12 @@ void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 
 
 void init(ros::NodeHandle nh){
-
+    
+    
+    for(int i=0; i<drones.size(); i++){
+        has_poses[0] = false;
+        has_poses[drones[i]] = false;
+    }
   
     desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("/desired_point",1);
     solved_trajectory_pub = nh.advertise<optimal_control_interface::SolvedTrajectory>("solver",1);
@@ -48,6 +44,30 @@ void init(ros::NodeHandle nh){
     csv_pose << std::fixed << std::setprecision(5);
     csv_ual.open("/home/alfonso/ual.csv");
     csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id)+".csv");
+    // check the connectivity with drones and target
+    bool connectivity_done = false;
+    int cont = 0;
+    ros::Rate rate(1); //hz
+
+    while(!connectivity_done){
+        ros::spinOnce();
+        cont = 0;
+        ROS_INFO("Solver %d is not ready",drone_id);
+        for(int i=0; i<drones.size(); i++){ // check drones pose
+            if(has_poses[drones[i]] == true){
+                cont++;
+            }
+        }
+        if(has_poses[0]){ // check target pose
+            cont++;
+        }
+        if(cont==drones.size()+1){
+            connectivity_done = true;
+        }
+        rate.sleep();
+    }
+    ROS_INFO("Solver %d is ready",drone_id);
+    
 }
 ///////////////// UTILITY FUNCTIONS ////////////////////
 void targetTrajectory(const std::vector<double> target_init_pose, const std::vector<double> target_vel, std::vector<geometry_msgs::Point> &target_trajectory){

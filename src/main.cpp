@@ -106,6 +106,7 @@ void actionCallback(){
  */
 
 void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
+    has_poses[id] = true;
     if(!trajectory_solved_received[id]){
         for(int i=0; i<time_horizon;i++){
             geometry_msgs::Point pose_aux;
@@ -129,9 +130,9 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
  */
 
 void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{
+{   
+    has_poses[0] = true;
     target_pose.pose = msg->pose.pose;
-    ROS_INFO("callback target");
 }
 
 
@@ -222,11 +223,12 @@ int main(int _argc, char **_argv)
     set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("ual/set_pose",1);
     set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
 
+    
     for(int i=0; i<drones.size(); i++){
         drone_pose_sub[drones[i]] = nh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
         drone_trajectory_sub[drones[i]] = nh.subscribe<optimal_control_interface::SolvedTrajectory>("/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
         //initialize
-        trajectory_solved_received[drones[i]] = false;   
+        trajectory_solved_received[drones[i]] = false;     
     }
 
     // init solver
