@@ -336,11 +336,11 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     targetTrajectory(target_initial_pose,target_vel,target_trajectory);
 
     for(int i=0;i<time_horizon; i++){
-        for(int i=0; i<3; i++){
-            params.push_back(desired_wp[i]);
+        for(int j=0; j<3; j++){
+            params.push_back(desired_wp[j]);
         }
-        for(int i=0; i<3; i++){
-            params.push_back(desired_vel[i]);
+        for(int j=0; j<3; j++){
+            params.push_back(desired_vel[j]);
         }
         params.push_back(t_vel_x);
         params.push_back(t_vel_y);

@@ -259,7 +259,6 @@ int main(int _argc, char **_argv)
         // publishNoFlyZone(point_1,point_2,point_3,point_4);
 
         publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
-        publishPath(x,y,z,desired_wp);
         }
         
         if(drone_id==1){
