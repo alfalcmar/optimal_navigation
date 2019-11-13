@@ -26,9 +26,16 @@ void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
     own_velocity.twist = msg->twist;
 }
 
-
 void init(ros::NodeHandle nh){
     
+    if (ros::param::has("~priority")) {
+        ros::param::get("~priority",priority);
+    }
+    else{
+        ROS_WARN("Solver %d: fail to get the priority param",drone_id);
+    }
+
+
     
     for(int i=0; i<drones.size(); i++){
         has_poses[0] = false;
@@ -40,9 +47,9 @@ void init(ros::NodeHandle nh){
     path_rviz_pub = nh.advertise<nav_msgs::Path>("solver/path",1);
     target_path_rviz_pub = nh.advertise<nav_msgs::Path>("/target/path",1);
     path_no_fly_zone = nh.advertise<nav_msgs::Path>("solver/noflyzone",1);
-    csv_pose.open("/home/alfonso/pose.csv");
+    csv_pose.open("/home/alfonso/pose"+std::to_string(drone_id)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
-    csv_ual.open("/home/alfonso/ual.csv");
+    csv_ual.open("/home/alfonso/ual"+std::to_string(drone_id)+".csv");
     csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id)+".csv");
     // check the connectivity with drones and target
     bool connectivity_done = false;
@@ -239,6 +246,7 @@ void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::ve
 void saveParametersToCsv(const FORCESNLPsolver_params &params){
     csv_debug<<"Time horizon"<<time_horizon<<std::endl;
     csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
+    csv_debug<<"Priority: "<<priority<<std::endl;
     csv_debug<<"My pose: "<<uavs_pose[1].pose.position.x<<", "<<uavs_pose[1].pose.position.y<<", "<<uavs_pose[1].pose.position.z<<std::endl;
     csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
     csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
@@ -302,9 +310,9 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
     myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
     myparams.xinit[2] = 3;
-    myparams.xinit[3] = 0.0;//own_velocity.twist.linear.x;
-    myparams.xinit[4] = 0.0;//own_velocity.twist.linear.y;
-    myparams.xinit[5] = 0.0;//own_velocity.twist.linear.z;
+    myparams.xinit[3] = own_velocity.twist.linear.x;
+    myparams.xinit[4] = own_velocity.twist.linear.y;
+    myparams.xinit[5] = own_velocity.twist.linear.z;
 
     // set initial guess
     std::vector<double> x0;
@@ -339,11 +347,14 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
         params.push_back(target_trajectory[i].x);
         params.push_back(target_trajectory[i].y);
         std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
-        
+        //TODO check priority
         for (it = uavs_trajectory.begin(); it != uavs_trajectory.end();it++){
-            if(it->first != drone_id){
+            if(it->first != drone_id && it->first < priority){
                 params.push_back(it->second[i].x);
                 params.push_back(it->second[i].y);
+            }else if(it->first != drone_id && it->first > priority){
+                params.push_back(uavs_pose[it->first].pose.position.x);
+                params.push_back(uavs_pose[it->first].pose.position.y);
             }
         }
 

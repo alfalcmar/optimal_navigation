@@ -16,15 +16,12 @@
 #include <actionlib/server/simple_action_server.h>
 
 
-
-
 ros::Publisher set_pose_pub;
 ros::Publisher set_velocity_pub;
 ros::Subscriber uav_state_sub;
 actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>* server_;
 ros::ServiceClient go_to_waypoint_client;
 ros::ServiceClient take_off_srv;
-
 
 // solver output
 std::vector<double> x;   
@@ -42,8 +39,10 @@ int ual_state;
 /** \brief This callback receives the solved trajectory of uavs
  */
 void uavTrajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg, int id){
-    uavs_trajectory.clear();
+    uavs_trajectory[id].clear();
+    trajectory_solved_received[id] = true;
     uavs_trajectory[id] = msg->positions;
+    ROS_INFO("Solver %d: trajectory callback from drone %d",drone_id,id);
 }
 /** \brief Preempt function for ros actions
  */
@@ -226,7 +225,9 @@ int main(int _argc, char **_argv)
     
     for(int i=0; i<drones.size(); i++){
         drone_pose_sub[drones[i]] = nh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
-        drone_trajectory_sub[drones[i]] = nh.subscribe<optimal_control_interface::SolvedTrajectory>("/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
+        if(drones[i] !=drone_id){
+            drone_trajectory_sub[drones[i]] = nh.subscribe<optimal_control_interface::SolvedTrajectory>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
+        }
         //initialize
         trajectory_solved_received[drones[i]] = false;     
     }
