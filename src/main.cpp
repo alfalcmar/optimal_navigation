@@ -31,8 +31,17 @@ std::vector<double> vx;
 std::vector<double> vy;
 std::vector<double> vz;
 
+
+std::vector<double> desired_wp; 
+std::vector<double> desired_vel;
+std::vector<double> obst;
+std::vector<double> target_vel = {0, 0};
+std::vector<double> target_pose_init = {0, 0};
+
 // solver variables
-bool solver_success; 
+bool solver_success;
+float solver_rate;
+
 // ual variables
 int ual_state;
 
@@ -50,14 +59,88 @@ void preemptCallback(){
 
 }
 
+/** \brief thread for multidrone shooting action
+ */
+
+void shootingActionThread(){
+    shooting_action_running = true;
+    ROS_INFO("Executer %d: Shooting action thread initilized",drone_id);
+    bool duration_reached = false;
+    ros::Rate rate(solver_rate); //hz
+    
+    /* main loop to call the solver. */
+    while(ros::ok && !duration_reached){
+        ros::spinOnce();
+        // solver function
+          x.clear();
+          y.clear();
+          z.clear();
+        //calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
+        solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
+        if(solver_success){
+            publishTrajectory(x,y,z,vx,vy,vz);
+
+        // log solver output to csv file
+        logToCsv(x,y,z,vx,vy,vz);
+        // publish path to rviz visualizer
+
+        // double point_1[2]= {-13.1,-35.55};
+        // double point_2[2]= {-2.2,-20.8};
+        // double point_3[2]= {10.77,-39.7};
+        // double point_4[2]= {-2.5,-51.3};
+
+        // publishNoFlyZone(point_1,point_2,point_3,point_4);
+
+        publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
+        }
+        
+        if(drone_id==1){
+            std::vector<double> target_x;
+            std::vector<double> target_y;
+            std::vector<double> target_z;
+
+
+            for(int i=0; i<target_trajectory.size();i++){
+                target_x.push_back(target_trajectory[i].x);
+                target_y.push_back(target_trajectory[i].y);
+                target_z.push_back(target_trajectory[i].z);
+            }
+            nav_msgs::Path msg;
+            std::vector<geometry_msgs::PoseStamped> poses(target_x.size());
+            msg.header.frame_id = "map";
+            for (int i = 0; i < target_x.size(); i++) {
+                poses.at(i).pose.position.x = target_x[i];
+                poses.at(i).pose.position.y = target_y[i];
+                poses.at(i).pose.position.z = target_z[i];
+                poses.at(i).pose.orientation.x = 0;
+                poses.at(i).pose.orientation.y = 0;
+                poses.at(i).pose.orientation.z = 0;
+                poses.at(i).pose.orientation.w = 1;
+            }
+            msg.poses = poses;
+            target_path_rviz_pub.publish(msg);
+        
+        }
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+ROS_INFO("Executer %d: Finishing shooting actin thread",drone_id);
+
+}
 /** \brief callback for multidrone action client
  */
 
 void actionCallback(){
 
-    multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
-    if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
+    const multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
 
+    if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
+        // starting validation thread
+        if(shooting_action_running) stop_current_shooting = true;   // If still validating, end the current validation to start the new one as soon as possible.
+        if(shooting_action_thread.joinable()) shooting_action_thread.join();
+        shooting_action_thread = std::thread(shootingActionThread);
+        return;
     }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){ // TAKE OFF NAVIGATION ACTION
         // taking off
         uav_abstraction_layer::TakeOff srv;
@@ -65,15 +148,21 @@ void actionCallback(){
         srv.request.height = goal.path[0].point.z;
         if(!take_off_srv.call(srv)){
             ROS_WARN("Drone %d: the take off is not available",drone_id);
+            
         }else{
             ROS_INFO("Drone %d: taking_off",drone_id);
+            multidrone_msgs::ExecuteResult result;
+            result.goal_achieved = true;
+            server_->setSucceeded(result);
         }
     }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_LAND){ // LAND NAVIGATION ACTION
 
     }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_GOTOWAYPOINT){ // GO TO WAYPOINT NAVIGATION ACTION
         uav_abstraction_layer::GoToWaypoint go_to_waypoint_srv;
         geometry_msgs::PoseStamped setpoint_pose;
-        for(int i=0; i<goal.path.size();i++){
+        multidrone_msgs::ExecuteResult result;
+        int i=0;
+        for(i; i<goal.path.size();i++){
             setpoint_pose.header.stamp     = ros::Time::now();
             setpoint_pose.header.frame_id  = "map";
             setpoint_pose.pose.position.x  = goal.path[i].point.x;
@@ -82,20 +171,38 @@ void actionCallback(){
             setpoint_pose.pose.orientation = uavs_pose[drone_id].pose.orientation;  // the same orientation as the previous waypoint
             go_to_waypoint_srv.request.waypoint = setpoint_pose;
             go_to_waypoint_srv.request.blocking = true;
-            go_to_waypoint_client.call(go_to_waypoint_srv);
-            ROS_INFO("Executer: calling the go_to_waypoint service");
+            if(go_to_waypoint_client.call(go_to_waypoint_srv)){
+                ROS_INFO("Executer %d: calling the go_to_waypoint service",drone_id);
+            }else
+            {
+                ROS_WARN("Executer %d: go_to_waypoint service is not available",drone_id);
+            } 
         }
-        setpoint_pose.pose.position.x  = goal.path[goal.path.size()].point.x;
-        setpoint_pose.pose.position.y  = goal.path[goal.path.size()].point.y;
-        setpoint_pose.pose.position.z  = goal.path[goal.path.size()].point.z;
+
+        if (goal.final_yaw_if_gotowaypoint.x==0.0 && goal.final_yaw_if_gotowaypoint.y==0.0 && goal.final_yaw_if_gotowaypoint.z==0.0 && goal.final_yaw_if_gotowaypoint.w==0.0) {
+            ROS_INFO("finish go to waypoint");
+            result.goal_achieved=true;
+            server_->setSucceeded(result);
+            return;
+        }
+        ROS_INFO("girando en yaw");
+        setpoint_pose.pose.position.x  = goal.path[goal.path.size()-1].point.x;
+        setpoint_pose.pose.position.y  = goal.path[goal.path.size()-1].point.y;
+        setpoint_pose.pose.position.z  = goal.path[goal.path.size()-1].point.z;
         setpoint_pose.pose.orientation.x  = goal.final_yaw_if_gotowaypoint.x;
         setpoint_pose.pose.orientation.y  = goal.final_yaw_if_gotowaypoint.y;
         setpoint_pose.pose.orientation.z  = goal.final_yaw_if_gotowaypoint.z;
         setpoint_pose.pose.orientation.w = goal.final_yaw_if_gotowaypoint.w;        
         go_to_waypoint_srv.request.waypoint = setpoint_pose;
         go_to_waypoint_srv.request.blocking = true;
-        go_to_waypoint_client.call(go_to_waypoint_srv);
-        ROS_INFO("Executer: calling the go_to_waypoint service");
+        result.goal_achieved = go_to_waypoint_client.call(go_to_waypoint_srv);
+        if(result.goal_achieved){
+            ROS_INFO("Executer %d: calling the go_to_waypoint service",drone_id);
+        }else
+        {
+            ROS_WARN("Executer %d: go_to_waypoint service is not available",drone_id);
+        }
+        server_->setSucceeded(result);
 
     }
 }
@@ -144,19 +251,13 @@ int main(int _argc, char **_argv)
 
     //utility vars
     int n_steps;
-    float solver_rate;
-
     ros::NodeHandle nh = ros::NodeHandle();
 
     // parameters
     nh.param<float>("solver_rate", solver_rate, 0.2);
     std::string target_topic;
     nh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
-    std::vector<double> desired_wp; 
-    std::vector<double> desired_vel;
-    std::vector<double> obst;
-    std::vector<double> target_vel = {0, 0};
-    std::vector<double> target_pose_init = {0, 0};
+ 
     // parameters
     if (ros::param::has("~drones")) {
         ros::param::get("~drones",drones);
@@ -208,7 +309,7 @@ int main(int _argc, char **_argv)
         ROS_WARN("fail to get no_fly_zone");
     }
     //action service
-    server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "action_server", false);
+    server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "/drone_"+std::to_string(drone_id)+"/action_server", false);
     server_->registerGoalCallback(boost::bind(&actionCallback));
     server_->registerPreemptCallback(boost::bind(&preemptCallback));
     server_->start(); 
@@ -231,66 +332,13 @@ int main(int _argc, char **_argv)
         //initialize
         trajectory_solved_received[drones[i]] = false;     
     }
-
     // init solver
     init(nh);
-    ros::Rate rate(solver_rate); //hz
-    /* main loop to call the solver. */
-    while(ros::ok){
-        ros::spinOnce();
-        // solver function
-          x.clear();
-          y.clear();
-          z.clear();
-        calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
-        solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
-        if(solver_success){
-            publishTrajectory(x,y,z,vx,vy,vz);
-
-        // log solver output to csv file
-        logToCsv(x,y,z,vx,vy,vz);
-        // publish path to rviz visualizer
-
-        // double point_1[2]= {-13.1,-35.55};
-        // double point_2[2]= {-2.2,-20.8};
-        // double point_3[2]= {10.77,-39.7};
-        // double point_4[2]= {-2.5,-51.3};
-
-        // publishNoFlyZone(point_1,point_2,point_3,point_4);
-
-        publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
-        }
-        
-        if(drone_id==1){
-            std::vector<double> target_x;
-            std::vector<double> target_y;
-            std::vector<double> target_z;
 
 
-            for(int i=0; i<target_trajectory.size();i++){
-                target_x.push_back(target_trajectory[i].x);
-                target_y.push_back(target_trajectory[i].y);
-                target_z.push_back(target_trajectory[i].z);
-            }
-            nav_msgs::Path msg;
-            std::vector<geometry_msgs::PoseStamped> poses(target_x.size());
-            msg.header.frame_id = "map";
-            for (int i = 0; i < target_x.size(); i++) {
-                poses.at(i).pose.position.x = target_x[i];
-                poses.at(i).pose.position.y = target_y[i];
-                poses.at(i).pose.position.z = target_z[i];
-                poses.at(i).pose.orientation.x = 0;
-                poses.at(i).pose.orientation.y = 0;
-                poses.at(i).pose.orientation.z = 0;
-                poses.at(i).pose.orientation.w = 1;
-            }
-            msg.poses = poses;
-            target_path_rviz_pub.publish(msg);
-        
-        }
-        ros::spinOnce();
-        rate.sleep();
-    }
+
+    ros::spin();
+    
     
     //threadObjSolver.join();
     return 0;
