@@ -177,11 +177,17 @@ int main(int _argc, char **_argv)
     csv_trajectory_pub =nh.advertise<nav_msgs::Path>("csv_trajectory",1);
     ros::ServiceServer start_trajectory_signal = nh.advertiseService("start_shooting",startServerCallback);
     nh.getParam("path_csv", path_csv);
+    if (ros::param::has("~drone_id")) {
+        ros::param::get("~drone_id",drone_id);
+    }
+    else {
+        ROS_WARN("fail to get the drone id");
+    }
 
     while(ros::ok){
         ROS_INFO("Drone %d: waiting for trajectory. Pose on path: %d",drone_id,pose_on_path);
         //wait for receiving trajectories
-        while((!positions.empty() && !velocities.empty())|| start_trajectory){ // if start trajectory is provided by topic or by csv
+        while((!positions.empty() && !velocities.empty())){ // if start trajectory is provided by topic or by csv
             pose_on_path = cal_pose_on_path(positions);
             ROS_INFO("pose on path: %d", pose_on_path);
             target_pose = cal_pose_look_ahead(positions,look_ahead, pose_on_path);

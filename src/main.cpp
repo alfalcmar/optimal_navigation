@@ -59,6 +59,19 @@ void preemptCallback(){
 
 }
 
+/** \brief function to calculate if the trajectory calculated by the solver finishes in the desired pose
+ */
+bool desiredPoseReached(const double x_des, const double y_des, const double z_des, const double x_traj, const double y_traj, const double z_traj){
+    Eigen::Vector3f desired_pose = Eigen::Vector3f(x_des,y_des,z_des);
+    Eigen::Vector3f final_pose = Eigen::Vector3f(x_traj,y_traj,z_traj);
+    if((desired_pose-final_pose).norm()<1.0){
+        return true;
+    }else{
+        return false;
+    }
+
+}
+
 /** \brief thread for multidrone shooting action
  */
 
@@ -67,9 +80,9 @@ void shootingActionThread(){
     ROS_INFO("Executer %d: Shooting action thread initilized",drone_id);
     bool duration_reached = false;
     ros::Rate rate(solver_rate); //hz
-    
+    bool desired_point_reached = false;
     /* main loop to call the solver. */
-    while(ros::ok && !duration_reached){
+    while(ros::ok && !duration_reached && !desired_point_reached){
         ros::spinOnce();
         // solver function
           x.clear();
@@ -78,20 +91,21 @@ void shootingActionThread(){
         //calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
         if(solver_success){
+            desired_point_reached = desiredPoseReached(desired_wp[0],desired_wp[1], desired_wp[2],x[time_horizon-1],y[time_horizon-1],z[time_horizon-1]);
             publishTrajectory(x,y,z,vx,vy,vz);
 
-        // log solver output to csv file
-        logToCsv(x,y,z,vx,vy,vz);
-        // publish path to rviz visualizer
+            // log solver output to csv file
+            logToCsv(x,y,z,vx,vy,vz);
+            // publish path to rviz visualizer
 
-        // double point_1[2]= {-13.1,-35.55};
-        // double point_2[2]= {-2.2,-20.8};
-        // double point_3[2]= {10.77,-39.7};
-        // double point_4[2]= {-2.5,-51.3};
+            // double point_1[2]= {-13.1,-35.55};
+            // double point_2[2]= {-2.2,-20.8};
+            // double point_3[2]= {10.77,-39.7};
+            // double point_4[2]= {-2.5,-51.3};
 
-        // publishNoFlyZone(point_1,point_2,point_3,point_4);
+            // publishNoFlyZone(point_1,point_2,point_3,point_4);
 
-        publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
+            publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
         }
         
         if(drone_id==1){

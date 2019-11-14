@@ -309,7 +309,7 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     initial_time = clock(); 
     myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
     myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
-    myparams.xinit[2] = 3;
+    myparams.xinit[2] = uavs_pose[drone_id].pose.position.z;
     myparams.xinit[3] = own_velocity.twist.linear.x;
     myparams.xinit[4] = own_velocity.twist.linear.y;
     myparams.xinit[5] = own_velocity.twist.linear.z;
