@@ -36,7 +36,6 @@ std::vector<double> desired_wp;
 std::vector<double> desired_vel;
 std::vector<double> obst;
 std::vector<double> target_vel = {0, 0};
-std::vector<double> target_pose_init = {0, 0};
 
 // solver variables
 bool solver_success;
@@ -64,7 +63,7 @@ void preemptCallback(){
 bool desiredPoseReached(const double x_des, const double y_des, const double z_des, const double x_traj, const double y_traj, const double z_traj){
     Eigen::Vector3f desired_pose = Eigen::Vector3f(x_des,y_des,z_des);
     Eigen::Vector3f final_pose = Eigen::Vector3f(x_traj,y_traj,z_traj);
-    if((desired_pose-final_pose).norm()<1.0){
+    if((desired_pose-final_pose).norm()<2.0){
         return true;
     }else{
         return false;
@@ -88,10 +87,9 @@ void shootingActionThread(){
           x.clear();
           y.clear();
           z.clear();
-        //calculateDesiredPoint(shooting_type, target_pose, desired_wp, desired_vel);
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
         if(solver_success){
-            desired_point_reached = desiredPoseReached(desired_wp[0],desired_wp[1], desired_wp[2],x[time_horizon-1],y[time_horizon-1],z[time_horizon-1]);
+            desired_point_reached = desiredPoseReached(f_pose[0],f_pose[1], f_pose[2],x[time_horizon-1],y[time_horizon-1],z[time_horizon-1]);
             publishTrajectory(x,y,z,vx,vy,vz);
 
             // log solver output to csv file
@@ -109,23 +107,14 @@ void shootingActionThread(){
         }
         
         if(drone_id==1){
-            std::vector<double> target_x;
-            std::vector<double> target_y;
-            std::vector<double> target_z;
 
-
-            for(int i=0; i<target_trajectory.size();i++){
-                target_x.push_back(target_trajectory[i].x);
-                target_y.push_back(target_trajectory[i].y);
-                target_z.push_back(target_trajectory[i].z);
-            }
             nav_msgs::Path msg;
-            std::vector<geometry_msgs::PoseStamped> poses(target_x.size());
+            std::vector<geometry_msgs::PoseStamped> poses(target_trajectory.size());
             msg.header.frame_id = "map";
-            for (int i = 0; i < target_x.size(); i++) {
-                poses.at(i).pose.position.x = target_x[i];
-                poses.at(i).pose.position.y = target_y[i];
-                poses.at(i).pose.position.z = target_z[i];
+            for (int i = 0; i < target_trajectory.size(); i++) {
+                poses.at(i).pose.position.x = target_trajectory[i].x;
+                poses.at(i).pose.position.y = target_trajectory[i].y;
+                poses.at(i).pose.position.z = target_trajectory[i].z;
                 poses.at(i).pose.orientation.x = 0;
                 poses.at(i).pose.orientation.y = 0;
                 poses.at(i).pose.orientation.z = 0;
@@ -148,9 +137,24 @@ ROS_INFO("Executer %d: Finishing shooting actin thread",drone_id);
 void actionCallback(){
 
     const multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
+    
+    //duration =  goal.shooting_action.duration;
 
     if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
-        // starting validation thread
+        target_final_pose[0] = goal.shooting_action.rt_trajectory[goal.shooting_action.rt_trajectory.size()-1].point.x;
+        target_final_pose[1] = goal.shooting_action.rt_trajectory[goal.shooting_action.rt_trajectory.size()-1].point.y;
+
+        try{
+            shooting_action_type = goal.shooting_action.shooting_roles.at(0).shooting_type.type;
+        }
+        catch(std::out_of_range o){
+            ROS_ERROR("trying to shooting roles");
+        }
+        for(int i = 0; i<goal.shooting_action.shooting_roles[0].shooting_parameters.size(); i++){
+            std::cout<<goal.shooting_action.shooting_roles[0].shooting_parameters[i].param<<std::endl;
+           shooting_parameters[goal.shooting_action.shooting_roles[0].shooting_parameters[i].param] = goal.shooting_action.shooting_roles[0].shooting_parameters[i].value;
+        }
+
         if(shooting_action_running) stop_current_shooting = true;   // If still validating, end the current validation to start the new one as soon as possible.
         if(shooting_action_thread.joinable()) shooting_action_thread.join();
         shooting_action_thread = std::thread(shootingActionThread);
@@ -251,6 +255,9 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
 
 void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {   
+    if(has_poses[0] == false){
+        target_init.pose = msg->pose.pose;
+    }
     has_poses[0] = true;
     target_pose.pose = msg->pose.pose;
 }
@@ -268,7 +275,7 @@ int main(int _argc, char **_argv)
     ros::NodeHandle nh = ros::NodeHandle();
 
     // parameters
-    nh.param<float>("solver_rate", solver_rate, 0.2);
+    nh.param<float>("solver_rate", solver_rate, 0.5);
     std::string target_topic;
     nh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
  
@@ -290,12 +297,6 @@ int main(int _argc, char **_argv)
     }
     else {
         ROS_WARN("fail to get final target pose");
-    }
-    if (ros::param::has("~target_pose_init")) {
-        ros::param::get("~target_pose_init",target_pose_init);
-    }
-    else {
-        ROS_WARN("fail to get initial target pose");
     }
     if (ros::param::has("~target_vel")) {
         ros::param::get("~target_vel",target_vel);

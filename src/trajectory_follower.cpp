@@ -9,11 +9,14 @@
 #include <std_srvs/SetBool.h>
 #include <fstream>
 #include <nav_msgs/Path.h>
+#include <fstream>
+#include <iostream>
 
 
 std::vector<geometry_msgs::Point> velocities; //trajectory to follow
 std::vector<geometry_msgs::Point> positions;  //trajectory to follow
 Eigen::Vector3f current_pose;                 
+Eigen::Vector3f current_vel;                 
 const double look_ahead = 1.0;
 int pose_on_path = 0;
 int target_pose; // look ahead pose
@@ -21,6 +24,14 @@ int drone_id = 1;
 bool start_trajectory = false;  //flag to start the trajectory
 std::string path_csv = "/home/alfonso/traj1";
 ros::Publisher csv_trajectory_pub;
+const float velocity_error = 0.2;
+std::ofstream csv_ual; // logging the pose
+
+
+/** ual velocity callback **/
+void ualVelCallback(const geometry_msgs::TwistStamped::ConstPtr &msg){
+    current_vel =Eigen::Vector3f(msg->twist.linear.x,msg->twist.linear.y,msg->twist.linear.z);
+}
 
 /** \brief Calback for ual pose
  */
@@ -42,10 +53,10 @@ void trajectoryCallback(const optimal_control_interface::SolvedTrajectory::Const
  *  \param positions a path to follow
  *  \return index of the nearest pose on the path
  */
-int cal_pose_on_path(const std::vector<geometry_msgs::Point> &positions){
+int cal_pose_on_path(const std::vector<geometry_msgs::Point> &positions, int previous_pose_on_path){
     double min_distance = 10000000;
     int pose_on_path_id = 0;
-    for(int i=0; i<positions.size();i++){
+    for(int i=previous_pose_on_path; i<positions.size();i++){
         Eigen::Vector3f pose_on_path = Eigen::Vector3f(positions[i].x, positions[i].y, positions[i].z);
         if((current_pose - pose_on_path).norm()<min_distance){
             min_distance = (current_pose - pose_on_path).norm();
@@ -78,7 +89,11 @@ int cal_pose_look_ahead(const std::vector<geometry_msgs::Point> &positions, cons
  */
 Eigen::Vector3f calculate_vel(Eigen::Vector3f pose, Eigen::Vector3f vel){
    Eigen::Vector3f vel_to_command = (pose - current_pose).normalized();
-   double vel_module = vel.norm();
+   double vel_module = vel.norm()+velocity_error;
+   /**if(vel_module<0.15){
+       vel_module = 0.15;
+   }
+    std::cout<<vel_module<<std::endl;*/
    return vel_to_command*vel_module;
 }
 
@@ -173,10 +188,14 @@ int main(int _argc, char **_argv)
     ros::NodeHandle nh;
     ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::SolvedTrajectory>("solver", 1, trajectoryCallback);
     ros::Subscriber ual_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose", 1, ualPoseCallback);
+    ros::Subscriber ual_vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity", 1, ualVelCallback);
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
     csv_trajectory_pub =nh.advertise<nav_msgs::Path>("csv_trajectory",1);
     ros::ServiceServer start_trajectory_signal = nh.advertiseService("start_shooting",startServerCallback);
     nh.getParam("path_csv", path_csv);
+   
+
+
     if (ros::param::has("~drone_id")) {
         ros::param::get("~drone_id",drone_id);
     }
@@ -184,11 +203,17 @@ int main(int _argc, char **_argv)
         ROS_WARN("fail to get the drone id");
     }
 
+    csv_ual.open("/home/alfonso/ual"+std::to_string(drone_id)+".csv");
+    csv_ual << std::fixed << std::setprecision(5);
+
+    int previous_pose_on_path = 0;
     while(ros::ok){
         ROS_INFO("Drone %d: waiting for trajectory. Pose on path: %d",drone_id,pose_on_path);
         //wait for receiving trajectories
         while((!positions.empty() && !velocities.empty())){ // if start trajectory is provided by topic or by csv
-            pose_on_path = cal_pose_on_path(positions);
+            csv_ual << current_pose[0] << ", " << current_pose[1] << ", " << current_pose[2] <<", "<< current_vel[0] << ", " << current_vel[1] << ", " << current_vel[2] << std::endl;
+            pose_on_path = cal_pose_on_path(positions,previous_pose_on_path);
+            previous_pose_on_path = pose_on_path;
             ROS_INFO("pose on path: %d", pose_on_path);
             target_pose = cal_pose_look_ahead(positions,look_ahead, pose_on_path);
             // if the point to go is out of the trajectory, the trajectory will be finished and cleared
