@@ -24,8 +24,10 @@ int drone_id = 1;
 bool start_trajectory = false;  //flag to start the trajectory
 std::string path_csv = "/home/alfonso/traj1";
 ros::Publisher csv_trajectory_pub;
-const float velocity_error = 0.2;
+const float velocity_error = 0.1;
 std::ofstream csv_ual; // logging the pose
+std::ofstream csv_record; // logging the pose
+
 
 
 /** ual velocity callback **/
@@ -43,6 +45,13 @@ void ualPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg){
  */
 void trajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg){
     ROS_INFO("Drone %d: trajectory received", drone_id);
+    
+    for(int i = 0; i<pose_on_path;i++){
+        csv_record << positions[i].x << ", " << positions[i].y << ", " << positions[i].z<< ", "<< velocities[i].x<< ", " <<velocities[i].y<< ", " <<velocities[i].z<<std::endl;
+    }
+    positions.clear();
+    velocities.clear();
+    
     for(int i =0; i<msg->positions.size();i++){
         positions.push_back(msg->positions[i]);
         velocities.push_back(msg->velocities[i]);
@@ -204,6 +213,8 @@ int main(int _argc, char **_argv)
     }
 
     csv_ual.open("/home/alfonso/ual"+std::to_string(drone_id)+".csv");
+    csv_record.open("/home/alfonso/record"+std::to_string(drone_id)+".csv");
+    csv_record << std::fixed << std::setprecision(5);
     csv_ual << std::fixed << std::setprecision(5);
 
     int previous_pose_on_path = 0;
@@ -214,7 +225,7 @@ int main(int _argc, char **_argv)
             csv_ual << current_pose[0] << ", " << current_pose[1] << ", " << current_pose[2] <<", "<< current_vel[0] << ", " << current_vel[1] << ", " << current_vel[2] << std::endl;
             pose_on_path = cal_pose_on_path(positions,previous_pose_on_path);
             previous_pose_on_path = pose_on_path;
-            ROS_INFO("pose on path: %d", pose_on_path);
+            ROS_INFO("Drones %d: pose on path: %d", drone_id, pose_on_path);
             target_pose = cal_pose_look_ahead(positions,look_ahead, pose_on_path);
             // if the point to go is out of the trajectory, the trajectory will be finished and cleared
             if(target_pose==positions.size()){
@@ -222,9 +233,10 @@ int main(int _argc, char **_argv)
                 positions.clear();
                 velocities.clear();
                 pose_on_path = 0;
+                previous_pose_on_path = 0;
                 break;
             }
-            ROS_INFO("look ahead: %d",target_pose);
+            ROS_INFO("Drone %d: look ahead: %d",drone_id,target_pose);
             Eigen::Vector3f pose_to_go =Eigen::Vector3f(positions[target_pose].x,positions[target_pose].y, positions[target_pose].z);
             Eigen::Vector3f vel_to_go= Eigen::Vector3f(velocities[pose_on_path].x,velocities[pose_on_path].y, velocities[pose_on_path].z);
             Eigen::Vector3f velocity_to_command = calculate_vel(pose_to_go, vel_to_go);

@@ -32,8 +32,8 @@ std::vector<double> vy;
 std::vector<double> vz;
 
 
-std::vector<double> desired_wp; 
-std::vector<double> desired_vel;
+std::vector<double> desired_wp{0,0,0}; 
+std::vector<double> desired_vel{0,0,0};
 std::vector<double> obst;
 std::vector<double> target_vel = {0, 0};
 
@@ -43,6 +43,8 @@ float solver_rate;
 
 // ual variables
 int ual_state;
+
+
 
 /** \brief This callback receives the solved trajectory of uavs
  */
@@ -70,6 +72,9 @@ bool desiredPoseReached(const double x_des, const double y_des, const double z_d
     }
 
 }
+
+/** \brief utility function to publish marker for the desired pose
+ */
 
 /** \brief thread for multidrone shooting action
  */
@@ -103,9 +108,10 @@ void shootingActionThread(){
 
             // publishNoFlyZone(point_1,point_2,point_3,point_4);
 
-            publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
         }
         
+        publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
+
         if(drone_id==1){
 
             nav_msgs::Path msg;
@@ -297,12 +303,6 @@ int main(int _argc, char **_argv)
     }
     else {
         ROS_WARN("fail to get final target pose");
-    }
-    if (ros::param::has("~target_vel")) {
-        ros::param::get("~target_vel",target_vel);
-    }
-    else {
-        ROS_WARN("fail to get target velocity");
     }
     if (ros::param::has("~desired_wp")) {
         ros::param::get("~desired_wp",desired_wp);

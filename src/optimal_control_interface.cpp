@@ -41,7 +41,7 @@ void init(ros::NodeHandle nh){
         has_poses[drones[i]] = false;
     }
   
-    desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("/desired_point",1);
+    desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("solver/desired_point",1);
     solved_trajectory_pub = nh.advertise<optimal_control_interface::SolvedTrajectory>("solver",1);
     path_rviz_pub = nh.advertise<nav_msgs::Path>("solver/path",1);
     target_path_rviz_pub = nh.advertise<nav_msgs::Path>("/target/path",1);
@@ -49,7 +49,7 @@ void init(ros::NodeHandle nh){
     sub_velocity = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
 
     csv_pose.open("/home/alfonso/trajectories"+std::to_string(drone_id)+".csv");
-    csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id)+".csv");
+    //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
     csv_record << std::fixed << std::setprecision(5);
     csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id)+".csv");
@@ -79,22 +79,22 @@ void init(ros::NodeHandle nh){
     
 }
 ///////////////// UTILITY FUNCTIONS ////////////////////
-void targetTrajectory(const std::vector<double> target_init_pose, const std::vector<double> target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
+void targetTrajectory(const std::vector<double> target_init_pose, std::vector<double> &target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
     
     target_trajectory.clear();
-    t_vel_x = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
-    t_vel_y = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
+    target_vel[0] = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
+    target_vel[1] = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
     geometry_msgs::Point aux;
     for(int i=0; i<time_horizon;i++){
-        aux.x = target_init_pose[0] + step_size*i*t_vel_x;
-        aux.y = target_init_pose[1] + step_size*i*t_vel_y;
+        aux.x = target_init_pose[0] + step_size*i*target_vel[0];
+        aux.y = target_init_pose[1] + step_size*i*target_vel[1];
         target_trajectory.push_back(aux);
     }
 }
 /**
  */
 
-void calculateDesiredPoint(const int shooting_type, const geometry_msgs::PoseStamped &target_pose, std::vector<double> &d_pose, std::vector<double> desired_velocity){
+void calculateDesiredPoint(const int shooting_type, const std::vector<double> &target_vel, std::vector<double> &d_pose, std::vector<double> &desired_velocity){
     int dur = (int)(shooting_duration*10);
 
     switch(shooting_type){
@@ -108,6 +108,10 @@ void calculateDesiredPoint(const int shooting_type, const geometry_msgs::PoseSta
             f_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
             f_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
             f_pose[2] = uavs_pose[drone_id].pose.position.z;
+            // desired vel
+            desired_velocity[0] =0;
+            desired_velocity[1] =0;
+            desired_velocity[2] =0;
         break;
         case multidrone_msgs::ShootingType::SHOOT_TYPE_LATERAL:
             d_pose[0] = target_trajectory[time_horizon-1].x-sin(-0.9)*shooting_parameters["y_0"];
@@ -116,7 +120,11 @@ void calculateDesiredPoint(const int shooting_type, const geometry_msgs::PoseSta
             // final pose
             f_pose[0] = target_final_pose[0]-sin(-0.9)*shooting_parameters["y_0"];
             f_pose[1] = target_final_pose[1]+cos(-0.9)*shooting_parameters["y_0"];
-            f_pose[2] = uavs_pose[drone_id].pose.position.z;
+            f_pose[2] = uavs_pose[drone_id].pose.position.z;  
+            // desired
+            desired_velocity[0] =target_vel[0];
+            desired_velocity[1] =target_vel[1];
+            desired_velocity[2] =0;
         break;
     }
 }
@@ -180,7 +188,7 @@ void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const 
     // logging all results
     csv_pose<<std::endl;
      for(int i=0; i<x.size(); i++){
-        csv_pose << x[i] << ", " << y[i] << ", " << z[i] << std::endl;
+        csv_pose << x[i] << ", " << y[i] << ", " << z[i]<< ", "<< vx[i]<< ", " <<vy[i]<< ", " <<vz[i]<<std::endl;
     }
 }
 /** Construct the no fly zone path to visualize it on RVIZ */
@@ -219,7 +227,7 @@ void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], do
 
 /**
  */
-void publishDesiredPoint(double x, double y,double z){
+void publishDesiredPoint(const double x, const double y,const double z){
     geometry_msgs::PointStamped desired_point;
     desired_point.point.x = x;
     desired_point.point.y = y;
@@ -351,7 +359,7 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     std::vector<double> params;
     std::vector<double> target_initial_pose{target_pose.pose.position.x, target_pose.pose.position.y};
     targetTrajectory(target_initial_pose,target_vel,target_trajectory);
-    calculateDesiredPoint(shooting_action_type, target_pose, desired_wp, desired_vel);
+    calculateDesiredPoint(shooting_action_type, target_vel, desired_wp, desired_vel);
 
 
     for(int i=0;i<time_horizon; i++){
@@ -361,8 +369,8 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
         for(int j=0; j<3; j++){
             params.push_back(desired_vel[j]);
         }
-        params.push_back(t_vel_x);
-        params.push_back(t_vel_y);
+        params.push_back(target_vel[0]);
+        params.push_back(target_vel[1]);
         params.push_back(target_trajectory[i].x);
         params.push_back(target_trajectory[i].y);
         std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
