@@ -38,7 +38,7 @@ std::vector<double> obst;
 std::vector<double> target_vel = {0, 0};
 
 // solver variables
-bool solver_success;
+int solver_success;
 float solver_rate;
 
 // ual variables
@@ -92,9 +92,16 @@ void shootingActionThread(){
           x.clear();
           y.clear();
           z.clear();
+          vx.clear();
+          vy.clear();
+          vz.clear();
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
-        if(solver_success){
-            desired_point_reached = desiredPoseReached(f_pose[0],f_pose[1], f_pose[2],x[time_horizon-1],y[time_horizon-1],z[time_horizon-1]);
+        if(solver_success==1){
+            if(shooting_action_type == multidrone_msgs::ShootingType::SHOOT_TYPE_LATERAL){
+                desired_point_reached = desiredPoseReached(f_pose[0],f_pose[1], f_pose[2],desired_wp[0],desired_wp[1],desired_wp[2]);
+            }else if(shooting_action_type == multidrone_msgs::ShootingType::SHOOT_TYPE_FLYBY){
+                desired_point_reached = desiredPoseReached(f_pose[0],f_pose[1], f_pose[2],x[time_horizon-1],y[time_horizon-1],z[time_horizon-1]);
+            }
             publishTrajectory(x,y,z,vx,vy,vz);
 
             // log solver output to csv file

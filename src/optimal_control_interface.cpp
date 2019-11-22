@@ -316,7 +316,7 @@ void publishTrajectory(const std::vector<double> &x, const std::vector<double> &
 /** solver function
 */
 
-bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> &desired_vel, std::vector<double> &obst, std::vector<double> &target_vel){
+int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> &desired_vel, std::vector<double> &obst, std::vector<double> &target_vel){
 
     /* declare FORCES variables and structures */
     FORCESNLPsolver_info myinfo;
@@ -335,6 +335,21 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
     myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
     myparams.xinit[2] = uavs_pose[drone_id].pose.position.z;
+    if(own_velocity.twist.linear.x>1){
+        own_velocity.twist.linear.x = 1.0;
+    }else if(own_velocity.twist.linear.x<-1.0){
+        own_velocity.twist.linear.x = -1.0;
+    }
+    if(own_velocity.twist.linear.y>1.0){
+        own_velocity.twist.linear.y = 1.0;    
+    }else if(own_velocity.twist.linear.y<-1){
+        own_velocity.twist.linear.y = -1.0;
+    }
+    if(own_velocity.twist.linear.z>1.0){
+        own_velocity.twist.linear.z = 1.0;    
+    }else if(own_velocity.twist.linear.z<-1.0){
+        own_velocity.twist.linear.z = -1.0;
+    }
     myparams.xinit[3] = own_velocity.twist.linear.x;
     myparams.xinit[4] = own_velocity.twist.linear.y;
     myparams.xinit[5] = own_velocity.twist.linear.z;
@@ -2820,8 +2835,7 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     // z.push_back(myoutput.x399[position_z]);
     // z.push_back(myoutput.x400[position_z]);
     
-    if (exitflag == 1) return true;
-    else return false;
+    return exitflag;
 
     
 }
