@@ -42,7 +42,7 @@ void init(ros::NodeHandle nh){
     }
   
     desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("solver/desired_point",1);
-    solved_trajectory_pub = nh.advertise<optimal_control_interface::SolvedTrajectory>("solver",1);
+    solved_trajectory_pub = nh.advertise<multidrone_msgs::SolvedTrajectory>("solver",1);
     path_rviz_pub = nh.advertise<nav_msgs::Path>("solver/path",1);
     target_path_rviz_pub = nh.advertise<nav_msgs::Path>("/target/path",1);
     path_no_fly_zone = nh.advertise<nav_msgs::Path>("solver/noflyzone",1);
@@ -294,7 +294,7 @@ void saveParametersToCsv(const FORCESNLPsolver_params &params){
 /**
 */
 void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
-    optimal_control_interface::SolvedTrajectory traj;
+    multidrone_msgs::SolvedTrajectory traj;
     geometry_msgs::Point pos;
     geometry_msgs::Point vel;
 

@@ -14,6 +14,7 @@
 #include <multidrone_msgs/DroneAction.h>
 #include <multidrone_msgs/ExecuteAction.h>
 #include <actionlib/server/simple_action_server.h>
+#include <multidrone_msgs/TargetStateArray.h>
 
 
 ros::Publisher set_pose_pub;
@@ -44,11 +45,22 @@ float solver_rate;
 // ual variables
 int ual_state;
 
+/** target array for real experiment
+ */
+void targetarrayCallback(const multidrone_msgs::TargetStateArray::ConstPtr& _msg) // real target callback
+{
+    
+    has_poses[0] = true;
 
+  //gimbal target
+    for (auto target:_msg->targets) {
+        target_pose.pose = target.pose.pose;
+    }
+}
 
 /** \brief This callback receives the solved trajectory of uavs
  */
-void uavTrajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg, int id){
+void uavTrajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &msg, int id){
     uavs_trajectory[id].clear();
     trajectory_solved_received[id] = true;
     uavs_trajectory[id] = msg->positions;
@@ -172,7 +184,8 @@ void actionCallback(){
         if(shooting_action_thread.joinable()) shooting_action_thread.join();
         shooting_action_thread = std::thread(shootingActionThread);
         return;
-    }else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){ // TAKE OFF NAVIGATION ACTION
+    }
+    /*else if(goal.action_type == multidrone_msgs::DroneAction::TYPE_TAKEOFF){ // TAKE OFF NAVIGATION ACTION
         // taking off
         uav_abstraction_layer::TakeOff srv;
         srv.request.blocking = true;
@@ -236,6 +249,7 @@ void actionCallback(){
         server_->setSucceeded(result);
 
     }
+    */
 }
 
 
@@ -254,6 +268,7 @@ void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
         }
     }
     uavs_pose[id].pose = msg->pose;
+    
 }
 
 /** callback for ual state
@@ -331,7 +346,7 @@ int main(int _argc, char **_argv)
         ROS_WARN("fail to get no_fly_zone");
     }
     //action service
-    server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "/drone_"+std::to_string(drone_id)+"/action_server", false);
+    server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(nh, "/drone_"+std::to_string(drone_id)+"/action_server_smooth", false);
     server_->registerGoalCallback(boost::bind(&actionCallback));
     server_->registerPreemptCallback(boost::bind(&preemptCallback));
     server_->start(); 
@@ -341,7 +356,9 @@ int main(int _argc, char **_argv)
     uav_state_sub = nh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback);
     go_to_waypoint_client = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
     take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-    ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
+   // ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
+    ros::Subscriber target_array_sub = nh.subscribe<multidrone_msgs::TargetStateArray>("/target_3d_state", 1, targetarrayCallback);
+
     set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("ual/set_pose",1);
     set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
 
@@ -349,7 +366,7 @@ int main(int _argc, char **_argv)
     for(int i=0; i<drones.size(); i++){
         drone_pose_sub[drones[i]] = nh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
         if(drones[i] !=drone_id){
-            drone_trajectory_sub[drones[i]] = nh.subscribe<optimal_control_interface::SolvedTrajectory>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
+            drone_trajectory_sub[drones[i]] = nh.subscribe<multidrone_msgs::SolvedTrajectory>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
         }
         //initialize
         trajectory_solved_received[drones[i]] = false;     

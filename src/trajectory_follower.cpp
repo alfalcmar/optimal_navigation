@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <optimal_control_interface/SolvedTrajectory.h>
+#include <multidrone_msgs/SolvedTrajectory.h>
 #include <geometry_msgs/Point.h>
 #include <Eigen/Eigen>
 #include <geometry_msgs/TwistStamped.h>
@@ -43,7 +43,7 @@ void ualPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg){
 
 /** \brief Callback for trayectory to follow
  */
-void trajectoryCallback(const optimal_control_interface::SolvedTrajectory::ConstPtr &msg){
+void trajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &msg){
     ROS_INFO("Drone %d: trajectory received", drone_id);
     
     for(int i = 0; i<pose_on_path;i++){
@@ -195,7 +195,7 @@ int main(int _argc, char **_argv)
 
     ros::init(_argc, _argv, "trajectory_follower_node");
     ros::NodeHandle nh;
-    ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::SolvedTrajectory>("solver", 1, trajectoryCallback);
+    ros::Subscriber trajectory_sub = nh.subscribe<multidrone_msgs::SolvedTrajectory>("solver", 1, trajectoryCallback);
     ros::Subscriber ual_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose", 1, ualPoseCallback);
     ros::Subscriber ual_vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity", 1, ualVelCallback);
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
