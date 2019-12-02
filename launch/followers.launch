@@ -1,0 +1,13 @@
+<launch>
+<node pkg="optimal_control_interface" name="trajectory_follower" type="trajectory_follower_node" output="screen" ns="drone_1">
+    <param name="drone_id" value="1"/>
+</node>
+
+<node pkg="optimal_control_interface" name="trajectory_follower" type="trajectory_follower_node" output="screen" ns="drone_2">
+    <param name="drone_id" value="2"/>
+</node>
+
+<node pkg="optimal_control_interface" name="trajectory_follower" type="trajectory_follower_node" output="screen" ns="drone_3">
+    <param name="drone_id" value="3"/>
+</node>
+</launch>

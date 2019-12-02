@@ -4,9 +4,9 @@
         <param name="solver_rate" value="1"/>
         <rosparam param="desired_wp">[-14.32, -61.9, 7]</rosparam>
         <rosparam param="drones">[2, 4, 6]</rosparam>
+        <rosparam param="priority">[2, 4, 6]</rosparam>
         <rosparam param="desired_vel">[0, 0, 0]</rosparam>
         <rosparam param="no_fly_zone">[-2.4, -36.5]</rosparam> 
         <rosparam param="target_final_pose">[-7,-46]</rosparam>
-        <param name="priority" type="int" value="3"/>
     </node> 
 </launch>

@@ -308,6 +308,12 @@ int main(int _argc, char **_argv)
     nh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
  
     // parameters
+    if (ros::param::has("~priority")) {
+        ros::param::get("~priority",priority);
+    }
+    else {
+        ROS_WARN("fail to get the drones priority");
+    }
     if (ros::param::has("~drones")) {
         ros::param::get("~drones",drones);
     }

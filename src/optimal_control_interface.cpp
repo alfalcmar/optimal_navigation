@@ -261,7 +261,7 @@ void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::ve
 void saveParametersToCsv(const FORCESNLPsolver_params &params){
     csv_debug<<"Time horizon"<<time_horizon<<std::endl;
     csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
-    csv_debug<<"Priority: "<<priority<<std::endl;
+    //csv_debug<<"Priority: "<<priority<<std::endl;
     csv_debug<<"My pose: "<<uavs_pose[1].pose.position.x<<", "<<uavs_pose[1].pose.position.y<<", "<<uavs_pose[1].pose.position.z<<std::endl;
     csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
     csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
@@ -390,7 +390,23 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
         params.push_back(target_trajectory[i].y);
         std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
         //TODO check priority
-        for (it = uavs_trajectory.begin(); it != uavs_trajectory.end();it++){
+        int n_priority = 0;
+        for(int j=0; j<priority.size();j++){
+            if(drone_id == priority[j]){
+                n_priority = j;
+                break;
+            }
+        }
+        for(int j=0; j<priority.size();j++){
+            if(j<n_priority){
+                params.push_back(uavs_trajectory[priority[j]][i].x);
+                params.push_back(uavs_trajectory[priority[j]][i].y);
+            }else if(j>n_priority){
+                params.push_back(uavs_pose[priority[j]].pose.position.x);
+                params.push_back(uavs_pose[priority[j]].pose.position.y);
+            }
+        }
+        /**for (it = uavs_trajectory.begin(); it != uavs_trajectory.end();it++){
             if(it->first != drone_id && it->first < priority){
                 params.push_back(it->second[i].x);
                 params.push_back(it->second[i].y);
@@ -398,8 +414,7 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
                 params.push_back(uavs_pose[it->first].pose.position.x);
                 params.push_back(uavs_pose[it->first].pose.position.y);
             }
-        }
-
+        }*/
     }
 
     //ROS_INFO("Drone %d: Desired position x: %f y: %f z: %f", drone_id, desired_wp[0],desired_wp[1],desired_wp[2]);
