@@ -5,7 +5,7 @@ addpath('/home/alfonso/libs/FORCES_PRO_CLIENT')
 %import casadi.*;
 %clear_script;
 epsilon = 0.001;    
-radius = 5 % radius of the circunference which surround drones %0.5
+radius = 0.5 % radius of the circunference which surround drones %0.5
 alpha = 0.20;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%% SOLVER GENERATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

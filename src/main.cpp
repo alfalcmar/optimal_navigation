@@ -363,7 +363,7 @@ int main(int _argc, char **_argv)
     go_to_waypoint_client = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
     take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
    // ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
-    ros::Subscriber target_array_sub = nh.subscribe<multidrone_msgs::TargetStateArray>("/targets_pose", 1, targetarrayCallback);
+    ros::Subscriber target_array_sub = nh.subscribe<multidrone_msgs::TargetStateArray>("/target_3d_state", 1, targetarrayCallback);
 
     set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("ual/set_pose",1);
     set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
