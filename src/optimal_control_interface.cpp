@@ -15,70 +15,50 @@ extern "C"
 #endif
 namespace plt = matplotlibcpp;
 
+
+
+
 /////////////////////////////////// CALLBACKS //////////////////////////////////////////////
 
 
-/** Drone velocity callback
+/** Callback for the desired pose
  */
-void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+
+void desiredPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-    own_velocity.twist = msg->twist;
+    shot_executer_action = true;
 }
 
-void init(ros::NodeHandle nh){
-    
-    if (ros::param::has("~priority")) {
-        ros::param::get("~priority",priority);
-    }
-    else{
-        ROS_WARN("Solver %d: fail to get the priority param",drone_id);
-    }
+/** Callback for the target pose
+ */
 
-
-    
-    for(int i=0; i<drones.size(); i++){
-        has_poses[0] = false;
-        has_poses[drones[i]] = false;
+void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{   
+    if(has_poses[0] == false){
+        target_init.pose = msg->pose.pose;
     }
-  
-    desired_pose_publisher = nh.advertise<geometry_msgs::PointStamped>("solver/desired_point",1);
-    solved_trajectory_pub = nh.advertise<multidrone_msgs::SolvedTrajectory>("solver",1);
-    path_rviz_pub = nh.advertise<nav_msgs::Path>("solver/path",1);
-    target_path_rviz_pub = nh.advertise<nav_msgs::Path>("/target/path",1);
-    path_no_fly_zone = nh.advertise<nav_msgs::Path>("solver/noflyzone",1);
-    sub_velocity = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
-
-    csv_pose.open("/home/alfonso/trajectories"+std::to_string(drone_id)+".csv");
-    //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id)+".csv");
-    csv_pose << std::fixed << std::setprecision(5);
-    csv_record << std::fixed << std::setprecision(5);
-    csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id)+".csv");
-    // check the connectivity with drones and target
-    bool connectivity_done = false;
-    int cont = 0;
-    ros::Rate rate(1); //hz
-
-    while(!connectivity_done){
-        ros::spinOnce();
-        cont = 0;
-        ROS_INFO("Solver %d is not ready",drone_id);
-        for(int i=0; i<drones.size(); i++){ // check drones pose
-            if(has_poses[drones[i]] == true){
-                cont++;
-            }
-        }
-        if(has_poses[0]){ // check target pose
-            cont++;
-        }
-        if(cont==drones.size()+1){
-            connectivity_done = true;
-        }
-        rate.sleep();
-    }
-    ROS_INFO("Solver %d is ready",drone_id);
-    
+    has_poses[0] = true;
+    target_pose.pose = msg->pose.pose;
 }
+
+
 ///////////////// UTILITY FUNCTIONS ////////////////////
+
+
+/** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
+ */
+bool desiredPoseReached(const double x_des, const double y_des, const double z_des, const double x_traj, const double y_traj, const double z_traj){
+    Eigen::Vector3f desired_pose = Eigen::Vector3f(x_des,y_des,z_des);
+    Eigen::Vector3f final_pose = Eigen::Vector3f(x_traj,y_traj,z_traj);
+    if((desired_pose-final_pose).norm()<2.0){
+        return true;
+    }else{
+        return false;
+    }
+
+}
+
+
 void targetTrajectory(const std::vector<double> target_init_pose, std::vector<double> &target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
     
     target_trajectory.clear();
@@ -99,7 +79,6 @@ void calculateDesiredPoint(const int shooting_type, const std::vector<double> &t
 
     switch(shooting_type){
         //TODO
-
         case multidrone_msgs::ShootingType::SHOOT_TYPE_FLYBY:
             d_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
             d_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
@@ -159,16 +138,6 @@ geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw)
 	return q;
 }
 
-bool directorEventCb(multidrone_msgs::DirectorEvent::Request &req,
-                     multidrone_msgs::DirectorEvent::Request &res)
-{
-  /*
-  event_received_id = req.event_id;
-  event_received = true;
-  ROS_INFO("event %s received from the Director", event_received_id.c_str());
-  return true;
-  */
-}
 
 /** Utility function for plotting the result through matplotlib
  */
@@ -364,70 +333,75 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
             x0.push_back(x0i[i]);
         }
     }
-
     for (i = 0; i < x0.size(); i++)
     {
         myparams.x0[i] = x0[i];
     }
 
-    // set parameters
     std::vector<double> params;
-    std::vector<double> target_initial_pose{target_pose.pose.position.x, target_pose.pose.position.y};
-    targetTrajectory(target_initial_pose,target_vel,target_trajectory);
-    calculateDesiredPoint(shooting_action_type, target_vel, desired_wp, desired_vel);
-
-
+    if(target){  // calculate the target trajectory if it exists
+        std::vector<double> target_initial_pose{target_pose.pose.position.x, target_pose.pose.position.y};
+        targetTrajectory(target_initial_pose,target_vel,target_trajectory);
+    }
+    // parameters
     for(int i=0;i<time_horizon; i++){
+        // desired position
         for(int j=0; j<3; j++){
             params.push_back(desired_wp[j]);
         }
+        // desired velocity
         for(int j=0; j<3; j++){
             params.push_back(desired_vel[j]);
+        }   
+    
+        if(target){ // if target included
+            // set parameters
+
+            //this function should be executed by action executer
+            //calculateDesiredPoint(shooting_action_type, target_vel, desired_wp, desired_vel);
+            // target velocity
+            params.push_back(target_vel[0]);
+            params.push_back(target_vel[1]);
+            // target position
+            params.push_back(target_trajectory[i].x);
+            params.push_back(target_trajectory[i].y);
+            
         }
-        params.push_back(target_vel[0]);
-        params.push_back(target_vel[1]);
-        params.push_back(target_trajectory[i].x);
-        params.push_back(target_trajectory[i].y);
-        std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
-        //TODO check priority
-        int n_priority = 0;
-        for(int j=0; j<priority.size();j++){
-            if(drone_id == priority[j]){
-                n_priority = j;
-                break;
+        if(multi){
+            std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
+            //TODO check priority
+            int n_priority = 0;
+            for(int j=0; j<priority.size();j++){
+                if(drone_id == priority[j]){
+                    n_priority = j;
+                    break;
+                }
+            }  
+            for(int j=0; j<priority.size();j++){
+                if(j<n_priority){
+                    params.push_back(uavs_trajectory[priority[j]][i].x);
+                    params.push_back(uavs_trajectory[priority[j]][i].y);
+                }else if(j>n_priority){
+                    params.push_back(uavs_pose[priority[j]].pose.position.x);
+                    params.push_back(uavs_pose[priority[j]].pose.position.y);
+                }
             }
         }
-        for(int j=0; j<priority.size();j++){
-            if(j<n_priority){
-                params.push_back(uavs_trajectory[priority[j]][i].x);
-                params.push_back(uavs_trajectory[priority[j]][i].y);
-            }else if(j>n_priority){
-                params.push_back(uavs_pose[priority[j]].pose.position.x);
-                params.push_back(uavs_pose[priority[j]].pose.position.y);
-            }
-        }
-        /**for (it = uavs_trajectory.begin(); it != uavs_trajectory.end();it++){
-            if(it->first != drone_id && it->first < priority){
-                params.push_back(it->second[i].x);
-                params.push_back(it->second[i].y);
-            }else if(it->first != drone_id && it->first > priority){
-                params.push_back(uavs_pose[it->first].pose.position.x);
-                params.push_back(uavs_pose[it->first].pose.position.y);
-            }
-        }*/
+        if(no_fly_zone){
+            params.push_back(obst[0]);
+            params.push_back(obst[1]);
+        }   
+        //ROS_INFO("Drone %d: Desired position x: %f y: %f z: %f", drone_id, desired_wp[0],desired_wp[1],desired_wp[2]);
+        //ROS_INFO("Drone %d: Desired position x: %f y: %f z: %f", drone_id, desired_vel[0],desired_vel[1],desired_vel[2]);
+        //ROS_INFO("Drone %d: target init f: %f y: %f", drone_id, target_vel[0],target_vel[1]);    
+            
     }
 
-    //ROS_INFO("Drone %d: Desired position x: %f y: %f z: %f", drone_id, desired_wp[0],desired_wp[1],desired_wp[2]);
-    //ROS_INFO("Drone %d: Desired position x: %f y: %f z: %f", drone_id, desired_vel[0],desired_vel[1],desired_vel[2]);
-    //ROS_INFO("Drone %d: target init f: %f y: %f", drone_id, target_vel[0],target_vel[1]);
-    
+
     for(int i=0; i<params.size();i++) 
     {
         myparams.all_parameters[i] = params[i];
     }
-
-  
-
 
     // call the solver
 
