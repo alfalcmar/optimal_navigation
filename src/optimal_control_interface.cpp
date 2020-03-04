@@ -1,6 +1,5 @@
-/** ros node to interface with solver created by FORCES PRO */
+/** FORCES PRO c++ library*/
 #include <optimal_control_interface.h>
-
 
 
 #ifdef __cplusplus
@@ -13,55 +12,38 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
-namespace plt = matplotlibcpp;
-
-
-
-
-/////////////////////////////////// CALLBACKS //////////////////////////////////////////////
-
-
-/** Callback for the desired pose
- */
-
-void desiredPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
-{
-    shot_executer_action = true;
-}
-
-/** Callback for the target pose
- */
-
-void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{   
-    if(has_poses[0] == false){
-        target_init.pose = msg->pose.pose;
-    }
-    has_poses[0] = true;
-    target_pose.pose = msg->pose.pose;
-}
 
 
 ///////////////// UTILITY FUNCTIONS ////////////////////
 
-
 /** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
+ *  \param desired_pos      This is the desired pose
+ *  \param last_traj_pos    This is the last point of the calculated trajectory
+ *  \return                 it will return true if the calculated trajectory reach the desired position
  */
-bool desiredPoseReached(const double x_des, const double y_des, const double z_des, const double x_traj, const double y_traj, const double z_traj){
-    Eigen::Vector3f desired_pose = Eigen::Vector3f(x_des,y_des,z_des);
-    Eigen::Vector3f final_pose = Eigen::Vector3f(x_traj,y_traj,z_traj);
-    if((desired_pose-final_pose).norm()<2.0){
+bool desiredPoseReached(const std::vector<double> desired_pos, const std::vector<double> last_traj_pos){
+    Eigen::Vector3f desired_pose = Eigen::Vector3f(desired_pos[0],desired_pos[1],desired_pos[2]);
+    Eigen::Vector3f final_pose = Eigen::Vector3f(last_traj_pos[0],last_traj_pos[1],last_traj_pos[2]);
+    if((desired_pose-final_pose).norm()<REACHING_TOLERANCE){
         return true;
     }else{
         return false;
     }
-
 }
 
-
+/** \brief Utility function to predict the trajectory of the target along the N steps
+ *  \param target_init_pose     actual target position
+ *  \param target_vel           actual target velocity
+ *  \param target_trajectory    this variable will contain the predicted trajectory
+ *  \TODO Predict target trajectory with actual pose and velocity
+ */
 void targetTrajectory(const std::vector<double> target_init_pose, std::vector<double> &target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
     
     target_trajectory.clear();
+    //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
+    double target_vel_module = 0.5;
+    const std::vector<double> target_final_pose{40.0,-42.0}; 
+
     target_vel[0] = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
     target_vel[1] = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
     geometry_msgs::Point aux;
@@ -71,54 +53,8 @@ void targetTrajectory(const std::vector<double> target_init_pose, std::vector<do
         target_trajectory.push_back(aux);
     }
 }
-/**
- */
 
-void calculateDesiredPoint(const int shooting_type, const std::vector<double> &target_vel, std::vector<double> &d_pose, std::vector<double> &desired_velocity){
-    int dur = (int)(shooting_duration*10);
-
-    switch(shooting_type){
-        //TODO
-        case multidrone_msgs::ShootingType::SHOOT_TYPE_FLYBY:
-            d_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
-            d_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
-            d_pose[2] = uavs_pose[drone_id].pose.position.z;
-            // final pose
-            f_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
-            f_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
-            f_pose[2] = uavs_pose[drone_id].pose.position.z;
-            // desired vel
-            desired_velocity[0] =0;
-            desired_velocity[1] =0;
-            desired_velocity[2] =0;
-        break;
-        case multidrone_msgs::ShootingType::SHOOT_TYPE_LATERAL:
-            d_pose[0] = target_trajectory[time_horizon-1].x-sin(-0.9)*shooting_parameters["y_0"];
-            d_pose[1] = target_trajectory[time_horizon-1].y+cos(-0.9)*shooting_parameters["y_0"];
-            d_pose[2] = uavs_pose[drone_id].pose.position.z;
-            // final pose
-            f_pose[0] = target_final_pose[0]-sin(-0.9)*shooting_parameters["y_0"];
-            f_pose[1] = target_final_pose[1]+cos(-0.9)*shooting_parameters["y_0"];
-            f_pose[2] = uavs_pose[drone_id].pose.position.z;  
-            // desired
-            desired_velocity[0] =target_vel[0];
-            desired_velocity[1] =target_vel[1];
-            desired_velocity[2] =0;
-        break;
-    }
-}
-/** Utility function for hovering
- */
-
-bool checkHovering(bool control_position){
-    Eigen::Vector3f current_pose, current_target_pose;
-    current_pose = Eigen::Vector3f(uavs_pose[drone_id].pose.position.x, uavs_pose[drone_id].pose.position.y, uavs_pose[drone_id].pose.position.z);
-    current_target_pose = Eigen::Vector3f(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
-    if((current_target_pose - current_pose).norm() > hovering_distance) return false;
-    else return true;
-}
-
-/** Utility function to get quaternion from pitch, roll, yaw
+/** \brief Utility function to get quaternion from pitch, roll, yaw
  */
 geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw)
 {
@@ -139,150 +75,49 @@ geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw)
 }
 
 
-/** Utility function for plotting the result through matplotlib
+/** \brief Utility function to save parameters of the solver in a CSV file
+ *  \param params       these params were sent to the solver
  */
-
-void plottingResult(FORCESNLPsolver_output *myoutput){
-
-    //plt::plot(x, y, "b");
-    plt::xlim(6.0, 11.0);
-    plt::ylim(6.0, 6.0);
-    plt::show();
-
-}
-
-/** function for logging to csv file
- */
-void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
-    // logging all results
-    csv_pose<<std::endl;
-     for(int i=0; i<x.size(); i++){
-        csv_pose << x[i] << ", " << y[i] << ", " << z[i]<< ", "<< vx[i]<< ", " <<vy[i]<< ", " <<vz[i]<<std::endl;
-    }
-}
-/** Construct the no fly zone path to visualize it on RVIZ */
-void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]){
-    nav_msgs::Path msg;
-    msg.header.frame_id = "map";
-
-    std::vector<geometry_msgs::PoseStamped> poses;
-    geometry_msgs::PoseStamped pose;
-
-    pose.pose.position.x = point_1[0];
-    pose.pose.position.y = point_1[1];
-    poses.push_back(pose);
-
-    pose.pose.position.x = point_2[0];
-    pose.pose.position.y = point_2[1];
-    poses.push_back(pose);
-
-    pose.pose.position.x = point_3[0];
-    pose.pose.position.y = point_3[1];
-    poses.push_back(pose);
-
-    pose.pose.position.x = point_4[0];
-    pose.pose.position.y = point_4[1];
-    poses.push_back(pose);
-
-    pose.pose.position.x = point_1[0];
-    pose.pose.position.y = point_1[1];
-
-    
-    poses.push_back(pose);
-
-    msg.poses = poses;
-    path_no_fly_zone.publish(msg);
-}
-
-/**
- */
-void publishDesiredPoint(const double x, const double y,const double z){
-    geometry_msgs::PointStamped desired_point;
-    desired_point.point.x = x;
-    desired_point.point.y = y;
-    desired_point.point.z = z;
-    desired_point.header.frame_id = "map";
-
-    desired_pose_publisher.publish(desired_point);
-}
-
-/**  Construct a nav_msgs_path
- */
-
-void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z, std::vector<double> &desired_wp) {
-    nav_msgs::Path msg;
-    std::vector<geometry_msgs::PoseStamped> poses(wps_x.size());
-    msg.header.frame_id = "map";
-    for (int i = 0; i < wps_x.size(); i++) {
-        poses.at(i).pose.position.x = wps_x[i];
-        poses.at(i).pose.position.y = wps_y[i];
-        poses.at(i).pose.position.z = wps_z[i];
-        poses.at(i).pose.orientation.x = 0;
-        poses.at(i).pose.orientation.y = 0;
-        poses.at(i).pose.orientation.z = 0;
-        poses.at(i).pose.orientation.w = 1;
-    }
-    msg.poses = poses;
-    path_rviz_pub.publish(msg);
-}
-
-
 void saveParametersToCsv(const FORCESNLPsolver_params &params){
     csv_debug<<"Time horizon"<<time_horizon<<std::endl;
     csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
-    //csv_debug<<"Priority: "<<priority<<std::endl;
     csv_debug<<"My pose: "<<uavs_pose[1].pose.position.x<<", "<<uavs_pose[1].pose.position.y<<", "<<uavs_pose[1].pose.position.z<<std::endl;
-    csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
-    csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
+    //logging inter-uavs pose
+    if(multi){
+        csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
+        csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
+    }
+    // logging initial constarint
     csv_debug<<"initial constraint: "<<params.xinit[0]<<", "<<params.xinit[1]<<", "<<params.xinit[2]<<", "<<params.xinit[3]<<", "<<params.xinit[4]<<", "<<params.xinit[5]<<std::endl;
-    csv_debug<<"Target pose: "<<target_pose.pose.position.x<<", "<<target_pose.pose.position.y<<", "<<std::endl;
-    for(int j=0; j<time_horizon;j++){
-        for(int i=npar*j; i<npar*j+npar;i++){
-            csv_debug << params.all_parameters[i] << ", ";
+    if(target){ // logging target trajectory
+        csv_debug<<"Target pose: "<<target_pose.pose.position.x<<", "<<target_pose.pose.position.y<<", "<<std::endl;
+        csv_debug<<std::endl<<std::endl<<"Target trajectory"<<std::endl;
+        for(int i=0; i<target_trajectory.size();i++){
+            csv_debug<<target_trajectory[i].x<<", "<<target_trajectory[i].y<<", "<<target_trajectory[i].z<<std::endl;
         }
-        csv_debug<<std::endl;
     }
-    
-    csv_debug<<std::endl<<std::endl<<"Target trajectory"<<std::endl;
-    for(int i=0; i<target_trajectory.size();i++){
-        csv_debug<<target_trajectory[i].x<<", "<<target_trajectory[i].y<<", "<<target_trajectory[i].z<<std::endl;
-
-    }
-    
+    //logging initial guess
     csv_debug<<std::endl<<std::endl<<"Initial guess: "<<std::endl;
     csv_debug<<"Number os guesses: "<<sizeof(params.x0)/sizeof(params.x0[0]);
     for(int i=0; i<sizeof(params.x0)/sizeof(params.x0[0]);i++){
         csv_debug<<params.x0[i]<<std::endl;
     }
 
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-
-/**
-*/
-void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
-    multidrone_msgs::SolvedTrajectory traj;
-    geometry_msgs::Point pos;
-    geometry_msgs::Point vel;
-
-
-    for(int i=0;i<x.size(); i++){
-        pos.x = x[i];
-        pos.y = y[i];
-        pos.z = z[i];
-        traj.positions.push_back(pos);
-        vel.x = vx[i];
-        vel.y = vy[i];
-        vel.z = vz[i];
-        traj.velocities.push_back(vel);
+    for(int j=0; j<time_horizon;j++){
+        for(int i=npar*j; i<npar*j+npar;i++){
+            csv_debug << params.all_parameters[i] << ", ";
+        }
+        csv_debug<<std::endl;
     }
- 
-    solved_trajectory_pub.publish(traj);
 }
 
-/** solver function
+
+/** \brief This function fill the solver inputs and call it
+ *  \param x y z vx vy vz       These are the variables where the calculated path will place
+ *  \param desired_pose         Desired position
+ *  \param obst                 No fly zone
+ *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
+ *  \TODO m                     manage priorities by drones (ID)
 */
 
 int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> &desired_vel, std::vector<double> &obst, std::vector<double> &target_vel){
@@ -299,7 +134,6 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
     int i, exitflag;
 
     // set initial postion and velocity
-    initial_time = clock(); 
     ros::spinOnce();
     myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
     myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;

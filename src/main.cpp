@@ -5,8 +5,6 @@
 #include <uav_abstraction_layer/TakeOff.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
-//#include "uav_path_manager/GeneratePath.h"
-//#include "uav_path_manager/GetGeneratedPath.h"
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <optimal_control_interface.h>
 #include <multidrone_msgs/TargetStateArray.h>
@@ -49,18 +47,56 @@
  *     target_trajectory[]
  * **/
 
+
+
+///////////////////// VARS ///////////////////////////////
+
+std::vector<double> desired_pose{4,4,1}; 
+std::vector<double> desired_vel{0,0,0};
+std::vector<double> obst{0,0};  //TODO change to map
+std::vector<double> target_vel = {0, 0};
+float solver_rate;
+
+ros::Subscriber uav_state_sub;
+ros::Subscriber target_array_sub;
+ros::Subscriber sub_velocity;
+ros::Subscriber desired_pose_sub;
+ros::Publisher path_rviz_pub;
+ros::Publisher target_path_rviz_pub;
+ros::Publisher path_no_fly_zone;
+ros::Publisher desired_pose_publisher;
+ros::Publisher solved_trajectory_pub;
+
+std::map<int,bool> trajectory_solved_received;
+std::map<int, ros::Subscriber> drone_pose_sub;
+std::map<int, ros::Subscriber> drone_trajectory_sub;
+std::map<int, bool> has_poses; //has_poses[0] -> target
+uav_abstraction_layer::State ual_state;
+int solver_success;
+
+
+
 ///////////////////// Callbacks //////////////////////////
 
-/**
+
+/** \brief Callback for the target pose
+ */
+void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{   
+    has_poses[0] = true;
+    target_pose.pose = msg->pose.pose;
+}
+
+/** \brief Callback for the desired pose (provided by shot executer)
  */
 void desiredPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {   
-    desired_wp[0] = msg->pose.position.x;
-    desired_wp[1] = msg->pose.position.y;
-    desired_wp[2] = msg->pose.position.z;
-    ROS_INFO("Desired pose received: x: %f y: %f z: %f",desired_wp[0],desired_wp[1],desired_wp[2]);
+    desired_pose[0] = msg->pose.position.x;
+    desired_pose[1] = msg->pose.position.y;
+    desired_pose[2] = msg->pose.position.z;
+    ROS_INFO("Desired pose received: x: %f y: %f z: %f",desired_pose[0],desired_pose[1],desired_pose[2]);
 }
-/** Drone velocity callback
+/** \brief Drone velocity callback
  */
 void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 {
@@ -78,7 +114,6 @@ void uavTrajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &ms
 
 /** \brief callback for the pose of uavs
  */
-
 void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
     has_poses[id] = true;
     if(!trajectory_solved_received[id]){
@@ -94,11 +129,10 @@ void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
 }
 
 
-/** target array for real experiment
+/** \brief target array for real experiment
  */
 void targetarrayCallback(const multidrone_msgs::TargetStateArray::ConstPtr& _msg) // real target callback
 {
-    
     has_poses[0] = true;
 
   //gimbal target
@@ -109,7 +143,111 @@ void targetarrayCallback(const multidrone_msgs::TargetStateArray::ConstPtr& _msg
 
 //////////////////////// Visualization function //////////////////////////
 
-/**
+/** \brief This function publish the calculated trajectory to be read by other drones
+ *  \param x y z vx vy vz       last calculated trajectory
+*/
+void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
+    multidrone_msgs::SolvedTrajectory traj;
+    geometry_msgs::Point pos;
+    geometry_msgs::Point vel;
+
+
+    for(int i=0;i<x.size(); i++){
+        pos.x = x[i];
+        pos.y = y[i];
+        pos.z = z[i];
+        traj.positions.push_back(pos);
+        vel.x = vx[i];
+        vel.y = vy[i];
+        vel.z = vz[i];
+        traj.velocities.push_back(vel);
+    }
+ 
+    solved_trajectory_pub.publish(traj);
+}
+/**  \brief Construct a nav_msgs_path and publish to visualize through rviz
+ *   \param wps_x, wps_y, wps_z     last calculated path
+ */
+
+void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z) {
+    nav_msgs::Path msg;
+    std::vector<geometry_msgs::PoseStamped> poses(wps_x.size());
+    msg.header.frame_id = "map";
+    for (int i = 0; i < wps_x.size(); i++) {
+        poses.at(i).pose.position.x = wps_x[i];
+        poses.at(i).pose.position.y = wps_y[i];
+        poses.at(i).pose.position.z = wps_z[i];
+        poses.at(i).pose.orientation.x = 0;
+        poses.at(i).pose.orientation.y = 0;
+        poses.at(i).pose.orientation.z = 0;
+        poses.at(i).pose.orientation.w = 1;
+    }
+    msg.poses = poses;
+    path_rviz_pub.publish(msg);
+}
+
+
+/** \brief this function publish the desired pose in a ros point type
+ *  \param x,y,z        Desired pose
+ */
+void publishDesiredPoint(const double x, const double y,const double z){
+    geometry_msgs::PointStamped desired_point;
+    desired_point.point.x = x;
+    desired_point.point.y = y;
+    desired_point.point.z = z;
+    desired_point.header.frame_id = "map";
+
+    desired_pose_publisher.publish(desired_point);
+}
+
+/** \brief Construct the no fly zone approximated by a tetrahedron to visualize it on RVIZ 
+ *  \param  2D points
+*/
+void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]){
+    nav_msgs::Path msg;
+    msg.header.frame_id = "map";
+
+    std::vector<geometry_msgs::PoseStamped> poses;
+    geometry_msgs::PoseStamped pose;
+
+    pose.pose.position.x = point_1[0];
+    pose.pose.position.y = point_1[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_2[0];
+    pose.pose.position.y = point_2[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_3[0];
+    pose.pose.position.y = point_3[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_4[0];
+    pose.pose.position.y = point_4[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_1[0];
+    pose.pose.position.y = point_1[1];
+
+    
+    poses.push_back(pose);
+
+    msg.poses = poses;
+    path_no_fly_zone.publish(msg);
+}
+
+
+/** \brief function for logging the calculated trajectory to csv file
+ *  \param x,y,z,vx,vy,vz        calculated trajectory
+ */
+void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
+    // logging all results
+    csv_pose<<std::endl;
+     for(int i=0; i<x.size(); i++){
+        csv_pose << x[i] << ", " << y[i] << ", " << z[i]<< ", "<< vx[i]<< ", " <<vy[i]<< ", " <<vz[i]<<std::endl;
+    }
+}
+/** \brief function to visualize the predicted target path
  */
 nav_msgs::Path targetPathVisualization()
 {
@@ -128,13 +266,8 @@ nav_msgs::Path targetPathVisualization()
     return msg;
 }
 
-// utility vars
-
-int solver_success;
-
-
-// TODO use or remove
-/** callback for ual state
+/** \brief callback for ual state
+ *  \TODO use or remove
  */
 
 void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
@@ -145,8 +278,7 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
  //////////////////// utility function ///////////////////////////////////
 
 /** \brief Function to check connectivity between nodes
- * check /ual/pose
- * TODO check target pose
+ * \TODO check target pose
  */
 bool checkConnectivity(){
     // check the connectivity with drones and target
@@ -166,10 +298,8 @@ bool checkConnectivity(){
 }
 
 
-/** \brief Function to initialize the solver
- *  Check if the drone is subscribed to the others drone poses and target**/
+/** \brief Function to initialize the solver. This function heck if the drone is subscribed to the others drone poses and target**/
 bool init(ros::NodeHandle pnh){
-
     // parameters
     pnh.param<float>("solver_rate", solver_rate, 0.5);
     std::string target_topic;
@@ -263,30 +393,27 @@ int main(int _argc, char **_argv)
     if(!init(pnh)){ // if the solver is correctly initialized
         // main loop
         while(ros::ok()){
-                // solver function
-                x.clear();
-                y.clear();
-                z.clear();
-                vx.clear();
-                vy.clear();
-                vz.clear();
-                // hardcoding for testing
-                solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_vel);
-                // TODO: why the definition of theses function are not here? This node should contain
-                // every function that can be used with various solvers
-                // logging data and visualization
-                if(solver_success){
-                    publishTrajectory(x,y,z,vx,vy,vz);
-                }
-                logToCsv(x,y,z,vx,vy,vz);
-                target_path_rviz_pub.publish(targetPathVisualization()); 
-                publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
-            
+            // solver function
+            x.clear();
+            y.clear();
+            z.clear();
+            vx.clear();
+            vy.clear();
+            vz.clear();
+            // call the solver function
+            solver_success = solverFunction(x,y,z,vx,vy,vz, desired_pose, desired_vel, obst,target_vel);
+            // TODO: why the definition of theses function are not here? This node should contain
+            // every function that can be used with various solvers
+            if(solver_success){
+                publishTrajectory(x,y,z,vx,vy,vz);
+            }
+            logToCsv(x,y,z,vx,vy,vz);
+            target_path_rviz_pub.publish(targetPathVisualization()); 
+            publishDesiredPoint(desired_pose[0], desired_pose[1], desired_pose[2]);
             ros::spinOnce();
             sleep(5);
         }
     }else{
         ros::shutdown();
-        //TODO properly shutdown
     }
 }

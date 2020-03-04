@@ -18,7 +18,15 @@
 /* In this node is defined the class Shot Executer.
 This node is in charge of calculating the desired pose through the pose of the uavs and the target pose
 */
-
+// float shooting_duration = 60;
+// std::map<std::string, float> shooting_parameters;
+// uint8_t shooting_action_type;
+// std::thread shooting_action_thread;
+// bool shooting_action_running = false;
+// bool stop_current_shooting = false;
+// std::vector<double> f_pose{0.0,0.0,0.0};
+// ros::ServiceClient go_to_waypoint_srv_;
+// ros::Subscriber sub_position;
 
 /** 
  * 
@@ -243,7 +251,42 @@ class ShotExecuterMultidrone : public ShotExecuer{
     }
 }
 
+/**
+ */
 
+void calculateDesiredPoint(const int shooting_type, const std::vector<double> &target_vel, std::vector<double> &d_pose, std::vector<double> &desired_velocity){
+    int dur = (int)(shooting_duration*10);
+
+    switch(shooting_type){
+        //TODO
+        case multidrone_msgs::ShootingType::SHOOT_TYPE_FLYBY:
+            d_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
+            d_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
+            d_pose[2] = uavs_pose[drone_id].pose.position.z;
+            // final pose
+            f_pose[0] = target_final_pose[0]+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
+            f_pose[1] = target_final_pose[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
+            f_pose[2] = uavs_pose[drone_id].pose.position.z;
+            // desired vel
+            desired_velocity[0] =0;
+            desired_velocity[1] =0;
+            desired_velocity[2] =0;
+        break;
+        case multidrone_msgs::ShootingType::SHOOT_TYPE_LATERAL:
+            d_pose[0] = target_trajectory[time_horizon-1].x-sin(-0.9)*shooting_parameters["y_0"];
+            d_pose[1] = target_trajectory[time_horizon-1].y+cos(-0.9)*shooting_parameters["y_0"];
+            d_pose[2] = uavs_pose[drone_id].pose.position.z;
+            // final pose
+            f_pose[0] = target_final_pose[0]-sin(-0.9)*shooting_parameters["y_0"];
+            f_pose[1] = target_final_pose[1]+cos(-0.9)*shooting_parameters["y_0"];
+            f_pose[2] = uavs_pose[drone_id].pose.position.z;  
+            // desired
+            desired_velocity[0] =target_vel[0];
+            desired_velocity[1] =target_vel[1];
+            desired_velocity[2] =0;
+        break;
+    }
+}
 
 
 /** Callback for the target pose
