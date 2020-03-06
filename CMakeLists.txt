@@ -60,6 +60,7 @@ solver/FORCESNLPsolver_model_100.c
 
 add_executable(optimal_control_interface_node src/main.cpp)
 add_executable(trajectory_follower_node src/trajectory_follower.cpp)
+add_executable(shot_executer_node src/shot_executer.cpp)
 
 
 target_link_libraries(optimal_control_interface_node optimal_control_interface_library)
@@ -69,6 +70,9 @@ target_link_libraries(optimal_control_interface_node
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES})
 target_link_libraries(trajectory_follower_node
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES})
+target_link_libraries(shot_executer_node
+${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES})
 
 add_dependencies(optimal_control_interface_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(trajectory_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(shot_executer_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

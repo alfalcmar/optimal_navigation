@@ -9,7 +9,7 @@ from multidrone_msgs.msg import SolvedTrajectory
 rospy.init_node('test', anonymous=True)
 
 #interfaces
-topic_desired_pose = '/drone_1/solver/desired_pose'
+topic_desired_pose = '/drone_1/shot_executer/desired_pose'
 topic_calculated_trajectory = '/drone_1/solver/trajectory'
 trajectory_received = False
 zero_time = rospy.Time.now()
@@ -28,9 +28,7 @@ def callback(data):
     plot.show()
     print(x)
 
-#interfaces
-topic_desired_pose = '/drone_1/solver/desired_pose'
-topic_calculated_trajectory = '/drone_1/solver/trajectory'
+
 
 sub = rospy.Subscriber(topic_calculated_trajectory,SolvedTrajectory,callback)
 
