@@ -15,14 +15,22 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
-  multidrone_msgs
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
 
 
 
+add_message_files(
+  FILES
+  Solver.msg
+)
 
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+geometry_msgs
+)
 
 catkin_package(
  INCLUDE_DIRS include

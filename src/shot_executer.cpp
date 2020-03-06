@@ -1,9 +1,6 @@
 #include <ros/ros.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 #include <actionlib/server/simple_action_server.h>
-#include <multidrone_msgs/ExecuteAction.h>
-
-// #include <nav_msgs/Path.h>
 // #include <uav_abstraction_layer/TakeOff.h>
 // #include <geometry_msgs/TwistStamped.h>
 // #include <nav_msgs/Odometry.h>
@@ -55,10 +52,11 @@ class ShotExecuter
         ros::NodeHandle nh;
         std::string target_topic_;
         ros::Publisher desired_pose_pub_;
-
-
-        trajectory_msgs::JointTrajectoryPoint calculatedDesiredPose(std::string shot_type);
-};
+        nav_msgs::Odometry target_pose_;
+        int time_horizon;
+        nav_msgs::Odometry desired_pose calculateDesiredPoint(const int shooting_type, const nav_msgs::Odometry target, const std::vector<nav_msgs::Odometry> &target_trajectory);
+        std::thread shooting_action_thread_;
+}
 
 /* Shot Executer for MULTIDRONE project
 /**
@@ -83,11 +81,12 @@ class ShotExecuterMultidrone : public ShotExecuter{
             const multidrone_msgs::DroneAction goal =server_->acceptNewGoal()->action_goal;
             //duration =  goal.shooting_action.duration;
             if(goal.action_type == multidrone_msgs::DroneAction::TYPE_SHOOTING){
+                //launch thread for shooting action
                 //TODO predict
+                std::vector<nav_msgs::Odometry> target_trajectory = targetTrajectoryPrediction(target_pose_,target_velocity_);
                 // calculate pose
-                target_final_pose[0] = goal.shooting_action.rt_trajectory[goal.shooting_action.rt_trajectory.size()-1].point.x;
-                target_final_pose[1] = goal.shooting_action.rt_trajectory[goal.shooting_action.rt_trajectory.size()-1].point.y;
-
+                nav_msgs::Odometry desired_pose calculateDesiredPoint(goal.shooting_action.shooting_roles.at(0).shooting_type.type, const std::vector<geometry_msgs::PoseStamped> &target_trajectory){
+                // publish desired pose
                 try{
                     shooting_action_type = goal.shooting_action.shooting_roles.at(0).shooting_type.type;
                 }
@@ -190,44 +189,54 @@ class ShotExecuterMultidrone : public ShotExecuter{
         }
         /** \brief target trajectory prediction
          */
-        trajectory_msgs::JointTrajectoryPoint targetTrajectoryPrediction(){
-
+        std::vector<geometry_msgs::Point> target_trajectory targetTrajectoryPrediction(const geometry_msgs::PoseStamped target_pose, const geometry_msgs::Twist &target_vel){
+    
+            //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
+            std::vector<geometry_msgs::PoseStamped> target_trajectory
+            geometry_msgs::geometry_msgs aux;
+            for(int i=0; i<time_horizon;i++){
+                aux.x = target_pose.pose.position.x+ step_size*i*target_vel.linear.x;
+                aux.y = target_pose.pose.position.y + step_size*i*target_vel.linear.y;
+                target_trajectory.push_back(aux);
+            }
+            return target_trajectory;
         }
-        /** \brief Calculate desired pose. If type flyby, calculate wrt last mission pose
-         *  If lateral, calculate wrt time horizon pose
+        /** \brief Calculate desired pose. If type flyby, calculate wrt last mission pose .If lateral, calculate wrt time horizon pose
+         *  \TODO   z position and velocity, angle relative to target
+         *  \TODO   calculate orientation by velocity
          **/
-        void calculateDesiredPoint(const int shooting_type, const std::vector<double> &target_vel, std::vector<double> &d_pose, std::vector<double> &desired_velocity, trajectory_msgs::JointTrajectoryPoint target_trajectory ){
+        nav_msgs::Odometry desired_pose calculateDesiredPoint(const int shooting_type, const nav_msgs::Odometry target, const std::vector<nav_msgs::Odommetry> &target_trajectory){
             int dur = (int)(shooting_duration*10);
             switch(shooting_type){
                 //TODO
                 case multidrone_msgs::ShootingType::SHOOT_TYPE_FLYBY:
-                    d_pose[0] = final_target_pose_x+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
-                    d_pose[1] = final_target_pose_y[1]+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
+                    d_pose[0] = target_trajectory.back().pose.pose.position.x+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
+                    d_pose[1] = target_trajectory.back().pose.pose.position.y+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
                     d_pose[2] = uavs_pose[drone_id].pose.position.z;
-                    // final pose
-                    f_pose[0] = final_target_pose_x+(cos(-0.9)*shooting_parameters["x_e"]-sin(-0.9)*shooting_parameters["y_0"]);
-                    f_pose[1] = final_target_pose_y+(sin(-0.9)*shooting_parameters["x_e"]+cos(-0.9)*shooting_parameters["y_0"]);
-                    f_pose[2] = uavs_pose[drone_id].pose.position.z;
+     
                     // desired vel
-                    desired_velocity[0] =0;
-                    desired_velocity[1] =0;
+                    desired_velocity[0] =target_trajectory.back().linear.x;
+                    desired_velocity[1] =target_trajectory.back().linear.y;
                     desired_velocity[2] =0;
                 break;
                 case multidrone_msgs::ShootingType::SHOOT_TYPE_LATERAL:
-                    d_pose[0] = target_trajectory[time_horizon-1].x-sin(-0.9)*shooting_parameters["y_0"];
-                    d_pose[1] = target_trajectory[time_horizon-1].y+cos(-0.9)*shooting_parameters["y_0"];
+                    d_pose[0] = target_trajectory[time_horizon-1].pose.pose.position.x-sin(-0.9)*shooting_parameters["y_0"];
+                    d_pose[1] = target_trajectory[time_horizon-1].pose.pose.position.y+cos(-0.9)*shooting_parameters["y_0"];
                     d_pose[2] = uavs_pose[drone_id].pose.position.z;
-                    // final pose
-                    f_pose[0] = final_target_pose_x-sin(-0.9)*shooting_parameters["y_0"];
-                    f_pose[1] = final_target_pose_y+cos(-0.9)*shooting_parameters["y_0"];
-                    f_pose[2] = uavs_pose[drone_id].pose.position.z;  
+    
                     // desired
-                    desired_velocity[0] =target_vel[0];
-                    desired_velocity[1] =target_vel[1];
+                    desired_velocity[0] =target_trajectory[time_horizon-1].linear.x;
+                    desired_velocity[1] =target_trajectory[time_horizon-1].linear.y;
                     desired_velocity[2] =0;
                 break;
             }
         }
+        /** \brief Shooting action thread 
+         * **/
+        void shootingActionThread(){
+
+        }
+
 };
 
 

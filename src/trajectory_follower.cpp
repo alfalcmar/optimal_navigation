@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <multidrone_msgs/SolvedTrajectory.h>
+#include <optimal_control_interface/Solver.h>
 #include <geometry_msgs/Point.h>
 #include <Eigen/Eigen>
 #include <geometry_msgs/TwistStamped.h>
@@ -13,8 +13,8 @@
 #include <iostream>
 
 
-std::vector<geometry_msgs::Point> velocities; //trajectory to follow
-std::vector<geometry_msgs::Point> positions;  //trajectory to follow
+std::vector<geometry_msgs::Twist> velocities; //trajectory to follow
+std::vector<geometry_msgs::PoseStamped> positions;  //trajectory to follow
 Eigen::Vector3f current_pose;                 
 Eigen::Vector3f current_vel;                 
 const double look_ahead = 1.0;
@@ -43,11 +43,11 @@ void ualPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg){
 
 /** \brief Callback for trayectory to follow
  */
-void trajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &msg){
+void trajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg){
     ROS_INFO("Drone %d: trajectory received", drone_id);
     
     for(int i = 0; i<pose_on_path;i++){
-        csv_record << positions[i].x << ", " << positions[i].y << ", " << positions[i].z<< ", "<< velocities[i].x<< ", " <<velocities[i].y<< ", " <<velocities[i].z<<std::endl;
+        csv_record << positions[i].pose.position.x << ", " << positions[i].pose.position.y << ", " << positions[i].pose.position.z<< ", "<< velocities[i].linear.x<< ", " <<velocities[i].linear.y<< ", " <<velocities[i].linear.z<<std::endl;
     }
     positions.clear();
     velocities.clear();
@@ -62,11 +62,11 @@ void trajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &msg){
  *  \param positions a path to follow
  *  \return index of the nearest pose on the path
  */
-int cal_pose_on_path(const std::vector<geometry_msgs::Point> &positions, int previous_pose_on_path){
+int cal_pose_on_path(const std::vector<geometry_msgs::PoseStamped> &positions, int previous_pose_on_path){
     double min_distance = 10000000;
     int pose_on_path_id = 0;
     for(int i=previous_pose_on_path; i<positions.size();i++){
-        Eigen::Vector3f pose_on_path = Eigen::Vector3f(positions[i].x, positions[i].y, positions[i].z);
+        Eigen::Vector3f pose_on_path = Eigen::Vector3f(positions[i].pose.position.x, positions[i].pose.position.y, positions[i].pose.position.z);
         if((current_pose - pose_on_path).norm()<min_distance){
             min_distance = (current_pose - pose_on_path).norm();
             pose_on_path_id = i;
@@ -82,9 +82,9 @@ int cal_pose_on_path(const std::vector<geometry_msgs::Point> &positions, int pre
  *  \return look ahead position index
  */
 
-int cal_pose_look_ahead(const std::vector<geometry_msgs::Point> &positions, const double look_ahead, int pose_on_path){
+int cal_pose_look_ahead(const std::vector<geometry_msgs::PoseStamped> &positions, const double look_ahead, int pose_on_path){
     for(int i = pose_on_path; i<positions.size();i++){
-        Eigen::Vector3f aux = Eigen::Vector3f(positions[i].x-positions[pose_on_path].x, positions[i].y-positions[pose_on_path].y, positions[i].z-positions[pose_on_path].z);
+        Eigen::Vector3f aux = Eigen::Vector3f(positions[i].pose.position.x-positions[pose_on_path].pose.position.x, positions[i].pose.position.y-positions[pose_on_path].pose.position.y, positions[i].pose.position.z-positions[pose_on_path].pose.position.z);
         double distance = aux.norm();
         if(distance>look_ahead) return i;
     }
@@ -115,9 +115,9 @@ void visualizeCsvTrajectory(){
     geometry_msgs::PoseStamped aux_pose_stamped;
 
     for(int i=0; i<positions.size();i++){
-        aux_pose_stamped.pose.position.x = positions[i].x;
-        aux_pose_stamped.pose.position.y = positions[i].y;
-        aux_pose_stamped.pose.position.z = positions[i].z;
+        aux_pose_stamped.pose.position.x = positions[i].pose.position.x;
+        aux_pose_stamped.pose.position.y = positions[i].pose.position.y;
+        aux_pose_stamped.pose.position.z = positions[i].pose.position.z;
         path_to_publish.poses.push_back(aux_pose_stamped);
     }
     csv_trajectory_pub.publish(path_to_publish);
@@ -142,10 +142,10 @@ bool startServerCallback(std_srvs::SetBool::Request  &req, std_srvs::SetBool::Re
             sx >> dx;
             sy >> dy;
             sz >> dz;
-            geometry_msgs::Point aux_point;
-            aux_point.x = dx;
-            aux_point.y = dy;
-            aux_point.z = dz;
+            geometry_msgs::PoseStamped aux_point;
+            aux_point.pose.position.x = dx;
+            aux_point.pose.position.y = dy;
+            aux_point.pose.position.z = dz;
             positions.push_back(aux_point);
         }
     }else{
@@ -166,10 +166,10 @@ bool startServerCallback(std_srvs::SetBool::Request  &req, std_srvs::SetBool::Re
             sx >> dx;
             sy >> dy;
             sz >> dz;
-            geometry_msgs::Point aux_point;
-            aux_point.x = dx;
-            aux_point.y = dy;
-            aux_point.z = dz;
+            geometry_msgs::Twist aux_point;
+            aux_point.linear.x = dx;
+            aux_point.linear.y = dy;
+            aux_point.linear.z = dz;
             velocities.push_back(aux_point);
         }
     }else{
@@ -195,7 +195,7 @@ int main(int _argc, char **_argv)
 
     ros::init(_argc, _argv, "trajectory_follower_node");
     ros::NodeHandle nh;
-    ros::Subscriber trajectory_sub = nh.subscribe<multidrone_msgs::SolvedTrajectory>("solver", 1, trajectoryCallback);
+    ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::Solver>("solver", 1, trajectoryCallback);
     ros::Subscriber ual_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose", 1, ualPoseCallback);
     ros::Subscriber ual_vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity", 1, ualVelCallback);
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
@@ -237,8 +237,8 @@ int main(int _argc, char **_argv)
                 break;
             }
             ROS_INFO("Drone %d: look ahead: %d",drone_id,target_pose);
-            Eigen::Vector3f pose_to_go =Eigen::Vector3f(positions[target_pose].x,positions[target_pose].y, positions[target_pose].z);
-            Eigen::Vector3f vel_to_go= Eigen::Vector3f(velocities[pose_on_path].x,velocities[pose_on_path].y, velocities[pose_on_path].z);
+            Eigen::Vector3f pose_to_go =Eigen::Vector3f(positions[target_pose].pose.position.x,positions[target_pose].pose.position.y, positions[target_pose].pose.position.z);
+            Eigen::Vector3f vel_to_go= Eigen::Vector3f(velocities[pose_on_path].linear.x,velocities[pose_on_path].linear.y, velocities[pose_on_path].linear.z);
             Eigen::Vector3f velocity_to_command = calculate_vel(pose_to_go, vel_to_go);
             // publish topic to ual
             geometry_msgs::TwistStamped vel;

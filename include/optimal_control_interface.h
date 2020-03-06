@@ -3,7 +3,6 @@
 #include <iostream>
 #include <ros/ros.h>
 #include "FORCESNLPsolver.h"
-#include "matplotlibcpp.h"
 #include <cmath>
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <boost/thread/thread.hpp>
@@ -12,15 +11,10 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <Eigen/Eigen>
-#include <multidrone_msgs/DirectorEvent.h>
-#include <nav_msgs/Odometry.h>
 #include <time.h>
 #include <geometry_msgs/Point.h>
-#include <multidrone_msgs/SolvedTrajectory.h>
 #include <geometry_msgs/Point.h>
 #include <thread>         // std::thread, std::this_thread::sleep_for
-#include <multidrone_msgs/ShootingAction.h>
-#include <multidrone_msgs/ShootingType.h>
 #include <uav_abstraction_layer/State.h>
 
 
