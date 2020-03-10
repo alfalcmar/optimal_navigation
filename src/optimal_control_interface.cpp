@@ -204,7 +204,7 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
         if(multi){
             std::map<int,std::vector<geometry_msgs::Point>>::iterator it;
             //TODO check priority
-            int n_priority = 0;
+            /*int n_priority = 0;
             for(int j=0; j<priority.size();j++){
                 if(drone_id == priority[j]){
                     n_priority = j;
@@ -219,7 +219,7 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
                     params.push_back(uavs_pose[priority[j]].pose.position.x);
                     params.push_back(uavs_pose[priority[j]].pose.position.y);
                 }
-            }
+            }*/
         }
         if(no_fly_zone){
             params.push_back(obst[0]);

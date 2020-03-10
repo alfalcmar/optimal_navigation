@@ -105,7 +105,7 @@ void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 
 /** \brief This callback receives the solved trajectory of uavs
  */
-void uavTrajectoryCallback(const multidrone_msgs::SolvedTrajectory::ConstPtr &msg, int id){
+void uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg, int id){
     uavs_trajectory[id].clear();
     trajectory_solved_received[id] = true;
     uavs_trajectory[id] = msg->positions;
