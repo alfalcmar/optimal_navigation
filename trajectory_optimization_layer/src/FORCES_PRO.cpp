@@ -1,5 +1,5 @@
 /** FORCES PRO c++ library*/
-#include <optimal_control_interface.h>
+#include <FORCES_PRO.h>
 
 
 #ifdef __cplusplus

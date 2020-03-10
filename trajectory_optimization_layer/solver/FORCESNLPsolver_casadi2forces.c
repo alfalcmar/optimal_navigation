@@ -9,7 +9,7 @@
 extern "C" {
 #endif
     
-#include "FORCESNLPsolver/include/FORCESNLPsolver.h"    
+#include "FORCESNLPsolver.h"    
     
 /* prototyes for models */
 extern void FORCESNLPsolver_model_1(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res);

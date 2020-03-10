@@ -16,6 +16,7 @@
 #include <geometry_msgs/Point.h>
 #include <thread>         // std::thread, std::this_thread::sleep_for
 #include <uav_abstraction_layer/State.h>
+#include <optimal_control_interface/Solver.h>
 
 
 // global vars
@@ -33,7 +34,7 @@ std::vector<double> vz;
 
 geometry_msgs::PoseStamped target_pose;
 std::map<int,geometry_msgs::PoseStamped> uavs_pose;
-std::map<int,std::vector<geometry_msgs::Point>> uavs_trajectory;
+std::map<int,optimal_control_interface::Solver> uavs_trajectory;
 
 int drone_id;
 std::vector<int> drones;

@@ -6,22 +6,18 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <uav_abstraction_layer/GoToWaypoint.h>
-#include <optimal_control_interface.h>
+#include <FORCES_PRO.h>
 #include <multidrone_msgs/TargetStateArray.h>
 
-// TODO implement interface between shot executer and this node (Desired pose)
-// TODO think about who is going to take off, land, etc
-
-
-/** this node is a c++ wrap to use optimization solvers with ROS for UAVs, 
- * In this case, this use the optimization_forces_pro_library, a library created to use this framework
+/** this node is a backend to use optimization solvers with ROS for UAVs, 
+ * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
  * to interface with the rest of the nodes.
  * In summary this node contains the following:
  * Callback for interfacing with the rest of the nodes:
  *     Callback for other's calculated trajectories
  *     Callback for Drones's pose
  *     Callback for Target Pose
- *     TODO Callback for the desired pose (In this case is received from the shot executer)
+ *     Callback for the desired pose (In this case is received from the shot executer)
  *
  * 
  * functions for visualization and logging the output of this solver
@@ -41,7 +37,7 @@
  * 
  * 
  * The variables to communicate with the solver library are:
- *     uavs_trajectory[id, trajectory]
+ *     uavs_trajectory[id, solver]
  *     uavs_poses[id, pose]
  *     target_pose
  *     target_trajectory[]
@@ -106,9 +102,13 @@ void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 /** \brief This callback receives the solved trajectory of uavs
  */
 void uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg, int id){
-    uavs_trajectory[id].clear();
+    uavs_trajectory[id].positions.clear();
+    uavs_trajectory[id].velocities.clear();
+    uavs_trajectory[id].accelerations.clear();
     trajectory_solved_received[id] = true;
-    uavs_trajectory[id] = msg->positions;
+    uavs_trajectory[id].positions = msg->positions;
+    uavs_trajectory[id].velocities = msg->velocities;
+    uavs_trajectory[id].accelerations = msg->accelerations;
     ROS_INFO("Solver %d: trajectory callback from drone %d",drone_id,id);
 }
 
@@ -118,11 +118,11 @@ void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
     has_poses[id] = true;
     if(!trajectory_solved_received[id]){
         for(int i=0; i<time_horizon;i++){
-            geometry_msgs::Point pose_aux;
-            pose_aux.x = msg->pose.position.x;
-            pose_aux.y = msg->pose.position.y;
-            pose_aux.z = msg->pose.position.z;
-            uavs_trajectory[id].push_back(pose_aux);
+            geometry_msgs::PoseStamped pose_aux;
+            pose_aux.pose.position.x = msg->pose.position.x;
+            pose_aux.pose.position.y = msg->pose.position.y;
+            pose_aux.pose.position.z = msg->pose.position.z;
+            uavs_trajectory[id].positions.push_back(pose_aux);
         }
     }
     uavs_pose[id].pose = msg->pose; 
@@ -147,19 +147,19 @@ void targetarrayCallback(const multidrone_msgs::TargetStateArray::ConstPtr& _msg
  *  \param x y z vx vy vz       last calculated trajectory
 */
 void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
-    multidrone_msgs::SolvedTrajectory traj;
-    geometry_msgs::Point pos;
-    geometry_msgs::Point vel;
+    optimal_control_interface::Solver traj;
+    geometry_msgs::PoseStamped pos;
+    geometry_msgs::Twist vel;
 
 
     for(int i=0;i<x.size(); i++){
-        pos.x = x[i];
-        pos.y = y[i];
-        pos.z = z[i];
+        pos.pose.position.x = x[i];
+        pos.pose.position.y = y[i];
+        pos.pose.position.z = z[i];
         traj.positions.push_back(pos);
-        vel.x = vx[i];
-        vel.y = vy[i];
-        vel.z = vz[i];
+        vel.linear.x = vx[i];
+        vel.linear.y = vy[i];
+        vel.linear.z = vz[i];
         traj.velocities.push_back(vel);
     }
  
@@ -340,7 +340,7 @@ bool init(ros::NodeHandle pnh){
     desired_pose_sub = pnh.subscribe<geometry_msgs::PoseStamped>("desired_pose",1,desiredPoseCallback);
     // publishers
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("solver/desired_point",1);
-    solved_trajectory_pub = pnh.advertise<multidrone_msgs::SolvedTrajectory>("trajectory",1);
+    solved_trajectory_pub = pnh.advertise<optimal_control_interface::Solver>("trajectory",1);
     path_rviz_pub = pnh.advertise<nav_msgs::Path>("solver/path",1);
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("solver/noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("/target/path",1);
@@ -349,7 +349,7 @@ bool init(ros::NodeHandle pnh){
     for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
         drone_pose_sub[drones[i]] = pnh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
         if(drones[i] !=drone_id){
-            drone_trajectory_sub[drones[i]] = pnh.subscribe<multidrone_msgs::SolvedTrajectory>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
+            drone_trajectory_sub[drones[i]] = pnh.subscribe<optimal_control_interface::Solver>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
         }
         //initialize
         trajectory_solved_received[drones[i]] = false;     
