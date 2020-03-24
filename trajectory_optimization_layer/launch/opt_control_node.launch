@@ -1,7 +1,7 @@
 <launch>
 	<arg name="drones" default="[1]"/>
 
-    <node pkg="optimal_control_interface" name="solver" type="optimal_control_interface_node" output="screen" ns="drone_1">
+    <node pkg="optimal_control_interface" name="solver" type="optimal_control_interface_node" output="screen" ns="uav1">
         <param name="drone_id" value="1"/>
 		<rosparam param="drones" subst_value="true">$(arg drones)</rosparam>
     </node>

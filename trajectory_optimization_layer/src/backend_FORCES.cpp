@@ -7,7 +7,6 @@
 #include <nav_msgs/Odometry.h>
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <FORCES_PRO.h>
-#include <multidrone_msgs/TargetStateArray.h>
 
 /** this node is a backend to use optimization solvers with ROS for UAVs, 
  * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
@@ -52,7 +51,7 @@ std::vector<double> desired_vel{0,0,0};
 std::vector<double> obst{0,0};  //TODO change to map
 std::vector<double> target_vel = {0, 0};
 float solver_rate;
-
+ros::Subscriber uav_odometry_sub;
 ros::Subscriber uav_state_sub;
 ros::Subscriber target_array_sub;
 ros::Subscriber sub_velocity;
@@ -70,7 +69,8 @@ std::map<int, bool> has_poses; //has_poses[0] -> target
 uav_abstraction_layer::State ual_state;
 int solver_success;
 
-
+// TODO construct a class called UAV interface and heritage methods for target pose callback and use overload depending on mrs system or us system
+// memebers that are sent to the solver must be pulic
 
 ///////////////////// Callbacks //////////////////////////
 
@@ -92,6 +92,16 @@ void desiredPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
     desired_pose[2] = msg->pose.position.z;
     ROS_INFO("Desired pose received: x: %f y: %f z: %f",desired_pose[0],desired_pose[1],desired_pose[2]);
 }
+
+/** \brief uav odometry callback (mrs system)
+ */
+void uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{
+    own_velocity.twist = msg->twist.twist;
+    uavs_pose[drone_id].pose = msg->pose.pose;
+    has_poses[drone_id] = true; 
+}
+
 /** \brief Drone velocity callback
  */
 void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
@@ -129,16 +139,13 @@ void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
 }
 
 
-/** \brief target array for real experiment
+/** \brief target pose callback
  */
-void targetarrayCallback(const multidrone_msgs::TargetStateArray::ConstPtr& _msg) // real target callback
+void targetCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
 {
     has_poses[0] = true;
 
-  //gimbal target
-    for (auto target:_msg->targets) {
-        target_pose.pose = target.pose.pose;
-    }
+    target_pose = *_msg;
 }
 
 //////////////////////// Visualization function //////////////////////////
@@ -299,11 +306,11 @@ bool checkConnectivity(){
 
 
 /** \brief Function to initialize the solver. This function heck if the drone is subscribed to the others drone poses and target**/
-bool init(ros::NodeHandle pnh){
+bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
     // parameters
-    pnh.param<float>("solver_rate", solver_rate, 0.5);
+    pnh.param<float>("solver_rate", solver_rate, 0.5); // solver rate
     std::string target_topic;
-    pnh.param<std::string>("target_topic",target_topic, "/drc_vehicle_xp900/odometry");
+    pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/dynamic_pickup/pose"); // target topic
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
             ROS_WARN("'Drones' does not have the rigth type");
@@ -332,28 +339,29 @@ bool init(ros::NodeHandle pnh){
         has_poses[0] = false;
         has_poses[drones[i]] = false;
     }
-    
     // subscripions
-    sub_velocity = pnh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
-    uav_state_sub = pnh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback); //ual state
-    target_array_sub = pnh.subscribe<multidrone_msgs::TargetStateArray>("/target_3d_state", 1, targetarrayCallback); //target pose
-    desired_pose_sub = pnh.subscribe<geometry_msgs::PoseStamped>("desired_pose",1,desiredPoseCallback);
+    //sub_velocity = pnh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
+    //uav_state_sub = pnh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback); //ual state
+    uav_odometry_sub = nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, uavCallback);
+    target_array_sub = pnh.subscribe<geometry_msgs::PoseStamped>(target_topic, 1, targetCallback); //target pose
+    desired_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("desired_pose",1,desiredPoseCallback); // desired pose from shot executer
     // publishers
-    desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("solver/desired_point",1);
+    desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point",1);
     solved_trajectory_pub = pnh.advertise<optimal_control_interface::Solver>("trajectory",1);
-    path_rviz_pub = pnh.advertise<nav_msgs::Path>("solver/path",1);
-    path_no_fly_zone = pnh.advertise<nav_msgs::Path>("solver/noflyzone",1);   
-    target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("/target/path",1);
+    path_rviz_pub = pnh.advertise<nav_msgs::Path>("path",1);
+    path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
+    target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
 
+    // TODO integrate it into the class UAL interface
     // pose and trajectory subscriptions
-    for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
+   /** for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
         drone_pose_sub[drones[i]] = pnh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
         if(drones[i] !=drone_id){
             drone_trajectory_sub[drones[i]] = pnh.subscribe<optimal_control_interface::Solver>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
         }
         //initialize
         trajectory_solved_received[drones[i]] = false;     
-    }
+    }*/
 
 
     // log files
@@ -381,6 +389,7 @@ int main(int _argc, char **_argv)
     // ros node initialization
     ros::init(_argc, _argv,"solver");
     ros::NodeHandle pnh = ros::NodeHandle("~");
+    ros::NodeHandle nh;
 
     // TODO include or not calls to the uav from this node
     //go_to_waypoint_client = pnh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
@@ -390,7 +399,7 @@ int main(int _argc, char **_argv)
 
 
     // init solver
-    if(!init(pnh)){ // if the solver is correctly initialized
+    if(!init(pnh, nh)){ // if the solver is correctly initialized
         // main loop
         while(ros::ok()){
             // solver function
