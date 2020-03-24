@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
-  multidrone_msgs
   optimal_control_interface
 )
 find_package(PythonLibs 2.7)
@@ -24,9 +23,9 @@ find_package(Eigen3 REQUIRED)
 
 
 catkin_package(
- INCLUDE_DIRS include
+ INCLUDE_DIRS
   LIBRARIES 
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer multidrone_msgs
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer
 )
 
 #roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)

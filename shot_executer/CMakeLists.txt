@@ -15,13 +15,23 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
-  multidrone_msgs
   optimal_control_interface
+  geometry_msgs
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
 
 
+add_service_files(
+  FILES
+  ShootingAction.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
 
 catkin_package(
  INCLUDE_DIRS include

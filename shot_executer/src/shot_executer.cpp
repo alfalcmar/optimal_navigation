@@ -1,28 +1,162 @@
 #include <shot_executer.h>
+#ifdef MULTIDRONE
+    #include <multidrone_msgs/ExecuteAction.h>
+    #include <multidrone_msgs/DroneAction.h>
+#endif
 
-
-/* Shot Executer for MULTIDRONE project
-/**
+/* Shot Executer 
+/** 
  * Class description:
 */
-
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
+    //params
+    std::string target_topic = "/gazebo/dynamic_target/dynamic_pickup/pose";
+    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/dynamic_pickup/pose");
+
     // publisher
     desired_pose_pub_ = _nh.advertise<nav_msgs::Odometry>("desired_pose",10);
-    go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("/drone_"+std::to_string(drone_id_)+"/ual/go_to_waypoint");
-    take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("/drone_"+std::to_string(drone_id_)+"/ual/take_off");
-    land_client_ = _nh.serviceClient<uav_abstraction_layer::Land>("/drone_"+std::to_string(drone_id_)+"/ual/take_off");
+    target_trajectory_pub_ = nh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
+    // subscriber
+    target_pose_sub_ = _nh.subscribe(target_topic,10,&ShotExecuter::targetPoseCallback,this);
+    // client
+    go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
+    take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
+    land_client_ = _nh.serviceClient<uav_abstraction_layer::Land>("ual/take_off");
+    // service
+    shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
+}
+
+/** \brief target array for real experiment
+ */
+void ShotExecuter::targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
+{
+    target_pose_.pose.pose = _msg->pose;
+}
+
+
+/** \brief Taking off the drone
+ *  \param _height   take off's height
+ *  \return success
+ **/
+bool ShotExecuter::takeOff(const double _height){
+    uav_abstraction_layer::TakeOff srv;
+    srv.request.blocking = true;
+    srv.request.height = _height;
+    if(!take_off_srv_.call(srv)){
+        return false;
+    }else{
+        return true;
+    }
+}
+
+/** \brief target trajectory prediction
+ */
+std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
+
+    //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
+    std::vector<nav_msgs::Odometry> target_trajectory;
+    nav_msgs::Odometry aux;
+    nav_msgs::Path path_to_publish;
+    geometry_msgs::PoseStamped aux_path;
+    if(time_horizon_>0){
+        for(int i=0; i<time_horizon_;i++){
+            aux.pose.pose.position.x = target_pose_.pose.pose.position.x+ step_size_*i*target_pose_.twist.twist.linear.x;
+            aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
+            aux_path.pose.position.x = aux.pose.pose.position.x;
+            aux_path.pose.position.y = aux.pose.pose.position.y;
+            target_trajectory.push_back(aux);
+            path_to_publish.poses.push_back(aux_path);
+        }
+    }else{
+        ROS_ERROR("time_horizon invalid");
+    }
+    path_to_publish.header.frame_id ="map";
+    target_trajectory_pub_.publish(path_to_publish);
+    return target_trajectory;
+}
+
+/** \brief Calculate desired pose. If type flyby, calculate wrt last mission pose .If lateral, calculate wrt time horizon pose
+ *  \TODO   z position and velocity, angle relative to target
+ *  \TODO   calculate orientation by velocity
+ **/
+nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
+    ROS_INFO("desired point function");
+    //int dur = (int)(shooting_duration*10);
+    nav_msgs::Odometry desired_point;
+        switch(_shooting_action.shooting_action_type){
+        //TODO
+        case 0:
+            desired_point.pose.pose.position.x  = target_trajectory.back().pose.pose.position.x+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = target_trajectory.back().pose.pose.position.y+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
+
+            // desired vel
+            desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
+            desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
+            desired_point.twist.twist.linear.z =0;
+            return desired_point;;
+        case 1:
+            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x-sin(-0.9)*_shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+cos(-0.9)*_shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.z  = drone_pose_.pose.pose.position.z;
+
+            // desired
+            desired_point.twist.twist.linear.x =target_trajectory[time_horizon_-1].twist.twist.linear.x;
+            desired_point.twist.twist.linear.y =target_trajectory[time_horizon_-1].twist.twist.linear.y;
+            desired_point.twist.twist.linear.z =0;
+            return desired_point;;
+        default:
+            ROS_ERROR("Shooting action type invalid");
+            return desired_point;;
+    }
     
 }
 
+bool ShotExecuter::actionCallback(shot_executer::ShootingAction::Request  &req, shot_executer::ShootingAction::Response &res){
+    ROS_INFO("action callback");
+    struct shooting_action shooting_action;
+    shooting_action.shooting_action_type = req.shooting_action_type;
+    action_thread_ = std::thread(&ShotExecuter::actionThread,this,shooting_action);
+    return true;
+}
+
+/** \brief Shooting action thread callback
+ */
+void ShotExecuter::actionThread(struct shooting_action shooting_action){
+    ROS_INFO("action thread");
+    bool time_reached = false;
+    bool distance_reached = false;
+    ros::Rate rate(rate_pose_publisher_);      
+    while(!time_reached && !distance_reached && ros::ok()){
+        //TODO predict
+        ROS_INFO("predicting target trajectory");
+        std::vector<nav_msgs::Odometry> target_trajectory = targetTrajectoryPrediction();
+        ROS_INFO("calculating desired pose");
+        std::cout<<"target trajectory: "<<target_trajectory.size();
+
+        nav_msgs::Odometry desired_pose = calculateDesiredPoint(shooting_action,target_trajectory);
+        // publish desired pose
+        desired_pose.header.frame_id = "map";
+        desired_pose_pub_.publish(desired_pose);
+        ROS_INFO("desired_pose published");
+        /** if(shooting_action_running) stop_current_shooting = true;   // If still validating, end the current validation to start the new one as soon as possible.
+        if(shooting_action_thread.joinable()) shooting_action_thread.join();
+        shooting_action_thread = std::thread(shootingActionThread);
+        return;*/
+        rate.sleep();
+    }
+}
+
+#ifdef MULTIDRONE
 ShotExecuterMultidrone::ShotExecuterMultidrone(ros::NodeHandle &_nh) : ShotExecuter(_nh){
     server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(_nh, "action_server", false);
     server_->registerGoalCallback(boost::bind(&ShotExecuterMultidrone::actionCallback, this));
     // server_->registerPreemptCallback(boost::bind(&Executer::preemptCallback, this));
     server_->start();
 }
+#endif
 
-
+#ifdef MULTIDRONE
 /** \brief go to waypoint off the drone
  *  \param _height   take off's height
  *  \return success
@@ -73,36 +207,9 @@ bool ShotExecuterMultidrone::goToWaypoint(const multidrone_msgs::DroneAction &_g
     }
     server_->setSucceeded(result);
 }
+#endif
 
-/** \brief Taking off the drone
- *  \param _height   take off's height
- *  \return success
- **/
-bool ShotExecuterMultidrone::takeOff(const double _height){
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = _height;
-    if(!take_off_srv_.call(srv)){
-        return false;
-    }else{
-        return true;
-    }
-}
-        
-/** \brief target trajectory prediction
- */
-std::vector<nav_msgs::Odometry> ShotExecuterMultidrone::targetTrajectoryPrediction(){
-
-    //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
-    std::vector<nav_msgs::Odometry> target_trajectory;
-    nav_msgs::Odometry aux;
-    for(int i=0; i<time_horizon;i++){
-        aux.pose.pose.position.x = target_pose_.pose.pose.position.x+ step_size_*i*target_pose_.twist.twist.linear.x;
-        aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
-        target_trajectory.push_back(aux);
-    }
-    return target_trajectory;
-}
+#ifdef MULTIDRONE
 /** \brief Shooting action thread callback
  */
 void ShotExecuterMultidrone::actionThread(const multidrone_msgs::DroneAction goal){
@@ -146,7 +253,9 @@ void ShotExecuterMultidrone::actionThread(const multidrone_msgs::DroneAction goa
         goToWaypoint(goal);
     }
 }
-    
+#endif
+
+#ifdef MULTIDRONE
 /** \brief action callback
  *  \TODO reduce this function
  */
@@ -155,6 +264,7 @@ void ShotExecuterMultidrone::actionCallback(){
     action_thread_ = std::thread(&ShotExecuterMultidrone::actionThread, this, goal);
     
 }
+
 /** \brief Calculate desired pose. If type flyby, calculate wrt last mission pose .If lateral, calculate wrt time horizon pose
  *  \TODO   z position and velocity, angle relative to target
  *  \TODO   calculate orientation by velocity
@@ -186,7 +296,7 @@ nav_msgs::Odometry ShotExecuterMultidrone::calculateDesiredPoint(const int shoot
         break;
     }
 }
-
+#endif
 
 /** \brief Shooting action thread 
  * **/
