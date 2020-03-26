@@ -41,9 +41,9 @@ std::vector<int> drones;
 
 
 // solver options
-const bool target = false;
+const bool target = true;
 const bool multi = false;
-const bool no_fly_zone = true;
+const bool no_fly_zone = false;
 const bool debug = true;
 std::vector<int> priority;
 geometry_msgs::TwistStamped own_velocity;
@@ -53,8 +53,8 @@ const int time_horizon = 100; // time horizon
 const double step_size = 0.1; // seg
 const int n_states_variables = 9;
 const float hovering_distance = 0.5;
-const int npar = 14;
-
+const int npar = 10;
+const float height = 1.7;
 // state vector
 
 const int acceleration_x = 0;

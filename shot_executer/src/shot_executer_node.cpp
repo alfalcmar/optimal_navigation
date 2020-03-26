@@ -8,7 +8,7 @@ int main(int _argc, char **_argv)
     ros::init(_argc, _argv, "shot_executer");
     ros::NodeHandle nh;
 
-    ShotExecuter shotExecuter(nh);
+    ShotExecuterMRS shotExecuterMRS(nh);
 
     ros::spin();
     return 0;

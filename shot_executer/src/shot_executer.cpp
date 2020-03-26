@@ -19,9 +19,7 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
     // subscriber
     target_pose_sub_ = _nh.subscribe(target_topic,10,&ShotExecuter::targetPoseCallback,this);
     // client
-    go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
-    take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-    land_client_ = _nh.serviceClient<uav_abstraction_layer::Land>("ual/take_off");
+
     // service
     shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
 }
@@ -33,21 +31,6 @@ void ShotExecuter::targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr
     target_pose_.pose.pose = _msg->pose;
 }
 
-
-/** \brief Taking off the drone
- *  \param _height   take off's height
- *  \return success
- **/
-bool ShotExecuter::takeOff(const double _height){
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = _height;
-    if(!take_off_srv_.call(srv)){
-        return false;
-    }else{
-        return true;
-    }
-}
 
 /** \brief target trajectory prediction
  */
@@ -146,7 +129,115 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
         rate.sleep();
     }
 }
+ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh) : ShotExecuter::ShotExecuter(_nh){
+     /* initialize service for arming */
+    std::string service_name;
+    service_name = "/uav"+std::to_string(drone_id_)+"/mavros/cmd/arming";
+    arming_client_ = _nh.serviceClient<mavros_msgs::CommandBool>(service_name);
+    /* initialize service for offboard */
+    service_name = "/uav" + std::to_string(drone_id_) + "/mavros/set_mode";
+    offboard_client_ = _nh.serviceClient<mavros_msgs::SetMode>(service_name);
+    /* initialize service for motors */
+    service_name = "/uav" + std::to_string(drone_id_) + "/control_manager/motors";
+    motors_client_ = _nh.serviceClient<std_srvs::SetBool>(service_name);
+    /* initialize service for takeoff */
+    service_name = "/uav" + std::to_string(drone_id_) + "/uav_manager/takeoff";
+    takeoff_client_ = _nh.serviceClient<std_srvs::Trigger>(service_name);
+    callTakeOff();
 
+}
+bool ShotExecuterMRS::callTakeOff(){
+  bool success = true;
+  // motors on
+  if (!all_motors_on_){
+    sleep(1);
+    std_srvs::SetBool srv;
+    srv.request.data = true;
+    srv.request.data = true;
+    ROS_WARN("[%s]: Calling motors on.", ros::this_node::getName().c_str());
+    
+    motors_client_.call(srv);
+    if (srv.response.success) {
+    ROS_INFO("[%d]: %d motors on successfully called.", ros::this_node::getName().c_str(), drone_id_);
+    } else {
+    ROS_INFO("[%s]: %s motors on failed.", ros::this_node::getName().c_str(), drone_id_);
+    success = false;
+    }
+    all_motors_on_ = success; 
+  }
+  //  arming
+  if (!robot_armed_ && success) {
+    mavros_msgs::CommandBool arming_srv;
+    arming_srv.request.value = 1;
+    ROS_WARN("[%s]: Starting arming of UAVs.", ros::this_node::getName().c_str());
+    arming_client_.call(arming_srv);
+    if (arming_srv.response.success) {
+        ROS_INFO("[%s]: Arming of drone %d successfully activated.", ros::this_node::getName().c_str(), drone_id_);
+    } else {
+        ROS_WARN("[%s]: Arming of drone %d was not activated.", ros::this_node::getName().c_str(), drone_id_);
+        success = false;
+    } 
+    robot_armed_ = success;
+    ROS_INFO_COND("[%s]: Arming called successfully.", ros::this_node::getName().c_str());
+  }
+  // offboard
+  if (!robot_in_offboard_mode_ && success) {
+    sleep(1);
+    mavros_msgs::SetMode srv_set_mode;
+    srv_set_mode.request.base_mode   = 0;
+    srv_set_mode.request.custom_mode = "offboard";
+    ROS_WARN("[%s]: Switching to offboard mode.", ros::this_node::getName().c_str());
+
+    offboard_client_.call(srv_set_mode);
+    if (srv_set_mode.response.mode_sent) {
+    ROS_INFO("[%s]: drone %d was successfully switched to offboard mode.", ros::this_node::getName().c_str(), drone_id_);
+    } else {
+    ROS_INFO("[%s]: drone %d switched to offboard mode failed.", ros::this_node::getName().c_str(), drone_id_);
+    success = false;
+    }
+
+    robot_in_offboard_mode_ = success;
+    ROS_INFO_COND(robot_in_offboard_mode_, "[%s]: Switching to offboard mode was successful.", ros::this_node::getName().c_str());
+  }
+  // takeoff
+  if (success) {
+    sleep(1);
+    ROS_WARN("[%s]: Calling takeoff.", ros::this_node::getName().c_str());
+    std_srvs::Trigger srv_trigger;
+    takeoff_client_.call(srv_trigger);
+    if (srv_trigger.response.success) {
+    ROS_INFO("[%s]: Takeoff of drone %d successfully activated.", ros::this_node::getName().c_str(), drone_id_);
+    } else {
+    ROS_WARN("[%s]: Takeoff of drone %d was not activated.", ros::this_node::getName().c_str(), drone_id_);
+    success = false;
+    }
+  }
+  takeoff_called_succesfully_ = takeoff_called_succesfully_ || success;
+  ROS_INFO_COND(takeoff_called_succesfully_, "[%s]: ", ros::this_node::getName().c_str());
+  return success;
+}
+
+ShotExecuterUAL::ShotExecuterUAL(ros::NodeHandle &_nh) : ShotExecuter::ShotExecuter(_nh){
+
+    go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
+    take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
+    land_client_ = _nh.serviceClient<uav_abstraction_layer::Land>("ual/take_off");
+}
+
+/** \brief Taking off the drone
+ *  \param _height   take off's height
+ *  \return success
+ **/
+bool ShotExecuterUAL::takeOff(const double _height){
+    uav_abstraction_layer::TakeOff srv;
+    srv.request.blocking = true;
+    srv.request.height = _height;
+    if(!take_off_srv_.call(srv)){
+        return false;
+    }else{
+        return true;
+    }
+}
 #ifdef MULTIDRONE
 ShotExecuterMultidrone::ShotExecuterMultidrone(ros::NodeHandle &_nh) : ShotExecuter(_nh){
     server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(_nh, "action_server", false);

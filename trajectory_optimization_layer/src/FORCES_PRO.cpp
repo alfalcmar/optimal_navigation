@@ -40,12 +40,12 @@ bool desiredPoseReached(const std::vector<double> desired_pos, const std::vector
 void targetTrajectory(const std::vector<double> target_init_pose, std::vector<double> &target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
     
     target_trajectory.clear();
-    //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
-    double target_vel_module = 0.5;
-    const std::vector<double> target_final_pose{40.0,-42.0}; 
+    double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
+    //double target_vel_module = 0.5;
+    //const std::vector<double> target_final_pose{40.0,-42.0}; 
 
-    target_vel[0] = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
-    target_vel[1] = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
+    //target_vel[0] = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
+    //target_vel[1] = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
     geometry_msgs::Point aux;
     for(int i=0; i<time_horizon;i++){
         aux.x = target_init_pose[0] + step_size*i*target_vel[0];
@@ -138,6 +138,7 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
     myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
     myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
     myparams.xinit[2] = uavs_pose[drone_id].pose.position.z;
+    //TODO review if saturate velocities is necesary
     if(own_velocity.twist.linear.x>1){
         own_velocity.twist.linear.x = 1.0;
     }else if(own_velocity.twist.linear.x<-1.0){

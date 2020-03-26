@@ -10,6 +10,11 @@
 #include <uav_abstraction_layer/Land.h>
 #include <shot_executer/ShootingAction.h>
 #include <geometry_msgs/Vector3.h>
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
+
 /* A name class 
 /**
 *  The basic class description, it does:
@@ -23,9 +28,6 @@ class ShotExecuter
     protected:
         ros::NodeHandle nh;
         std::string target_topic_;
-        ros::ServiceClient take_off_srv_;
-        ros::ServiceClient go_to_waypoint_client_;
-        ros::ServiceClient land_client_;
         ros::ServiceServer shooting_action_srv_;
         ros::Publisher desired_pose_pub_;
         ros::Publisher target_trajectory_pub_;
@@ -41,17 +43,44 @@ class ShotExecuter
             int target_type;
             geometry_msgs::Vector3 rt_parameters; 
         };
-        int drone_id_;
+        int drone_id_ = 1; // TODO initialize by constructor
         int step_size_;
         const int time_horizon_= 10; //TODO read as parameter
         double rate_pose_publisher_ = 1.0;
         std::thread action_thread_;
-        bool takeOff(const double _height);
         std::vector<nav_msgs::Odometry> targetTrajectoryPrediction();
         nav_msgs::Odometry calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory);
         bool actionCallback(shot_executer::ShootingAction::Request  &req, shot_executer::ShootingAction::Response &res);
         void actionThread(struct shooting_action _shooting_action);
         void targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg);
+
+};
+
+class ShotExecuterMRS : public ShotExecuter{
+    public:
+        ShotExecuterMRS(ros::NodeHandle &_nh);
+    private:
+        ros::ServiceClient motors_client_;
+        ros::ServiceClient arming_client_;
+        ros::ServiceClient offboard_client_;
+        ros::ServiceClient takeoff_client_;
+        bool robot_armed_ = false;
+        bool robot_in_offboard_mode_ = false;
+        bool takeoff_called_succesfully_ = false;
+        bool callTakeOff();
+        bool all_motors_on_ = false;
+
+};
+
+class ShotExecuterUAL : public ShotExecuter{
+    public:
+        ShotExecuterUAL(ros::NodeHandle &_nh);
+    private:
+        ros::ServiceClient take_off_srv_;
+        ros::ServiceClient go_to_waypoint_client_;
+        ros::ServiceClient land_client_;
+        bool takeOff(const double _height);
+
 
 };
 #ifdef MULTIDRONE

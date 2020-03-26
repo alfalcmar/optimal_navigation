@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
+  mrs_msgs
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)

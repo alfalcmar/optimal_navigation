@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   optimal_control_interface
   geometry_msgs
+  mavros_msgs
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)

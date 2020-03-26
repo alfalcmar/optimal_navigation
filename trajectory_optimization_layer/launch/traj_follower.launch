@@ -1,4 +1,0 @@
-<launch>
-<node pkg="optimal_control_interface" name="trajectory_follower_node" type="trajectory_follower_node" output="screen" ns="drone_1">
-</node>
-</launch>
