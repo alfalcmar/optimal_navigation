@@ -22,8 +22,15 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
 
     // service
     shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
+    
+
 }
 
+/** \brief 
+ */
+void ShotExecuter::publishCameraCommand(){
+    ROS_WARN("Publish camera command of the base class");
+}
 /** \brief target array for real experiment
  */
 void ShotExecuter::targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
@@ -53,7 +60,7 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
     }else{
         ROS_ERROR("time_horizon invalid");
     }
-    path_to_publish.header.frame_id ="map";
+    path_to_publish.header.frame_id ="uav1/gps_origin";
     target_trajectory_pub_.publish(path_to_publish);
     return target_trajectory;
 }
@@ -64,13 +71,22 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
  **/
 nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
     ROS_INFO("desired point function");
+    std::cout<<"el yaw es: "<<camera_angles_[yaw]<<std::endl;
+
+    tf2::Quaternion myQuaternion;
+    myQuaternion.setRPY( 0, camera_angles_[pitch], camera_angles_[yaw]);  // Create this quaternion from roll/pitch/yaw (in radian
     //int dur = (int)(shooting_duration*10);
     nav_msgs::Odometry desired_point;
+    desired_point.pose.pose.orientation.x = myQuaternion.getX();
+    desired_point.pose.pose.orientation.y = myQuaternion.getY();
+    desired_point.pose.pose.orientation.z = myQuaternion.getZ();
+    desired_point.pose.pose.orientation.w = myQuaternion.getW();
+
         switch(_shooting_action.shooting_action_type){
         //TODO
         case 0:
-            desired_point.pose.pose.position.x  = target_trajectory.back().pose.pose.position.x+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
-            desired_point.pose.pose.position.y = target_trajectory.back().pose.pose.position.y+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.x  = target_trajectory.back().pose.pose.position.x-10.0;//+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = target_trajectory.back().pose.pose.position.y;//+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
 
             // desired vel
@@ -103,6 +119,16 @@ bool ShotExecuter::actionCallback(shot_executer::ShootingAction::Request  &req, 
     return true;
 }
 
+/** \brief Camera thread
+ */
+void ShotExecuter::cameraThread(){
+    ROS_INFO("camera thread initialized");
+    ros::Rate rate(rate_camera_publisher_);
+    while(ros::ok){
+        publishCameraCommand();
+        rate.sleep();
+    }
+}
 /** \brief Shooting action thread callback
  */
 void ShotExecuter::actionThread(struct shooting_action shooting_action){
@@ -119,7 +145,7 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
 
         nav_msgs::Odometry desired_pose = calculateDesiredPoint(shooting_action,target_trajectory);
         // publish desired pose
-        desired_pose.header.frame_id = "map";
+        desired_pose.header.frame_id = "uav1/gps_origin";
         desired_pose_pub_.publish(desired_pose);
         ROS_INFO("desired_pose published");
         /** if(shooting_action_running) stop_current_shooting = true;   // If still validating, end the current validation to start the new one as soon as possible.
@@ -129,6 +155,20 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
         rate.sleep();
     }
 }
+/** \brief this function calculate the camera angles needed to point o the target.
+*/ 
+void ShotExecuter::calculateGimbalAngles(){
+    Eigen::Vector3f target_pose = Eigen::Vector3f(target_pose_.pose.pose.position.x,target_pose_.pose.pose.position.y,0);
+    Eigen::Vector3f drone_pose = Eigen::Vector3f(drone_pose_.pose.pose.position.x,drone_pose_.pose.pose.position.y,drone_pose_.pose.pose.position.z);
+    Eigen::Vector3f q_camera_target = drone_pose-target_pose;
+    float aux_sqrt = sqrt(pow(q_camera_target[0], 2.0)+pow(q_camera_target[1],2.0));
+    camera_angles_[pitch] =1.57- atan2(aux_sqrt,q_camera_target[2]);  //-
+    camera_angles_[yaw] = atan2(-q_camera_target[1],-q_camera_target[0]);
+    std::cout<<"yaw: "<<camera_angles_[yaw]<<std::endl;
+    std::cout<<"pitch: "<<camera_angles_[pitch]<<std::endl;
+
+}
+
 ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh) : ShotExecuter::ShotExecuter(_nh){
      /* initialize service for arming */
     std::string service_name;
@@ -143,9 +183,36 @@ ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh) : ShotExecuter::ShotExecu
     /* initialize service for takeoff */
     service_name = "/uav" + std::to_string(drone_id_) + "/uav_manager/takeoff";
     takeoff_client_ = _nh.serviceClient<std_srvs::Trigger>(service_name);
-    callTakeOff();
 
+    std::string topic_name = "/uav" + std::to_string(drone_id_) + "/servo_camera/set_pitch";
+    camera_pub_ = _nh.advertise<std_msgs::Float32>(topic_name,10);
+
+
+    uav_odometry_sub = nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &ShotExecuterMRS::uavCallback, this);
+
+    //callTakeOff();
+
+    camera_thread_ = std::thread(&ShotExecuterMRS::cameraThread,this);
 }
+
+
+/** \brief uav odometry callback (mrs system)
+ */
+void ShotExecuterMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{
+    drone_pose_ = *msg;
+}
+
+/** \brief upload calculation of camera angles
+ */
+void ShotExecuterMRS::publishCameraCommand(){
+    std_msgs::Float32 msg;
+    calculateGimbalAngles();
+    msg.data = camera_angles_[pitch];
+    camera_pub_.publish(msg);
+}
+
+
 bool ShotExecuterMRS::callTakeOff(){
   bool success = true;
   // motors on
@@ -158,9 +225,9 @@ bool ShotExecuterMRS::callTakeOff(){
     
     motors_client_.call(srv);
     if (srv.response.success) {
-    ROS_INFO("[%d]: %d motors on successfully called.", ros::this_node::getName().c_str(), drone_id_);
+    ROS_INFO("[%s]: %d motors on successfully called.", ros::this_node::getName().c_str(), drone_id_);
     } else {
-    ROS_INFO("[%s]: %s motors on failed.", ros::this_node::getName().c_str(), drone_id_);
+    ROS_INFO("[%s]: %d motors on failed.", ros::this_node::getName().c_str(), drone_id_);
     success = false;
     }
     all_motors_on_ = success; 
@@ -178,7 +245,7 @@ bool ShotExecuterMRS::callTakeOff(){
         success = false;
     } 
     robot_armed_ = success;
-    ROS_INFO_COND("[%s]: Arming called successfully.", ros::this_node::getName().c_str());
+    ROS_INFO("[%s]: Arming called successfully.", ros::this_node::getName().c_str());
   }
   // offboard
   if (!robot_in_offboard_mode_ && success) {

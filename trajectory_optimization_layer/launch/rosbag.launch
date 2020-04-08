@@ -1,0 +1,15 @@
+<launch>
+
+    <node pkg="rosbag" type="record" name="rosbag_record_logs" output="screen"
+	    args="/uav2/diagnostics
+    /uav2/formation_church_planning/desired_pitch
+    /uav2/formation_church_planning/diagnostics
+    /uav2/formation_church_planning/pitch_gimbal
+    /uav2/formation_church_planning/status
+    /formation_controller/controller_state
+    /uav1/diagnostics
+    /uav1/servo_camera/set_pitch
+        "/>
+</launch>
+
+

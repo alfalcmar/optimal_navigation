@@ -8,7 +8,7 @@ extern "C" {
 #define _NAMESPACE_CONCAT(NS, ID) NS ## ID
 #define CASADI_PREFIX(ID) NAMESPACE_CONCAT(CODEGEN_PREFIX, ID)
 #else /* CODEGEN_PREFIX */
-#define CASADI_PREFIX(ID) FORCESNLPsolver_model_100_ ## ID
+#define CASADI_PREFIX(ID) FORCESNLPsolver_model_40_ ## ID
 #endif /* CODEGEN_PREFIX */
 
 #include <math.h>
@@ -31,7 +31,7 @@ static const solver_int32_default CASADI_PREFIX(s2)[] = {1, 1, 0, 1, 0};
 static const solver_int32_default CASADI_PREFIX(s3)[] = {1, 9, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 0, 0, 0};
 #define s3 CASADI_PREFIX(s3)
 /* evaluate_stages */
-solver_int32_default FORCESNLPsolver_model_100(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res) 
+solver_int32_default FORCESNLPsolver_model_40(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res) 
 {
     FORCESNLPsolver_float a0,a1,a2,a3,a4,a5,a6,a7;
     a0=arg[1] ? arg[1][0] : 0;
@@ -48,51 +48,46 @@ solver_int32_default FORCESNLPsolver_model_100(const FORCESNLPsolver_float **arg
     a5=(a5-a6);
     a7=sq(a5);
     a2=(a2+a7);
-    a7=10.;
-    a2=(a7*a2);
     if (res[0]!=0) res[0][0]=a2;
     a0=(a0+a0);
-    a0=(a7*a0);
     a0=(-a0);
     if (res[1]!=0) res[1][0]=a0;
     a3=(a3+a3);
-    a3=(a7*a3);
     a3=(-a3);
     if (res[1]!=0) res[1][1]=a3;
     a5=(a5+a5);
-    a7=(a7*a5);
-    a7=(-a7);
-    if (res[1]!=0) res[1][2]=a7;
-    a7=arg[1] ? arg[1][8] : 0;
-    a1=(a1-a7);
-    a7=sq(a1);
-    a5=arg[1] ? arg[1][9] : 0;
-    a4=(a4-a5);
-    a5=sq(a4);
-    a7=(a7+a5);
-    a5=1.0000000000000000e-03;
-    a7=(a7+a5);
-    a5=sqrt(a7);
-    a3=atan2(a5,a6);
-    if (res[2]!=0) res[2][0]=a3;
+    a5=(-a5);
+    if (res[1]!=0) res[1][2]=a5;
+    a5=arg[1] ? arg[1][8] : 0;
+    a1=(a1-a5);
+    a5=sq(a1);
+    a3=arg[1] ? arg[1][9] : 0;
+    a4=(a4-a3);
+    a3=sq(a4);
+    a5=(a5+a3);
+    a3=1.0000000000000000e-03;
+    a5=(a5+a3);
+    a3=sqrt(a5);
+    a0=atan2(a3,a6);
+    if (res[2]!=0) res[2][0]=a0;
     a1=(a1+a1);
-    a3=sq(a6);
-    a7=(a7+a3);
-    a6=(a6/a7);
-    a3=(a5+a5);
-    a6=(a6/a3);
+    a0=sq(a6);
+    a5=(a5+a0);
+    a6=(a6/a5);
+    a0=(a3+a3);
+    a6=(a6/a0);
     a1=(a1*a6);
     if (res[3]!=0) res[3][0]=a1;
     a4=(a4+a4);
     a4=(a4*a6);
     if (res[3]!=0) res[3][1]=a4;
-    a5=(a5/a7);
-    a5=(-a5);
-    if (res[3]!=0) res[3][2]=a5;
+    a3=(a3/a5);
+    a3=(-a3);
+    if (res[3]!=0) res[3][2]=a3;
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_100_init(solver_int32_default *f_type, solver_int32_default *n_in, solver_int32_default *n_out, solver_int32_default *sz_arg, solver_int32_default *sz_res) 
+solver_int32_default FORCESNLPsolver_model_40_init(solver_int32_default *f_type, solver_int32_default *n_in, solver_int32_default *n_out, solver_int32_default *sz_arg, solver_int32_default *sz_res) 
 {
     *f_type = 1;
     *n_in = 2;
@@ -102,7 +97,7 @@ solver_int32_default FORCESNLPsolver_model_100_init(solver_int32_default *f_type
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_100_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row) 
+solver_int32_default FORCESNLPsolver_model_40_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row) 
 {
     const solver_int32_default *s;
     switch (i) 
@@ -132,7 +127,7 @@ solver_int32_default FORCESNLPsolver_model_100_sparsity(solver_int32_default i, 
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_100_work(solver_int32_default *sz_iw, solver_int32_default *sz_w) 
+solver_int32_default FORCESNLPsolver_model_40_work(solver_int32_default *sz_iw, solver_int32_default *sz_w) 
 {
     if (sz_iw) *sz_iw = 0;
     if (sz_w) *sz_w = 8;

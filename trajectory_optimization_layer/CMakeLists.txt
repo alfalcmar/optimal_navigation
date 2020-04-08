@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   uav_abstraction_layer
   nav_msgs
   mrs_msgs
+  formation_church_planning
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
@@ -64,7 +65,7 @@ set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPso
 add_library(optimal_control_interface_library src/FORCES_PRO.cpp 
 solver/FORCESNLPsolver_casadi2forces.c 
 solver/FORCESNLPsolver_model_1.c
-solver/FORCESNLPsolver_model_100.c
+solver/FORCESNLPsolver_model_40.c
 )
 
 add_executable(optimal_control_interface_node src/backend_FORCES.cpp)

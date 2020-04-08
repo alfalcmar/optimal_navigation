@@ -8,12 +8,9 @@ Panels:
         - /Status1
         - /PointStamped1
         - /Odometry1
-        - /Odometry1/Status1
         - /Odometry2
-        - /Odometry2/Status1
         - /Axes1
         - /Pose1
-        - /Pose1/Status1
       Splitter Ratio: 0.5
     Tree Height: 728
   - Class: rviz/Selection
@@ -111,7 +108,7 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: true
-      Keep: 100
+      Keep: 1
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
@@ -145,7 +142,7 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: true
-      Keep: 100
+      Keep: 1
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
@@ -211,25 +208,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 33.69948196411133
+      Distance: 42.65851593017578
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.2939070463180542
-        Y: -3.4560563564300537
-        Z: -1.977874994277954
+        X: -1.2451986074447632
+        Y: -1.4789518117904663
+        Z: 0.16518282890319824
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6403985023498535
+      Pitch: 0.6147971153259277
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.253593921661377
+      Yaw: 0.09039760380983353
     Saved: ~
 Window Geometry:
   Displays:

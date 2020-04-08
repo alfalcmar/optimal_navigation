@@ -49,8 +49,8 @@ std::vector<int> priority;
 geometry_msgs::TwistStamped own_velocity;
 std::vector<geometry_msgs::Point> target_trajectory;
 ///////// solver params /////////
-const int time_horizon = 100; // time horizon
-const double step_size = 0.1; // seg
+const int time_horizon = 40; // time horizon
+const double step_size = 0.2; // seg
 const int n_states_variables = 9;
 const float hovering_distance = 0.5;
 const int npar = 10;

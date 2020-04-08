@@ -10,6 +10,12 @@
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerPoint.h>
 #include <std_srvs/SetBool.h>
+#include <tf/tf.h>
+#include <formation_church_planning/Trajectory.h>
+#include <formation_church_planning/Point.h>
+#include <formation_church_planning/Diagnostic.h>
+#include <math.h>       /* sqrt */
+
 
 /** this node is a backend to use optimization solvers with ROS for UAVs, 
  * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
@@ -49,7 +55,7 @@
 
 ///////////////////// VARS ///////////////////////////////
 
-std::vector<double> desired_pose{4,4,1}; 
+std::vector<double> desired_pose{4,4,1,0}; 
 std::vector<double> desired_vel{0,0,0};
 std::vector<double> obst{0,0};  //TODO change to map
 std::vector<double> target_vel = {0, 0};
@@ -64,16 +70,23 @@ ros::Publisher target_path_rviz_pub;
 ros::Publisher path_no_fly_zone;
 ros::Publisher desired_pose_publisher;
 ros::Publisher solved_trajectory_pub;
+ros::Publisher solved_trajectory_MRS_pub;
 ros::Publisher mrs_trajectory_tracker_pub;
+ros::Publisher diagnostics_pub;
+ros::ServiceServer service_for_activation;
 
 std::map<int,bool> trajectory_solved_received;
 std::map<int, ros::Subscriber> drone_pose_sub;
 std::map<int, ros::Subscriber> drone_trajectory_sub;
 std::map<int, bool> has_poses; //has_poses[0] -> target
 uav_abstraction_layer::State ual_state;
-int solver_success;
+int solver_success = false;
+bool  is_initialized = false;
+ros::Timer timer;
 
-
+bool activated = false;
+bool first_activation_ = true;
+bool planning_done_ = false;
 // TODO construct a class called UAV interface and heritage methods for target pose callback and use overload depending on mrs system or us system
 // memebers that are sent to the solver must be pulic
 
@@ -96,9 +109,19 @@ void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
  */
 void desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {   
+    tf::Quaternion q(   
+        msg->pose.pose.orientation.x,
+        msg->pose.pose.orientation.y,
+        msg->pose.pose.orientation.z,
+        msg->pose.pose.orientation.w);
+    tf::Matrix3x3 m(q);
+    double roll,pitch,yaw;
+    m.getRPY(roll, pitch, yaw);
+
     desired_pose[0] = msg->pose.pose.position.x;
     desired_pose[1] = msg->pose.pose.position.y;
     desired_pose[2] = height;
+    desired_pose[3] = yaw;
     ROS_INFO("Desired pose received: x: %f y: %f z: %f",desired_pose[0],desired_pose[1],desired_pose[2]);
 }
 
@@ -162,16 +185,20 @@ void targetCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real ta
 /** \brief This function publish the calculated trajectory to be read by other drones
  *  \param x y z vx vy vz       last calculated trajectory
 */
-void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
+void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz, const std::vector<double> &yaw,const std::vector<double> &pitch){
     
     optimal_control_interface::Solver traj;
     geometry_msgs::PoseStamped pos;
     geometry_msgs::Twist vel;
 
     mrs_msgs::TrackerPoint aux_point;
+    formation_church_planning::Point aux_point_for_followers;
     mrs_msgs::TrackerTrajectory traj_to_command;
+    formation_church_planning::Trajectory traj_to_followers;
     traj_to_command.fly_now = true;
+    traj_to_command.use_yaw = true;
     for(int i=0;i<x.size(); i++){
+        //trajectory to visualize
         pos.pose.position.x = x[i];
         pos.pose.position.y = y[i];
         pos.pose.position.z = z[i];
@@ -180,14 +207,62 @@ void publishTrajectory(const std::vector<double> &x, const std::vector<double> &
         vel.linear.y = vy[i];
         vel.linear.z = vz[i];
         traj.velocities.push_back(vel);
-
+        //trajectory to command
         aux_point.x = x[i];
         aux_point.y = y[i];
         aux_point.z = z[i];
+        aux_point.yaw = yaw[i];
+        //trajectory to followers
+        aux_point_for_followers.x = x[i];
+        aux_point_for_followers.y = y[i];
+        aux_point_for_followers.z = z[i];
+        aux_point_for_followers.yaw = yaw[i];
+        aux_point_for_followers.pitch = pitch[i];
+        aux_point_for_followers.phi = 0.0;
+        aux_point_for_followers.mode = 1;
+
+        traj_to_followers.points.push_back(aux_point_for_followers);
         traj_to_command.points.push_back(aux_point);
-    }   
+    }
+    solved_trajectory_MRS_pub.publish(traj_to_followers);   
     mrs_trajectory_tracker_pub.publish(traj_to_command);
     solved_trajectory_pub.publish(traj);
+}
+
+
+/** utility function to move yaw pointing the target*/
+std::vector<double> predictingPitch(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
+    
+    std::vector<double> pitch;
+    
+    Eigen::Vector3f target_pose_aux;
+    Eigen::Vector3f drone_pose_aux;
+    Eigen::Vector3f q_camera_target;
+    for(int i=0;i<time_horizon;i++){
+        target_pose_aux = Eigen::Vector3f(target_trajectory[i].x,target_trajectory[i].y,0);
+        drone_pose_aux = Eigen::Vector3f(wps_x[i],wps_y[i],wps_z[i]);
+        q_camera_target = drone_pose_aux-target_pose_aux;
+        float aux_sqrt = sqrt(pow(q_camera_target[0], 2.0)+pow(q_camera_target[1],2.0));
+        pitch.push_back(1.57- atan2(aux_sqrt,q_camera_target[2]));
+    }  
+    return pitch;
+}
+
+/** utility function to move yaw pointing the target*/
+std::vector<double> predictingYaw(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
+    
+    std::vector<double> yaw;
+    
+    Eigen::Vector3f target_pose_aux;
+    Eigen::Vector3f drone_pose_aux;
+    Eigen::Vector3f q_camera_target;
+    for(int i=0;i<time_horizon;i++){
+        target_pose_aux = Eigen::Vector3f(target_trajectory[i].x,target_trajectory[i].y,0);
+        drone_pose_aux = Eigen::Vector3f(wps_x[i],wps_y[i],wps_z[i]);
+        q_camera_target = drone_pose_aux-target_pose_aux;
+        yaw.push_back(atan2(-q_camera_target[1],-q_camera_target[0]));
+    }
+    return yaw;
 }
 /**  \brief Construct a nav_msgs_path and publish to visualize through rviz
  *   \param wps_x, wps_y, wps_z     last calculated path
@@ -323,6 +398,67 @@ bool checkConnectivity(){
     }
 }
 
+/*//{ diagTimer() */
+void diagTimer(const ros::TimerEvent &event) {
+  if (!is_initialized){
+    return;
+  }
+  formation_church_planning::Diagnostic diag_msg;
+  diag_msg.header.stamp               = ros::Time::now();
+  diag_msg.uav_name                   = "uav"+std::to_string(drone_id);
+  diag_msg.robot_role                 = "leader";
+  diag_msg.state                      = "waiting_in_initial_position";
+  diag_msg.flying_mode                = "1";
+  diag_msg.ready                      = true;
+  diag_msg.dist_from_desired_position = 0;
+  diag_msg.last_time_solution_found = ros::Time::now() - ros::Time::now(); // alternatively: ros::Duration(0, 0);
+  diag_msg.planning_activated = true;
+  diag_msg.planning_finished  = true;
+  try {
+    ROS_INFO_ONCE("[%s]: Publishing diag message.", ros::this_node::getName().c_str());
+    diagnostics_pub.publish(diag_msg);
+  }
+  catch (...) {
+    ROS_ERROR("Exception caught during publishing topic %s.", diagnostics_pub.getTopic().c_str());
+  }
+}
+
+bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+  ROS_INFO("[%s]: Activation service called.", ros::this_node::getName().c_str());
+  if (first_activation_) {
+    ROS_INFO("[%s]: Initial pose set.", ros::this_node::getName().c_str());
+    //setInitialPose();
+    first_activation_ = false;
+  }
+  if (activated == req.data) {
+    res.success = false;
+    if (req.data) {
+      res.message = "Planning is already activated.";
+      ROS_ERROR("%s", res.message.c_str());
+    } else {
+      res.message = "Planning is already deactivated.";
+      ROS_ERROR("%s", res.message.c_str());
+    }
+    return true;
+  }
+  if (req.data) {
+    if (!planning_done_) {
+      res.message = "Planning activated.";
+      res.success = true;
+      ROS_WARN("%s", res.message.c_str());
+      activated = req.data;
+    } else {
+      res.message = "Planning cannot be activated because it is finished. Call reset service.";
+      res.success = false;
+      ROS_ERROR("%s", res.message.c_str());
+    }
+  } else {
+    res.message = "Planning deactivated.";
+    res.success = true;
+    ROS_WARN("%s", res.message.c_str());
+    activated = req.data;
+  }
+}
 
 /** \brief Function to initialize the solver. This function heck if the drone is subscribed to the others drone poses and target**/
 bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
@@ -368,9 +504,12 @@ bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
     mrs_trajectory_tracker_pub = nh.advertise<mrs_msgs::TrackerTrajectory>("control_manager/mpc_tracker/set_trajectory",1);
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point",1);
     solved_trajectory_pub = pnh.advertise<optimal_control_interface::Solver>("trajectory",1);
+    solved_trajectory_MRS_pub = nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
     path_rviz_pub = pnh.advertise<nav_msgs::Path>("path",1);
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
+    diagnostics_pub = nh.advertise<formation_church_planning::Diagnostic>("formation_church_planning/diagnostics",1);
+    service_for_activation = nh.advertiseService("formation_church_planning/toggle_state", activationServiceCallback);
 
     // TODO integrate it into the class UAL interface
     // pose and trajectory subscriptions
@@ -398,8 +537,11 @@ bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
         ROS_INFO("Solver %d is not ready",drone_id);
     }
 
+    is_initialized = true;
     ROS_INFO("Solver %d is ready", drone_id);
     // TODO check target pose
+    timer = nh.createTimer(ros::Duration(0.5), diagTimer);
+
     
 }
 
@@ -422,26 +564,30 @@ int main(int _argc, char **_argv)
     if(!init(pnh, nh)){ // if the solver is correctly initialized
         // main loop
         while(ros::ok()){
-            // solver function
-            x.clear();
-            y.clear();
-            z.clear();
-            vx.clear();
-            vy.clear();
-            vz.clear();
-            // call the solver function
-            solver_success = solverFunction(x,y,z,vx,vy,vz, desired_pose, desired_vel, obst,target_vel);
-            // TODO: why the definition of theses function are not here? This node should contain
-            // every function that can be used with various solvers
-            if(solver_success){
-                publishTrajectory(x,y,z,vx,vy,vz);
+            if(activated){
+                // solver function
+                x.clear();
+                y.clear();
+                z.clear();
+                vx.clear();
+                vy.clear();
+                vz.clear();
+                // call the solver function
+                solver_success = solverFunction(x,y,z,vx,vy,vz, desired_pose, desired_vel, obst,target_vel);
+                // TODO: why the definition of theses function are not here? This node should contain
+                // every function that can be used with various solvers
+                if(solver_success==1){
+                    std::vector<double> yaw = predictingYaw(x,y,z,target_trajectory);
+                    std::vector<double> pitch = predictingPitch(x,y,z,target_trajectory);
+                    publishTrajectory(x,y,z,vx,vy,vz,yaw,pitch);
+                }
+                logToCsv(x,y,z,vx,vy,vz);
+                target_path_rviz_pub.publish(targetPathVisualization()); 
+                publishDesiredPoint(desired_pose[0], desired_pose[1], desired_pose[2]);
+                publishPath(x,y,z);  
             }
-            logToCsv(x,y,z,vx,vy,vz);
-            target_path_rviz_pub.publish(targetPathVisualization()); 
-            publishDesiredPoint(desired_pose[0], desired_pose[1], desired_pose[2]);
-            publishPath(x,y,z);
             ros::spinOnce();
-            sleep(5);
+            sleep(2);
         }
     }else{
         ros::shutdown();
