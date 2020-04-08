@@ -1,105 +1,13 @@
-#include "FORCESNLPsolver.h"
-#include <ros/ros.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
-#include <uav_abstraction_layer/TakeOff.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <uav_abstraction_layer/GoToWaypoint.h>
-#include <FORCES_PRO.h>
-#include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/TrackerPoint.h>
-#include <std_srvs/SetBool.h>
-#include <tf/tf.h>
-#include <formation_church_planning/Trajectory.h>
-#include <formation_church_planning/Point.h>
-#include <formation_church_planning/Diagnostic.h>
-#include <math.h>       /* sqrt */
+#include<backendSolver.h>
 
-
-/** this node is a backend to use optimization solvers with ROS for UAVs, 
- * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
- * to interface with the rest of the nodes.
- * In summary this node contains the following:
- * Callback for interfacing with the rest of the nodes:
- *     Callback for other's calculated trajectories
- *     Callback for Drones's pose
- *     Callback for Target Pose
- *     Callback for the desired pose (In this case is received from the shot executer)
- *
- * 
- * functions for visualization and logging the output of this solver
- *   
- * 
- * Receive parameters that the user can change:
- *      Target topic
- *      Drone ids
- *      Own dron id
- * 
- * Initialize the optimal control interface node
- * Each solver frequency:
- *      clear the trajectories
- *      call the solver
- *      if the solver's call is successfully, send the trajectories to the trajectory follower
- * 
- * 
- * 
- * The variables to communicate with the solver library are:
- *     uavs_trajectory[id, solver]
- *     uavs_poses[id, pose]
- *     target_pose
- *     target_trajectory[]
- * **/
-
-
-
-///////////////////// VARS ///////////////////////////////
-
-std::vector<double> desired_pose{4,4,1,0}; 
-std::vector<double> desired_vel{0,0,0};
-std::vector<double> obst{0,0};  //TODO change to map
-std::vector<double> target_vel = {0, 0};
-float solver_rate;
-ros::Subscriber uav_odometry_sub;
-ros::Subscriber uav_state_sub;
-ros::Subscriber target_array_sub;
-ros::Subscriber sub_velocity;
-ros::Subscriber desired_pose_sub;
-ros::Publisher path_rviz_pub;
-ros::Publisher target_path_rviz_pub;
-ros::Publisher path_no_fly_zone;
-ros::Publisher desired_pose_publisher;
-ros::Publisher solved_trajectory_pub;
-ros::Publisher solved_trajectory_MRS_pub;
-ros::Publisher mrs_trajectory_tracker_pub;
-ros::Publisher diagnostics_pub;
-ros::ServiceServer service_for_activation;
-
-std::map<int,bool> trajectory_solved_received;
-std::map<int, ros::Subscriber> drone_pose_sub;
-std::map<int, ros::Subscriber> drone_trajectory_sub;
-std::map<int, bool> has_poses; //has_poses[0] -> target
-uav_abstraction_layer::State ual_state;
-int solver_success = false;
-bool  is_initialized = false;
-ros::Timer timer;
-
-bool activated = false;
-bool first_activation_ = true;
-bool planning_done_ = false;
-// TODO construct a class called UAV interface and heritage methods for target pose callback and use overload depending on mrs system or us system
-// memebers that are sent to the solver must be pulic
-
-
-
-
-
+backendSolver::backendSolver(){
+    ROS_INFO("backend solver constructor");
+}
 ///////////////////// Callbacks //////////////////////////
-
 
 /** \brief Callback for the target pose
  */
-void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
+void backendSolver::targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {   
     has_poses[0] = true;
     target_pose.pose = msg->pose.pose;
@@ -107,7 +15,7 @@ void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 
 /** \brief Callback for the desired pose (provided by shot executer)
  */
-void desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
+void backendSolver::desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {   
     tf::Quaternion q(   
         msg->pose.pose.orientation.x,
@@ -127,7 +35,7 @@ void desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 
 /** \brief uav odometry callback (mrs system)
  */
-void uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
+void backendSolver::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     own_velocity.twist = msg->twist.twist;
     uavs_pose[drone_id].pose = msg->pose.pose;
@@ -136,14 +44,14 @@ void uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
 
 /** \brief Drone velocity callback
  */
-void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+void backendSolver::ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 {
     own_velocity.twist = msg->twist;
 }
 
 /** \brief This callback receives the solved trajectory of uavs
  */
-void uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg, int id){
+void backendSolver::uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg, int id){
     uavs_trajectory[id].positions.clear();
     uavs_trajectory[id].velocities.clear();
     uavs_trajectory[id].accelerations.clear();
@@ -156,7 +64,7 @@ void uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &ms
 
 /** \brief callback for the pose of uavs
  */
-void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
+void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
     has_poses[id] = true;
     if(!trajectory_solved_received[id]){
         for(int i=0; i<time_horizon;i++){
@@ -173,7 +81,7 @@ void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id){
 
 /** \brief target pose callback
  */
-void targetCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
+void backendSolver::targetCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
 {
     has_poses[0] = true;
 
@@ -185,7 +93,7 @@ void targetCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real ta
 /** \brief This function publish the calculated trajectory to be read by other drones
  *  \param x y z vx vy vz       last calculated trajectory
 */
-void publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz, const std::vector<double> &yaw,const std::vector<double> &pitch){
+void backendSolver::publishTrajectory(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz, const std::vector<double> &yaw,const std::vector<double> &pitch){
     
     optimal_control_interface::Solver traj;
     geometry_msgs::PoseStamped pos;
@@ -231,7 +139,7 @@ void publishTrajectory(const std::vector<double> &x, const std::vector<double> &
 
 
 /** utility function to move yaw pointing the target*/
-std::vector<double> predictingPitch(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
+std::vector<double> backendSolver::predictingPitch(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
     
     std::vector<double> pitch;
     
@@ -249,7 +157,7 @@ std::vector<double> predictingPitch(const std::vector<double> &wps_x, const std:
 }
 
 /** utility function to move yaw pointing the target*/
-std::vector<double> predictingYaw(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
+std::vector<double> backendSolver::predictingYaw(const std::vector<double> &wps_x, const std::vector<double> &wps_y, const std::vector<double> &wps_z, const std::vector<geometry_msgs::Point> &target_trajectory){
     
     std::vector<double> yaw;
     
@@ -268,7 +176,7 @@ std::vector<double> predictingYaw(const std::vector<double> &wps_x, const std::v
  *   \param wps_x, wps_y, wps_z     last calculated path
  */
 
-void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z) {
+void backendSolver::publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z) {
     nav_msgs::Path msg;
     std::vector<geometry_msgs::PoseStamped> poses(wps_x.size());
     msg.header.frame_id = "uav1/gps_origin";
@@ -289,7 +197,7 @@ void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::ve
 /** \brief this function publish the desired pose in a ros point type
  *  \param x,y,z        Desired pose
  */
-void publishDesiredPoint(const double x, const double y,const double z){
+void backendSolver::publishDesiredPoint(const double x, const double y,const double z){
     geometry_msgs::PointStamped desired_point;
     desired_point.point.x = x;
     desired_point.point.y = y;
@@ -302,7 +210,7 @@ void publishDesiredPoint(const double x, const double y,const double z){
 /** \brief Construct the no fly zone approximated by a tetrahedron to visualize it on RVIZ 
  *  \param  2D points
 */
-void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]){
+void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]){
     nav_msgs::Path msg;
     msg.header.frame_id = "uav1/gps_origin";
 
@@ -339,7 +247,7 @@ void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], do
 /** \brief function for logging the calculated trajectory to csv file
  *  \param x,y,z,vx,vy,vz        calculated trajectory
  */
-void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
+void backendSolver::logToCsv(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz){
     // logging all results
     csv_pose<<std::endl;
      for(int i=0; i<x.size(); i++){
@@ -350,7 +258,7 @@ void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const 
 
 /** \brief function to visualize the predicted target path
  */
-nav_msgs::Path targetPathVisualization()
+nav_msgs::Path backendSolver::targetPathVisualization()
 {
     nav_msgs::Path msg;
     std::vector<geometry_msgs::PoseStamped> poses(target_trajectory.size());
@@ -371,7 +279,7 @@ nav_msgs::Path targetPathVisualization()
  *  \TODO use or remove
  */
 
-void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
+void backendSolver::ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
     ual_state.state = msg->state;
 }
 
@@ -381,7 +289,7 @@ void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
 /** \brief Function to check connectivity between nodes
  * \TODO check target pose
  */
-bool checkConnectivity(){
+bool backendSolver::checkConnectivity(){
     // check the connectivity with drones and target
     bool connectivity_done = false;
     int cont = 0;   
@@ -399,7 +307,7 @@ bool checkConnectivity(){
 }
 
 /*//{ diagTimer() */
-void diagTimer(const ros::TimerEvent &event) {
+void backendSolver::diagTimer(const ros::TimerEvent &event) {
   if (!is_initialized){
     return;
   }
@@ -423,7 +331,7 @@ void diagTimer(const ros::TimerEvent &event) {
   }
 }
 
-bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool backendSolver::activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
   ROS_INFO("[%s]: Activation service called.", ros::this_node::getName().c_str());
   if (first_activation_) {
     ROS_INFO("[%s]: Initial pose set.", ros::this_node::getName().c_str());
@@ -461,7 +369,7 @@ bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBoo
 }
 
 /** \brief Function to initialize the solver. This function heck if the drone is subscribed to the others drone poses and target**/
-bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
+bool backendSolver::init(ros::NodeHandle pnh, ros::NodeHandle nh){
     // parameters
     pnh.param<float>("solver_rate", solver_rate, 0.5); // solver rate
     std::string target_topic;
@@ -497,9 +405,9 @@ bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
     // subscripions
     //sub_velocity = pnh.subscribe<geometry_msgs::TwistStamped>("ual/velocity",1,ownVelocityCallback);
     //uav_state_sub = pnh.subscribe<uav_abstraction_layer::State>("ual/state",1,ualStateCallback); //ual state
-    uav_odometry_sub = nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, uavCallback);
-    target_array_sub = pnh.subscribe<geometry_msgs::PoseStamped>(target_topic, 1, targetCallback); //target pose
-    desired_pose_sub = nh.subscribe<nav_msgs::Odometry>("desired_pose",1,desiredPoseCallback); // desired pose from shot executer
+    uav_odometry_sub = nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &backendSolver::uavCallback,this);
+    target_array_sub = pnh.subscribe<geometry_msgs::PoseStamped>(target_topic, 1, &backendSolver::targetCallback,this); //target pose
+    desired_pose_sub = nh.subscribe<nav_msgs::Odometry>("desired_pose",1,&backendSolver::desiredPoseCallback,this); // desired pose from shot executer
     // publishers
     mrs_trajectory_tracker_pub = nh.advertise<mrs_msgs::TrackerTrajectory>("control_manager/mpc_tracker/set_trajectory",1);
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point",1);
@@ -509,7 +417,7 @@ bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
     diagnostics_pub = nh.advertise<formation_church_planning::Diagnostic>("formation_church_planning/diagnostics",1);
-    service_for_activation = nh.advertiseService("formation_church_planning/toggle_state", activationServiceCallback);
+    service_for_activation = nh.advertiseService("formation_church_planning/toggle_state", &backendSolver::activationServiceCallback,this);
 
     // TODO integrate it into the class UAL interface
     // pose and trajectory subscriptions
@@ -540,56 +448,8 @@ bool init(ros::NodeHandle pnh, ros::NodeHandle nh){
     is_initialized = true;
     ROS_INFO("Solver %d is ready", drone_id);
     // TODO check target pose
-    timer = nh.createTimer(ros::Duration(0.5), diagTimer);
 
     
 }
 
-int main(int _argc, char **_argv)
-{
 
-    // ros node initialization
-    ros::init(_argc, _argv,"solver");
-    ros::NodeHandle pnh = ros::NodeHandle("~");
-    ros::NodeHandle nh;
-
-    // TODO include or not calls to the uav from this node
-    //go_to_waypoint_client = pnh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
-    // take_off_srv = pnh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-    // ros::Subscriber target_pose_sub = pnh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallback);
-    //set_velocity_pub = pnh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
-
-
-    // init solver
-    if(!init(pnh, nh)){ // if the solver is correctly initialized
-        // main loop
-        while(ros::ok()){
-            if(activated){
-                // solver function
-                x.clear();
-                y.clear();
-                z.clear();
-                vx.clear();
-                vy.clear();
-                vz.clear();
-                // call the solver function
-                solver_success = solverFunction(x,y,z,vx,vy,vz, desired_pose, desired_vel, obst,target_vel);
-                // TODO: why the definition of theses function are not here? This node should contain
-                // every function that can be used with various solvers
-                if(solver_success==1){
-                    std::vector<double> yaw = predictingYaw(x,y,z,target_trajectory);
-                    std::vector<double> pitch = predictingPitch(x,y,z,target_trajectory);
-                    publishTrajectory(x,y,z,vx,vy,vz,yaw,pitch);
-                }
-                logToCsv(x,y,z,vx,vy,vz);
-                target_path_rviz_pub.publish(targetPathVisualization()); 
-                publishDesiredPoint(desired_pose[0], desired_pose[1], desired_pose[2]);
-                publishPath(x,y,z);  
-            }
-            ros::spinOnce();
-            sleep(2);
-        }
-    }else{
-        ros::shutdown();
-    }
-}

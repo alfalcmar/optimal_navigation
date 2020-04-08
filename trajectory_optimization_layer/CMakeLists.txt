@@ -36,7 +36,7 @@ geometry_msgs
 
 catkin_package(
  INCLUDE_DIRS include
-  LIBRARIES 
+  LIBRARIES backend_solver_library
   CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer
 )
 
@@ -45,6 +45,7 @@ catkin_package(
 
 include_directories(
   include
+  LIBRARIES backend_solver_library
   lib
   solver
   solver/FORCESNLPsolver/lib
@@ -68,12 +69,18 @@ solver/FORCESNLPsolver_model_1.c
 solver/FORCESNLPsolver_model_40.c
 )
 
-add_executable(optimal_control_interface_node src/backend_FORCES.cpp)
+## Declare a C++ library
+add_library(backend_solver_library
+  src/backendSolver.cpp
+)
+
+
+add_executable(optimal_control_interface_node src/solver_node.cpp)
 
 
 
 
-target_link_libraries(optimal_control_interface_node optimal_control_interface_library)
+target_link_libraries(optimal_control_interface_node backend_solver_library optimal_control_interface_library)
 
 
 target_link_libraries(optimal_control_interface_node 
