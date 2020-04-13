@@ -14,88 +14,17 @@ extern "C"
 #endif
 
 
-///////////////// UTILITY FUNCTIONS ////////////////////
-
-/** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
- *  \param desired_pos      This is the desired pose
- *  \param last_traj_pos    This is the last point of the calculated trajectory
- *  \return                 it will return true if the calculated trajectory reach the desired position
- */
-bool desiredPoseReached(const std::vector<double> desired_pos, const std::vector<double> last_traj_pos){
-    Eigen::Vector3f desired_pose = Eigen::Vector3f(desired_pos[0],desired_pos[1],desired_pos[2]);
-    Eigen::Vector3f final_pose = Eigen::Vector3f(last_traj_pos[0],last_traj_pos[1],last_traj_pos[2]);
-    if((desired_pose-final_pose).norm()<REACHING_TOLERANCE){
-        return true;
-    }else{
-        return false;
-    }
-}
-
-/** \brief Utility function to predict the trajectory of the target along the N steps
- *  \param target_init_pose     actual target position
- *  \param target_vel           actual target velocity
- *  \param target_trajectory    this variable will contain the predicted trajectory
- *  \TODO Predict target trajectory with actual pose and velocity
- */
-void targetTrajectory(const std::vector<double> target_init_pose, std::vector<double> &target_vel, std::vector<geometry_msgs::Point> &target_trajectory){
-    
-    target_trajectory.clear();
-    double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
-    //double target_vel_module = 0.5;
-    //const std::vector<double> target_final_pose{40.0,-42.0}; 
-
-    //target_vel[0] = target_vel_module*(target_final_pose[0]-target_init_pose[0])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
-    //target_vel[1] = target_vel_module*(target_final_pose[1]-target_init_pose[1])/sqrt(pow((target_final_pose[1]-target_init_pose[1]),2)+pow((target_final_pose[0]-target_init_pose[0]),2));
-    geometry_msgs::Point aux;
-    for(int i=0; i<time_horizon;i++){
-        aux.x = target_init_pose[0] + step_size*i*target_vel[0];
-        aux.y = target_init_pose[1] + step_size*i*target_vel[1];
-        target_trajectory.push_back(aux);
-    }
-}
-
-/** \brief Utility function to get quaternion from pitch, roll, yaw
- */
-geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw)
-{
-	geometry_msgs::Quaternion q;
-        // Abbreviations for the various angular functions
-	double cy = cos(yaw * 0.5);
-	double sy = sin(yaw * 0.5);
-	double cr = cos(roll * 0.5);
-	double sr = sin(roll * 0.5);
-	double cp = cos(pitch * 0.5);
-	double sp = sin(pitch * 0.5);
-
-	q.w = cy * cr * cp + sy * sr * sp;
-	q.x = cy * sr * cp - sy * cr * sp;
-	q.y = cy * cr * sp + sy * sr * cp;
-	q.z = sy * cr * cp - cy * sr * sp;
-	return q;
-}
-
 
 /** \brief Utility function to save parameters of the solver in a CSV file
  *  \param params       these params were sent to the solver
  */
 void saveParametersToCsv(const FORCESNLPsolver_params &params){
-    csv_debug<<"Time horizon"<<time_horizon<<std::endl;
+    const int x = 0;
+    const int y = 1;
     csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
-    csv_debug<<"My pose: "<<uavs_pose[1].pose.position.x<<", "<<uavs_pose[1].pose.position.y<<", "<<uavs_pose[1].pose.position.z<<std::endl;
-    //logging inter-uavs pose
-    if(multi){
-        csv_debug<<"Drone 2: "<<uavs_pose[2].pose.position.x <<", "<< uavs_pose[2].pose.position.y<< ", "<<uavs_pose[2].pose.position.z<<", "<< std::endl;
-        csv_debug<<"Drone 3: "<<uavs_pose[3].pose.position.x <<", "<< uavs_pose[3].pose.position.y<<", "<< uavs_pose[3].pose.position.z<<", "<< std::endl;
-    }
     // logging initial constarint
     csv_debug<<"initial constraint: "<<params.xinit[0]<<", "<<params.xinit[1]<<", "<<params.xinit[2]<<", "<<params.xinit[3]<<", "<<params.xinit[4]<<", "<<params.xinit[5]<<std::endl;
-    if(target){ // logging target trajectory
-        csv_debug<<"Target pose: "<<target_pose.pose.position.x<<", "<<target_pose.pose.position.y<<", "<<std::endl;
-        csv_debug<<std::endl<<std::endl<<"Target trajectory"<<std::endl;
-        for(int i=0; i<target_trajectory.size();i++){
-            csv_debug<<target_trajectory[i].x<<", "<<target_trajectory[i].y<<", "<<target_trajectory[i].z<<std::endl;
-        }
-    }
+
     //logging initial guess
     csv_debug<<std::endl<<std::endl<<"Initial guess: "<<std::endl;
     csv_debug<<"Number os guesses: "<<sizeof(params.x0)/sizeof(params.x0[0]);
@@ -112,16 +41,11 @@ void saveParametersToCsv(const FORCESNLPsolver_params &params){
 }
 
 
-/** \brief This function fill the solver inputs and call it
- *  \param x y z vx vy vz       These are the variables where the calculated path will place
- *  \param desired_pose         Desired position
- *  \param obst                 No fly zone
- *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
- *  \TODO m                     manage priorities by drones (ID)
-*/
+ 
+int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
 
-int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> &desired_vel, std::vector<double> &obst, std::vector<double> &target_vel){
-
+    const int p_x = 0;
+    const int p_y = 1;  
     /* declare FORCES variables and structures */
     FORCESNLPsolver_info myinfo;
     FORCESNLPsolver_params myparams;
@@ -135,28 +59,13 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
 
     // set initial postion and velocity
     ros::spinOnce();
-    myparams.xinit[0] = uavs_pose[drone_id].pose.position.x;
-    myparams.xinit[1] = uavs_pose[drone_id].pose.position.y;
-    myparams.xinit[2] = uavs_pose[drone_id].pose.position.z;
-    //TODO review if saturate velocities is necesary
-    if(own_velocity.twist.linear.x>1){
-        own_velocity.twist.linear.x = 1.0;
-    }else if(own_velocity.twist.linear.x<-1.0){
-        own_velocity.twist.linear.x = -1.0;
-    }
-    if(own_velocity.twist.linear.y>1.0){
-        own_velocity.twist.linear.y = 1.0;    
-    }else if(own_velocity.twist.linear.y<-1){
-        own_velocity.twist.linear.y = -1.0;
-    }
-    if(own_velocity.twist.linear.z>1.0){
-        own_velocity.twist.linear.z = 1.0;    
-    }else if(own_velocity.twist.linear.z<-1.0){
-        own_velocity.twist.linear.z = -1.0;
-    }
-    myparams.xinit[3] = own_velocity.twist.linear.x;
-    myparams.xinit[4] = own_velocity.twist.linear.y;
-    myparams.xinit[5] = own_velocity.twist.linear.z;
+    myparams.xinit[0] = uavs_pose[drone_id].pose.pose.position.x;
+    myparams.xinit[1] = uavs_pose[drone_id].pose.pose.position.y;
+    myparams.xinit[2] = uavs_pose[drone_id].pose.pose.position.z;
+ 
+    myparams.xinit[3] = uavs_pose[drone_id].twist.twist.linear.x;
+    myparams.xinit[4] = uavs_pose[drone_id].twist.twist.linear.y;
+    myparams.xinit[5] = uavs_pose[drone_id].twist.twist.linear.z;
 
     // set initial guess
     std::vector<double> x0;
@@ -174,20 +83,18 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
     }
 
     std::vector<double> params;
-    if(target){  // calculate the target trajectory if it exists
-        std::vector<double> target_initial_pose{target_pose.pose.position.x, target_pose.pose.position.y};
-        targetTrajectory(target_initial_pose,target_vel,target_trajectory);
-    }
+
     // parameters
     for(int i=0;i<time_horizon; i++){
         // desired position
-        for(int j=0; j<3; j++){
-            params.push_back(desired_wp[j]);
-        }
+        params.push_back(desired_odometry.pose.pose.position.x);
+        params.push_back(desired_odometry.pose.pose.position.y);
+        params.push_back(desired_odometry.pose.pose.position.z);
+        
         // desired velocity
-        for(int j=0; j<3; j++){
-            params.push_back(desired_vel[j]);
-        }   
+        params.push_back(desired_odometry.twist.twist.linear.x);
+        params.push_back(desired_odometry.twist.twist.linear.y);
+        params.push_back(desired_odometry.twist.twist.linear.z);
     
         if(target){ // if target included
             // set parameters
@@ -195,11 +102,11 @@ int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<d
             //this function should be executed by action executer
             //calculateDesiredPoint(shooting_action_type, target_vel, desired_wp, desired_vel);
             // target velocity
-            params.push_back(target_vel[0]);
-            params.push_back(target_vel[1]);
+            params.push_back(target_trajectory[i].twist.twist.linear.x);
+            params.push_back(target_trajectory[i].twist.twist.linear.y);
             // target position
-            params.push_back(target_trajectory[i].x);
-            params.push_back(target_trajectory[i].y);
+            params.push_back(target_trajectory[i].pose.pose.position.x);
+            params.push_back(target_trajectory[i].pose.pose.position.y);
             
         }
         if(multi){

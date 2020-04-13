@@ -19,37 +19,13 @@
 #include <optimal_control_interface/Solver.h>
 
 
-// global vars
 //////////// Solver variables /////////////
-const double REACHING_TOLERANCE = 2.0;
-// solver output
-std::vector<double> x;   
-std::vector<double> y;
-std::vector<double> z;
-std::vector<double> vx;
-std::vector<double> vy;
-std::vector<double> vz;
-
-/// solver inputs
-
-geometry_msgs::PoseStamped target_pose;
-std::map<int,geometry_msgs::PoseStamped> uavs_pose;
-std::map<int,optimal_control_interface::Solver> uavs_trajectory;
-
-int drone_id;
-std::vector<int> drones;
-
-
 // solver options
-const bool target = true;
-const bool multi = false;
+const int time_horizon = 40;
 const bool no_fly_zone = false;
 const bool debug = true;
 std::vector<int> priority;
-geometry_msgs::TwistStamped own_velocity;
-std::vector<geometry_msgs::Point> target_trajectory;
 ///////// solver params /////////
-const int time_horizon = 40; // time horizon
 const double step_size = 0.2; // seg
 const int n_states_variables = 9;
 const float hovering_distance = 0.5;
@@ -98,6 +74,12 @@ std::ofstream csv_debug; // logging the trajectory
 std::ofstream csv_record; // logging the trajectory
 
 
-int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> &desired_vel, std::vector<double> &obst, std::vector<double> &target_vel);
-geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw);
-void logToCsv(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &vx, const std::vector<double> &vy, const std::vector<double> &vz);
+
+/** \brief This function fill the solver inputs and call it
+ *  \param x y z vx vy vz       These are the variables where the calculated path will place
+ *  \param desired_pose         Desired position
+ *  \param obst                 No fly zone
+ *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
+ *  \TODO m                     manage priorities by drones (ID)
+*/
+int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, const int drone_id = 1, const bool target = true, const bool multi = false);
