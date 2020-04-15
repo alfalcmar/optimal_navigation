@@ -81,6 +81,8 @@ class backendSolver{
         int solver_success = false;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
+        const double step_size = 0.2;               /**< step size (seg) */
+
         std::vector<int> drones;
         // services and topics
         ros::Subscriber target_array_sub;           /**< Subscriber to target topic */
@@ -105,7 +107,12 @@ class backendSolver{
         std::thread main_thread_;                   /**< Main thread that calls the solver*/
 
         const int TARGET = 0;                   /**< has_poses[TARGET] */
+    
+        std::ofstream csv_pose;                 /**< object to log the trajectory */  
+        std::ofstream csv_record;               /**< object to log parameters */
 
+        FORCESPROsolver solver_;                /**< solver object */
+ 
         ///////////////// CALLBACKS MEMBERS ///////////////////////////////
         /*!  \brief callback for the desired pose. This function receives the pose in quaternion
          *   \param msg

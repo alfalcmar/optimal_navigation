@@ -15,10 +15,13 @@ extern "C"
 
 
 
+FORCESPROsolver::FORCESPROsolver(){
+    ROS_INFO("FORCES PRO solver constructor");
+}
 /** \brief Utility function to save parameters of the solver in a CSV file
  *  \param params       these params were sent to the solver
  */
-void saveParametersToCsv(const FORCESNLPsolver_params &params){
+void FORCESPROsolver::saveParametersToCsv(const FORCESNLPsolver_params &params){
     const int x = 0;
     const int y = 1;
     csv_debug<<"Number of params: "<<sizeof(params.all_parameters)/sizeof(params.all_parameters[0])<<std::endl;
@@ -42,7 +45,7 @@ void saveParametersToCsv(const FORCESNLPsolver_params &params){
 
 
  
-int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
+int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
 
     const int p_x = 0;
     const int p_y = 1;  

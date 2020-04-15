@@ -20,13 +20,6 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
         ROS_ERROR("fail to get the drones id");
     }
     // parameters
-    if (ros::param::has("~priority")) {
-        ros::param::get("~priority",priority);
-    }
-    else{
-        ROS_WARN("Solver %d: fail to get the priority param",drone_id_);
-    }  // parameters
-
     for(int i=0; i<drones.size(); i++){
         has_poses[TARGET] = false;
         has_poses[drones[i]] = false;
@@ -59,8 +52,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     csv_pose.open("/home/alfonso/trajectories"+std::to_string(drone_id_)+".csv");
     //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id_)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
-    csv_record << std::fixed << std::setprecision(5);
-    csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id_)+".csv");
+    //csv_record << std::fixed << std::setprecision(5);
+    //csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id_)+".csv");
 }
 
 
@@ -418,7 +411,7 @@ void backendSolverMRS::callSolverLoop(){
             if(target_){  // calculate the target trajectory if it exists
                 targetTrajectoryVelocityCTEModel();
             }
-            solver_success = solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+            solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
 
             if(solver_success==1){
                 std::vector<double> yaw = predictingYaw();
