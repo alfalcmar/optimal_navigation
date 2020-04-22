@@ -3,7 +3,7 @@
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
       // parameters
-    pnh.param<float>("solver_rate", solver_rate_, 0.5); // solver rate
+    //pnh.param<float>("solver_rate", solver_rate_, 0.5); // solver rate
    
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
@@ -309,7 +309,8 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double
 void backendSolver::logToCsv(){
     // logging all results
     csv_pose<<"Time horizon"<<time_horizon_<<std::endl;
-    csv_pose<<"My pose: "<<uavs_pose_[1].pose.pose.position.x<<", "<<uavs_pose_[1].pose.pose.position.y<<", "<<uavs_pose_[1].pose.pose.position.z<<std::endl;
+    csv_pose<<"My pose: "<<uavs_pose_[drone_id_].pose.pose.position.x<<", "<<uavs_pose_[drone_id_].pose.pose.position.y<<", "<<uavs_pose_[drone_id_].pose.pose.position.z<<std::endl;
+    csv_pose<<"My velocity: "<<uavs_pose_[drone_id_].twist.twist.linear.x<<", "<<uavs_pose_[drone_id_].twist.twist.linear.y<<", "<<uavs_pose_[drone_id_].twist.twist.linear.z<<std::endl;
     //logging inter-uavs pose
     if(multi_){
         csv_pose<<"Drone 2: "<<uavs_pose_[2].pose.pose.position.x <<", "<< uavs_pose_[2].pose.pose.position.y<< ", "<<uavs_pose_[2].pose.pose.position.z<<", "<< std::endl;
@@ -418,18 +419,19 @@ void backendSolverMRS::callSolverLoop(){
             if(target_){  // calculate the target trajectory if it exists
                 targetTrajectoryVelocityCTEModel();
             }
-            solver_success = solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
-
+            solver_success = acado_solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
             if(solver_success==1){
                 std::vector<double> yaw = predictingYaw();
                 std::vector<double> pitch = predictingPitch();
                 //TODO where is going pitch and yaw?
                 publishSolvedTrajectory(yaw,pitch);
             }
+            ROS_INFO("logging");
             logToCsv();
             target_path_rviz_pub.publish(targetPathVisualization()); 
             publishDesiredPoint();
             publishPath();  
+            ROS_INFO("finish logging");
         }
     ros::spinOnce();
     r.sleep();

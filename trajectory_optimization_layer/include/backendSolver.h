@@ -15,6 +15,7 @@
 #include <formation_church_planning/Point.h>
 #include <formation_church_planning/Diagnostic.h>
 #include <math.h>       /* sqrt */
+#include <ACADO.h>
 
 
 /** this node is a backend to use optimization solvers with ROS for UAVs, 
@@ -76,8 +77,8 @@ class backendSolver{
         const double REACHING_TOLERANCE = 2.0;      /**< Distance to the desired pose that is set as reached */
         nav_msgs::Odometry desired_odometry_;       /**< Desired pose [x y z yaw] */ 
         //solver
-        int time_horizon_ = 40;
-        float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
+        int time_horizon_ = 39;                     /**< Number of steps */
+        double solver_rate_ = 4;                    /**< Rate to call the solver (s) */
         int solver_success = false;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
@@ -105,6 +106,8 @@ class backendSolver{
         std::thread main_thread_;                   /**< Main thread that calls the solver*/
 
         const int TARGET = 0;                   /**< has_poses[TARGET] */
+
+        ACADOsolver acado_solver_;
 
         ///////////////// CALLBACKS MEMBERS ///////////////////////////////
         /*!  \brief callback for the desired pose. This function receives the pose in quaternion
