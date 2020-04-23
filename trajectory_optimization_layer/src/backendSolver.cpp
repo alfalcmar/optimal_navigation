@@ -3,7 +3,7 @@
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
       // parameters
-    pnh.param<float>("solver_rate", solver_rate_, 0.5); // solver rate
+    pnh.param<float>("solver_rate", solver_rate_, 5); // solver rate
    
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
@@ -34,7 +34,6 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     path_rviz_pub = pnh.advertise<nav_msgs::Path>("path",1);
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
-    service_for_activation = nh.advertiseService("formation_church_planning/toggle_state", &backendSolver::activationServiceCallback,this);
 
     // TODO integrate it into the class UAL interface
     // pose and trajectory subscriptions
@@ -357,16 +356,19 @@ bool backendSolver::checkConnectivity(){
     } 
 }
 
+bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose){
+    ROS_INFO("");
+}
 
 
-bool backendSolver::activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
   ROS_INFO("[%s]: Activation service called.", ros::this_node::getName().c_str());
   if (first_activation_) {
     ROS_INFO("[%s]: Initial pose set.", ros::this_node::getName().c_str());
     //setInitialPose();
     first_activation_ = false;
   }
-  if (activated == req.data) {
+  if (activated_ == req.data) {
     res.success = false;
     if (req.data) {
       res.message = "Planning is already activated.";
@@ -379,10 +381,11 @@ bool backendSolver::activationServiceCallback(std_srvs::SetBool::Request &req, s
   }
   if (req.data) {
     if (!planning_done_) {
+      main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
       res.message = "Planning activated.";
       res.success = true;
       ROS_WARN("%s", res.message.c_str());
-      activated = req.data;
+      activated_ = req.data;
     } else {
       res.message = "Planning cannot be activated because it is finished. Call reset service.";
       res.success = false;
@@ -392,40 +395,39 @@ bool backendSolver::activationServiceCallback(std_srvs::SetBool::Request &req, s
     res.message = "Planning deactivated.";
     res.success = true;
     ROS_WARN("%s", res.message.c_str());
-    activated = req.data;
+    activated_ = req.data;
   }
 }
 
 
 void backendSolverMRS::callSolverLoop(){
     ros::Rate r(1/solver_rate_);
-    while(ros::ok()){
-        if(activated){
-            // solver function
-            x_.clear();
-            y_.clear();
-            z_.clear();
-            vx_.clear();
-            vy_.clear();
-            vz_.clear();
-            if(target_){  // calculate the target trajectory if it exists
-                targetTrajectoryVelocityCTEModel();
-            }
-            solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
-
-            if(solver_success==1){
-                std::vector<double> yaw = predictingYaw();
-                std::vector<double> pitch = predictingPitch();
-                //TODO where is going pitch and yaw?
-                publishSolvedTrajectory(yaw,pitch);
-            }
-            logToCsv();
-            target_path_rviz_pub.publish(targetPathVisualization()); 
-            publishDesiredPoint();
-            publishPath();  
+    ROS_INFO("solver loop");
+    while(ros::ok() && activated_ && !desired_position_reached_){
+        // solver function
+        x_.clear();
+        y_.clear();
+        z_.clear();
+        vx_.clear();
+        vy_.clear();
+        vz_.clear();
+        if(target_){  // calculate the target trajectory if it exists
+            targetTrajectoryVelocityCTEModel();
         }
-    ros::spinOnce();
-    r.sleep();
+        solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+
+        if(solver_success==1){
+            std::vector<double> yaw = predictingYaw();
+            std::vector<double> pitch = predictingPitch();
+            //TODO where is going pitch and yaw?
+            publishSolvedTrajectory(yaw,pitch);
+        }
+        logToCsv();
+        target_path_rviz_pub.publish(targetPathVisualization()); 
+        publishDesiredPoint();
+        publishPath();  
+        ros::spinOnce();
+        r.sleep();
     }
 }
 
@@ -438,6 +440,8 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     solved_trajectory_MRS_pub = _nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
     uav_odometry_sub = _nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &backendSolverMRS::uavCallback,this);
     diagnostics_pub = _nh.advertise<formation_church_planning::Diagnostic>("formation_church_planning/diagnostics",1);
+    service_for_activation = _nh.advertiseService("formation_church_planning/toggle_state", &backendSolverMRS::activationServiceCallback,this);
+
     ros::Rate rate(1); //hz
     while(!checkConnectivity()){
         ros::spinOnce();
@@ -445,8 +449,8 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
         ROS_INFO("Solver %d is not ready",drone_id_);
     }
     is_initialized = true;
-    main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
     diagnostic_timer_ = _nh.createTimer(ros::Duration(0.5), &backendSolverMRS::diagTimer,this);
+    //main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
     ROS_INFO("Solver %d is ready", drone_id_);
 }
 

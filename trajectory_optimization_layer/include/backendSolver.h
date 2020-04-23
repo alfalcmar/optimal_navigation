@@ -99,7 +99,7 @@ class backendSolver{
         std::map<int, bool> has_poses;                   /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
         std::map<int,bool> trajectory_solved_received;   /**<  flags to receive the solved trajectories for others <drone_id, received> */
         bool is_initialized = false;            /**< object inizialized */
-        bool activated = false;                 /**< planning activated */
+        bool activated_ = false;                 /**< planning activated */
         bool first_activation_ = true;          /**< first activation of the planning */
         bool planning_done_ = false;            /**< planning finished */
         // timers and threads
@@ -112,7 +112,15 @@ class backendSolver{
         std::ofstream csv_record;               /**< object to log parameters */
 
         FORCESPROsolver solver_;                /**< solver object */
- 
+
+        bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
+
+        /*! \brief utility function to calculate whether last trajectory reaches the desired pose
+        *    \param trajectory
+        *    \param desired_pose_
+        *    \return success
+        */
+        bool isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose);
         ///////////////// CALLBACKS MEMBERS ///////////////////////////////
         /*!  \brief callback for the desired pose. This function receives the pose in quaternion
          *   \param msg
@@ -162,12 +170,6 @@ class backendSolver{
         *   \return true if connectivity is correct
         **/
         bool checkConnectivity();
-        /*! \brief Service callback to activate the planning
-        *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
-        *   \param res res.message = "message"
-        *   \return planning_activated 
-        **/
-        bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
         /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to visualize 
         **/
@@ -216,7 +218,12 @@ class backendSolverMRS : backendSolver {
          *  \param 
          * */
         void targetCallbackMRS(const geometry_msgs::PoseStamped::ConstPtr& _msg);
-        
+          /*! \brief Service callback to activate the planning
+        *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
+        *   \param res res.message = "message"
+        *   \return planning_activated 
+        **/
+        bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
         void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
