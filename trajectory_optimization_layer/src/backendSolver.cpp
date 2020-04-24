@@ -1,9 +1,10 @@
 #include<backendSolver.h>
+#include <iostream>
 
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
       // parameters
-    pnh.param<float>("solver_rate", solver_rate_, 5); // solver rate
+    pnh.param<float>("solver_rate", solver_rate_, 4); // solver rate
    
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
@@ -194,6 +195,15 @@ std::vector<double> backendSolver::predictingYaw(){
     }
     return yaw;
 }
+void backendSolver::pruebaDroneSubida(){
+    
+    double aux = 0.0;
+    double vel = 0.5;
+    for(int i=0; i<time_horizon_;i++){
+        double aux = uavs_pose_[drone_id_].pose.pose.position.z + step_size*i*vel;
+        z_.push_back(aux);
+    }
+}
 
 void backendSolver::targetTrajectoryVelocityCTEModel(){
     
@@ -381,7 +391,6 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
   }
   if (req.data) {
     if (!planning_done_) {
-      main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
       res.message = "Planning activated.";
       res.success = true;
       ROS_WARN("%s", res.message.c_str());
@@ -392,6 +401,7 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
       ROS_ERROR("%s", res.message.c_str());
     }
   } else {
+    subida = true;
     res.message = "Planning deactivated.";
     res.success = true;
     ROS_WARN("%s", res.message.c_str());
@@ -399,42 +409,76 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
   }
 }
 
+void backendSolverMRS::staticLoop(){
+    solver_rate_ = 0.5;
+    x_.clear();
+    y_.clear();
+    z_.clear();
+    vx_.clear();
+    vy_.clear();
+    vz_.clear();
+    for(int i=0; i<time_horizon_;i++){
+        x_.push_back(uavs_pose_[drone_id_].pose.pose.position.x);
+        y_.push_back(uavs_pose_[drone_id_].pose.pose.position.y);
+    }
+    if(subida){
+        pruebaDroneSubida();
+    }else{
+        for(int i=0;i<time_horizon_;i++){
+            z_.push_back(uavs_pose_[drone_id_].pose.pose.position.z);
+        }
+    }
+   
+    targetTrajectoryVelocityCTEModel();
+    std::vector<double> yaw = predictingYaw();
+    std::vector<double> pitch = predictingPitch();
+ 
 
+    publishSolvedTrajectory(x_,y_,z_,yaw,pitch);
+}
 void backendSolverMRS::callSolverLoop(){
     ros::Rate r(1/solver_rate_);
-    ROS_INFO("solver loop");
-    while(ros::ok() && activated_ && !desired_position_reached_){
-        // solver function
-        x_.clear();
-        y_.clear();
-        z_.clear();
-        vx_.clear();
-        vy_.clear();
-        vz_.clear();
-        if(target_){  // calculate the target trajectory if it exists
-            targetTrajectoryVelocityCTEModel();
-        }
-        solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+    system("read -p 'Press Enter to continue...' var");
 
-        if(solver_success==1){
-            std::vector<double> yaw = predictingYaw();
-            std::vector<double> pitch = predictingPitch();
-            //TODO where is going pitch and yaw?
-            publishSolvedTrajectory(yaw,pitch);
+    while(ros::ok()  && !desired_position_reached_){
+        if(activated_){
+            // solver function
+            solver_rate_ = 4;
+            x_.clear();
+            y_.clear();
+            z_.clear();
+            vx_.clear();
+            vy_.clear();
+            vz_.clear();
+            if(target_){  // calculate the target trajectory if it exists
+                targetTrajectoryVelocityCTEModel();
+            }
+            ros::spinOnce();
+            solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+
+            if(solver_success==1){
+                std::vector<double> yaw = predictingYaw();
+                std::vector<double> pitch = predictingPitch();
+                //TODO where is going pitch and yaw?
+                publishSolvedTrajectory(x_,y_,z_, yaw,pitch);
+            }
+            logToCsv();
+            target_path_rviz_pub.publish(targetPathVisualization()); 
+            publishDesiredPoint();
+            publishPath();  
+            
+        }else{
+            staticLoop();
         }
-        logToCsv();
-        target_path_rviz_pub.publish(targetPathVisualization()); 
-        publishDesiredPoint();
-        publishPath();  
-        ros::spinOnce();
-        r.sleep();
+        sleep(solver_rate_);
     }
+        
 }
 
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh,_nh){
     ROS_INFO("Leader constructor");
     std::string target_topic;
-    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/dynamic_pickup/pose"); // target topic
+    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/worker/pose"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
     target_array_sub = _pnh.subscribe<geometry_msgs::PoseStamped>(target_topic, 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
     mrs_trajectory_tracker_pub = _nh.advertise<mrs_msgs::TrackerTrajectory>("control_manager/mpc_tracker/set_trajectory",1);
     solved_trajectory_MRS_pub = _nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
@@ -451,11 +495,13 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     is_initialized = true;
     diagnostic_timer_ = _nh.createTimer(ros::Duration(0.5), &backendSolverMRS::diagTimer,this);
     //main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
+    main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
+
     ROS_INFO("Solver %d is ready", drone_id_);
 }
 
 
-void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch){
+void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch){
     
     mrs_msgs::TrackerPoint aux_point;
     formation_church_planning::Point aux_point_for_followers;
@@ -466,14 +512,14 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     for(int i=0;i<time_horizon_; i++){
     
         //trajectory to command
-        aux_point.x = x_[i];
-        aux_point.y = y_[i];
-        aux_point.z = z_[i];
+        aux_point.x = _x[i];
+        aux_point.y = _y[i];
+        aux_point.z = _z[i];
         aux_point.yaw = yaw[i];
         //trajectory to followers
-        aux_point_for_followers.x = x_[i];
-        aux_point_for_followers.y = y_[i];
-        aux_point_for_followers.z = z_[i];
+        aux_point_for_followers.x = _x[i];
+        aux_point_for_followers.y = _y[i];
+        aux_point_for_followers.z = _z[i];
         aux_point_for_followers.yaw = yaw[i];
         aux_point_for_followers.pitch = pitch[i];
         aux_point_for_followers.phi = 0.0;

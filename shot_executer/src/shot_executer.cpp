@@ -7,8 +7,8 @@
 
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
     //params
-    std::string target_topic = "/gazebo/dynamic_target/dynamic_pickup/pose";
-    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/dynamic_pickup/pose");
+    std::string target_topic = "/gazebo/dynamic_target/worker/pose";///gazebo/dynamic_target/worker/pose gazebo/dynamic_target/dynamic_pickup/pose
+    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/worker/pose");
 
     // publisher
     desired_pose_pub_ = _nh.advertise<nav_msgs::Odometry>("desired_pose",10);
@@ -76,18 +76,19 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
         switch(_shooting_action.shooting_action_type){
         //TODO
         case 0:
-            desired_point.pose.pose.position.x  = target_trajectory.back().pose.pose.position.x-_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
-            desired_point.pose.pose.position.y = target_trajectory.back().pose.pose.position.y-_shooting_action.rt_parameters.y;//+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = _shooting_action.rt_parameters.y;//target_trajectory.back().pose.pose.position.y+_shooting_action.rt_parameters.y;//+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
 
             // desired vel
             desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
             desired_point.twist.twist.linear.z =0;
+            std::cout<<desired_point<<std::endl;
             return desired_point;
         case 1:
-            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x-sin(-0.9)*_shooting_action.rt_parameters.x;
-            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+cos(-0.9)*_shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+_shooting_action.rt_parameters.x;//sin(-0.9)*_shooting_action.rt_parameters.x;
+            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+_shooting_action.rt_parameters.y;//cos(-0.9)*_shooting_action.rt_parameters.y;
             desired_point.pose.pose.position.z  = drone_pose_.pose.pose.position.z;
 
             // desired
@@ -97,9 +98,8 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
             return desired_point;;
         default:
             ROS_ERROR("Shooting action type invalid");
-            return desired_point;;
+            return desired_point;
     }
-    
 }
 
 bool ShotExecuter::actionCallback(shot_executer::ShootingAction::Request  &req, shot_executer::ShootingAction::Response &res){
@@ -154,14 +154,14 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
 }
 
 void ShotExecuter::calculateGimbalAngles(){
-    Eigen::Vector3f target_pose = Eigen::Vector3f(target_pose_.pose.pose.position.x,target_pose_.pose.pose.position.y,0);
+    Eigen::Vector3f target_pose = Eigen::Vector3f(target_pose_.pose.pose.position.x,target_pose_.pose.pose.position.y,target_pose_.pose.pose.position.z);
     Eigen::Vector3f drone_pose = Eigen::Vector3f(drone_pose_.pose.pose.position.x,drone_pose_.pose.pose.position.y,drone_pose_.pose.pose.position.z);
     Eigen::Vector3f q_camera_target = drone_pose-target_pose;
     float aux_sqrt = sqrt(pow(q_camera_target[0], 2.0)+pow(q_camera_target[1],2.0));
     camera_angles_[pitch] =1.57- atan2(aux_sqrt,q_camera_target[2]);  //-
     camera_angles_[yaw] = atan2(-q_camera_target[1],-q_camera_target[0]);
-    std::cout<<"yaw: "<<camera_angles_[yaw]<<std::endl;
-    std::cout<<"pitch: "<<camera_angles_[pitch]<<std::endl;
+    //std::cout<<"yaw: "<<camera_angles_[yaw]<<std::endl;
+    //std::cout<<"pitch: "<<camera_angles_[pitch]<<std::endl;
 
 }
 

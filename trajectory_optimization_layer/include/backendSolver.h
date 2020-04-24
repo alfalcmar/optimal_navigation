@@ -203,6 +203,9 @@ class backendSolver{
         *    
         **/
         void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]);
+        void pruebaDroneSubida();
+
+        bool subida;
 
 };
 
@@ -225,8 +228,11 @@ class backendSolverMRS : backendSolver {
         **/
         bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
-        void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch);
+        void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
+        /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
+         */
+        void staticLoop();
         void callSolverLoop();
 
 

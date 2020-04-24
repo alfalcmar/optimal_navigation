@@ -13,6 +13,7 @@ extern "C"
 }
 #endif
 
+const double TARGET_DIFF = 4.0;
 
 
 FORCESPROsolver::FORCESPROsolver(){
@@ -62,13 +63,17 @@ int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> 
 
     // set initial postion and velocity
     ros::spinOnce();
-    myparams.xinit[0] = uavs_pose[drone_id].pose.pose.position.x;
-    myparams.xinit[1] = uavs_pose[drone_id].pose.pose.position.y;
-    myparams.xinit[2] = uavs_pose[drone_id].pose.pose.position.z;
+    myparams.xinit[0] = 0.0;
+    myparams.xinit[1] = 0.0;
+    myparams.xinit[2] = 0.0;
+
+    myparams.xinit[3] = uavs_pose[drone_id].pose.pose.position.x;
+    myparams.xinit[4] = uavs_pose[drone_id].pose.pose.position.y;
+    myparams.xinit[5] = uavs_pose[drone_id].pose.pose.position.z;
  
-    myparams.xinit[3] = uavs_pose[drone_id].twist.twist.linear.x;
-    myparams.xinit[4] = uavs_pose[drone_id].twist.twist.linear.y;
-    myparams.xinit[5] = uavs_pose[drone_id].twist.twist.linear.z;
+    myparams.xinit[6] = uavs_pose[drone_id].twist.twist.linear.x;
+    myparams.xinit[7] = uavs_pose[drone_id].twist.twist.linear.y;
+    myparams.xinit[8] = uavs_pose[drone_id].twist.twist.linear.z;
 
     // set initial guess
     std::vector<double> x0;
@@ -92,12 +97,12 @@ int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> 
         // desired position
         params.push_back(desired_odometry.pose.pose.position.x);
         params.push_back(desired_odometry.pose.pose.position.y);
-        params.push_back(desired_odometry.pose.pose.position.z);
+        params.push_back(uavs_pose[drone_id].pose.pose.position.z);
         
         // desired velocity
         params.push_back(desired_odometry.twist.twist.linear.x);
         params.push_back(desired_odometry.twist.twist.linear.y);
-        params.push_back(desired_odometry.twist.twist.linear.z);
+        params.push_back(0.0);
     
         if(target){ // if target included
             // set parameters
