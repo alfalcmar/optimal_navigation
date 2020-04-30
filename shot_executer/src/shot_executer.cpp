@@ -9,7 +9,15 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
     //params
     std::string target_topic = "";
     _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose");
-
+    std::string prediction_mode = "";
+    _nh.param<std::string>("prediction_mode",prediction_mode, "orientation");
+    if(prediction_mode == "velocity"){
+        prediction_mode_ = VELOCITY_MODE;
+    }else if(prediction_mode == "orientation"){
+        prediction_mode_ = ORIENTATION_MODE;
+    }else{
+        ROS_WARN("Shot executer %d: invalid prediction mode. Orientation mode set by default");
+    }
     // publisher
     desired_pose_pub_ = _nh.advertise<nav_msgs::Odometry>("desired_pose",10);
     target_trajectory_pub_ = nh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
@@ -37,23 +45,49 @@ void ShotExecuter::targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr
 
 
 std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
-
     //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
     std::vector<nav_msgs::Odometry> target_trajectory;
     nav_msgs::Odometry aux;
-    nav_msgs::Path path_to_publish;
+    nav_msgs::Path path_to_publish;  //rviz
     geometry_msgs::PoseStamped aux_path;
-    if(time_horizon_>0){
+
+    if(prediction_mode_ == VELOCITY_MODE){
         for(int i=0; i<time_horizon_;i++){
             aux.pose.pose.position.x = target_pose_.pose.pose.position.x+ step_size_*i*target_pose_.twist.twist.linear.x;
             aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
+            aux.pose.pose.position.z = target_pose_.pose.pose.position.z + step_size_*i*target_pose_.twist.twist.linear.z;
             aux_path.pose.position.x = aux.pose.pose.position.x;
             aux_path.pose.position.y = aux.pose.pose.position.y;
+            aux_path.pose.position.z = aux.pose.pose.position.z;
+            target_trajectory.push_back(aux);
+            path_to_publish.poses.push_back(aux_path);
+        }
+    }
+    else if(prediction_mode_ == ORIENTATION_MODE){
+        double roll,pitch,yaw;
+         tf::Quaternion q(   
+            target_pose_.pose.pose.orientation.x,
+            target_pose_.pose.pose.orientation.y,
+            target_pose_.pose.pose.orientation.z,
+            target_pose_.pose.pose.orientation.w);
+            tf::Matrix3x3 m(q);
+        m.getRPY(roll, pitch, yaw);
+        double norm = sqrt(pow(target_pose_.pose.pose.position.x,2)+pow(target_pose_.pose.pose.position.y,2));
+        double velx = VEL_CTE*cos(yaw);
+        double vely = VEL_CTE*sin(yaw);
+        double velz = 0.0;
+        for(int i=0; i<time_horizon_;i++){
+            aux.pose.pose.position.x = target_pose_.pose.pose.position.x+step_size_*i*velx;
+            aux.pose.pose.position.y = target_pose_.pose.pose.position.y+step_size_*i*vely;
+            aux.pose.pose.position.z = target_pose_.pose.pose.position.z+step_size_*i*velz;
+            aux_path.pose.position.x = aux.pose.pose.position.x;
+            aux_path.pose.position.y = aux.pose.pose.position.y;
+            aux_path.pose.position.z = aux.pose.pose.position.z;
             target_trajectory.push_back(aux);
             path_to_publish.poses.push_back(aux_path);
         }
     }else{
-        ROS_ERROR("time_horizon invalid");
+        ROS_ERROR("invalid mode");
     }
     path_to_publish.header.frame_id ="uav1/gps_origin";
     target_trajectory_pub_.publish(path_to_publish);
@@ -64,7 +98,7 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
 nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
 
     tf2::Quaternion myQuaternion;
-    myQuaternion.setRPY( 0, camera_angles_[pitch], camera_angles_[yaw]);  // Create this quaternion from roll/pitch/yaw (in radian
+    myQuaternion.setRPY( 0, camera_angles_[PITCH], camera_angles_[YAW]);  // Create this quaternion from roll/pitch/YAW (in radian
     //int dur = (int)(shooting_duration*10);
     nav_msgs::Odometry desired_point;
     desired_point.pose.pose.orientation.x = myQuaternion.getX();
@@ -84,7 +118,6 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
             desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
             desired_point.twist.twist.linear.z =0;
-            std::cout<<desired_point<<std::endl;
             return desired_point;
         case 1:
             desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+_shooting_action.rt_parameters.x;//sin(-0.9)*_shooting_action.rt_parameters.x;
@@ -158,9 +191,9 @@ void ShotExecuter::calculateGimbalAngles(){
     Eigen::Vector3f drone_pose = Eigen::Vector3f(drone_pose_.pose.pose.position.x,drone_pose_.pose.pose.position.y,drone_pose_.pose.pose.position.z);
     Eigen::Vector3f q_camera_target = drone_pose-target_pose;
     float aux_sqrt = sqrt(pow(q_camera_target[0], 2.0)+pow(q_camera_target[1],2.0));
-    camera_angles_[pitch] =1.57- atan2(aux_sqrt,q_camera_target[2]);  //-
-    camera_angles_[yaw] = atan2(-q_camera_target[1],-q_camera_target[0]);
-    //std::cout<<"yaw: "<<camera_angles_[yaw]<<std::endl;
+    camera_angles_[PITCH] =1.57- atan2(aux_sqrt,q_camera_target[2]);  //-
+    camera_angles_[YAW] = atan2(-q_camera_target[1],-q_camera_target[0]);
+    //std::cout<<"YAW: "<<camera_angles_[YAW]<<std::endl;
     //std::cout<<"pitch: "<<camera_angles_[pitch]<<std::endl;
 
 }
@@ -199,7 +232,7 @@ void ShotExecuterMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
 void ShotExecuterMRS::publishCameraCommand(){
     std_msgs::Float32 msg;
     calculateGimbalAngles();
-    msg.data = camera_angles_[pitch];
+    msg.data = camera_angles_[PITCH];
     camera_pub_.publish(msg);
 }
 

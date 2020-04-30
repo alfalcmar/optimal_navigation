@@ -18,6 +18,8 @@
 #include <math.h>       /* sqrt */
 #include <tf2/LinearMath/Quaternion.h>
 #include <std_msgs/Float32.h>
+#include <tf/tf.h>
+
 
 
 /**
@@ -56,13 +58,18 @@ class ShotExecuter
             geometry_msgs::Vector3 rt_parameters; 
         };
         Eigen::Vector3f camera_angles_; /**< member to save the angles of the camera to point the target. It is calculate by calculateGimbalAngles*/
-        const int yaw = 1;
-        const int pitch = 2;
+        const int YAW = 1;
+        const int PITCH = 2;
+
+        int prediction_mode_ = 0; /**< to predict the direction of the target using target velocity (velocity mode = 0) or target orientation (orientation mode = 1)*/
+        const int VELOCITY_MODE = 0;
+        const int ORIENTATION_MODE = 1;
+        const double VEL_CTE = 0.5;
 
         // parameters
         int drone_id_ = 1; // TODO initialize by constructor
-        int step_size_;    /**< step size (seconds) */
-        const int time_horizon_= 10; /*< Number of steps */ 
+        const float step_size_ = 0.2;    /**< step size (seconds) */
+        const int time_horizon_= 40; /*< Number of steps */ 
         float rate_pose_publisher_ = 5; /**< Rate to publish the desired pose (Hz) */
         float rate_camera_publisher_ = 10; /**< Rate to publish the camera pose (Hz) */
         std::thread action_thread_;  /*< thread that publish the desired pose */
