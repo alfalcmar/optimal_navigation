@@ -5,12 +5,12 @@
 #endif
 
 
-ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
+ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
     //params
     std::string target_topic = "";
     _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose");
-    std::string prediction_mode = "";
-    _nh.param<std::string>("prediction_mode",prediction_mode, "orientation");
+    std::string prediction_mode = "";   
+    _pnh.param<std::string>("prediction_mode",prediction_mode, "orientation"); // add pnh to the constructor
     if(prediction_mode == "velocity"){
         prediction_mode_ = VELOCITY_MODE;
     }else if(prediction_mode == "orientation"){
@@ -38,9 +38,9 @@ void ShotExecuter::publishCameraCommand(){
 }
 /** \brief target array for real experiment
  */
-void ShotExecuter::targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg) // real target callback
+void ShotExecuter::targetPoseCallback(const nav_msgs::Odometry::ConstPtr& _msg) // real target callback
 {
-    target_pose_.pose.pose = _msg->pose;
+    target_pose_ = *_msg;
 }
 
 
@@ -198,7 +198,7 @@ void ShotExecuter::calculateGimbalAngles(){
 
 }
 
-ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh) : ShotExecuter::ShotExecuter(_nh){
+ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh){
      /* initialize service for arming */
     std::string service_name;
     service_name = "/uav"+std::to_string(drone_id_)+"/mavros/cmd/arming";
@@ -308,7 +308,7 @@ bool ShotExecuterMRS::callTakeOff(){
   return success;
 }
 
-ShotExecuterUAL::ShotExecuterUAL(ros::NodeHandle &_nh) : ShotExecuter::ShotExecuter(_nh){
+ShotExecuterUAL::ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh){
 
     go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
     take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");

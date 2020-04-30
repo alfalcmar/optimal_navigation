@@ -31,7 +31,7 @@ class ShotExecuter
         /** \brief Generic constructor of the class. This constructor reads generic parameters and subscribes to topics.
          *  \param _nh public nodehandle
          */
-        ShotExecuter(ros::NodeHandle &_nh);
+        ShotExecuter(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
     protected:
 
         //ROS (publishers, subscribers)
@@ -100,7 +100,7 @@ class ShotExecuter
         void actionThread(struct shooting_action _shooting_action);
         /** \brief Callback for the target pose
          */
-        void targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& _msg);
+        void targetPoseCallback(const nav_msgs::Odometry::ConstPtr& _msg);
         /** \brief This function calculates the camera angles needed to point to the target.
          *         It is saved in camera_angles_ member
          */
@@ -119,7 +119,7 @@ class ShotExecuter
  */
 class ShotExecuterMRS : public ShotExecuter{
     public:
-        ShotExecuterMRS(ros::NodeHandle &_nh);
+        ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
     private:
         ros::ServiceClient motors_client_;
         ros::ServiceClient arming_client_;
@@ -137,7 +137,7 @@ class ShotExecuterMRS : public ShotExecuter{
 
 class ShotExecuterUAL : public ShotExecuter{
     public:
-        ShotExecuterUAL(ros::NodeHandle &_nh);
+        ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
     private:
         ros::ServiceClient take_off_srv_;
         ros::ServiceClient go_to_waypoint_client_;

@@ -1,6 +1,6 @@
 <launch>
 <node pkg="shot_executer" name="shot_executer_node" type="shot_executer_node" output="screen" ns="uav1">
     <param name = "target_topic" value = "/gazebo/dynamic_target/jeff_electrician/pose"/>
-    <param name = "prediction_mode" value = "orientation"/>     <!-- orientation or velocity mode -->
+    <param name = "prediction_mode" value = "velocity"/>     <!-- orientation or velocity mode -->
 </node>
 </launch>
