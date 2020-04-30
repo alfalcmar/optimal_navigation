@@ -1,4 +1,5 @@
 <launch>
 <node pkg="shot_executer" name="shot_executer_node" type="shot_executer_node" output="screen" ns="uav1">
+    <param name = "target_topic" value = "/gazebo/dynamic_target/jeff_electrician/pose"/>
 </node>
 </launch>

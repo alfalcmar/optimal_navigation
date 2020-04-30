@@ -7,8 +7,8 @@
 
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh){
     //params
-    std::string target_topic = "/gazebo/dynamic_target/worker/pose";///gazebo/dynamic_target/worker/pose gazebo/dynamic_target/dynamic_pickup/pose
-    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/worker/pose");
+    std::string target_topic = "";
+    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose");
 
     // publisher
     desired_pose_pub_ = _nh.advertise<nav_msgs::Odometry>("desired_pose",10);
