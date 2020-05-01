@@ -67,14 +67,6 @@ void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr
 
 void backendSolver::desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {   
-    /*tf::Quaternion q(   
-        msg->pose.pose.orientation.x,
-        msg->pose.pose.orientation.y,
-        msg->pose.pose.orientation.z,
-        msg->pose.pose.orientation.w);
-    tf::Matrix3x3 m(q);
-    double roll,pitch,yaw;
-    m.getRPY(roll, pitch, yaw);*/
 
     desired_odometry_.pose = msg->pose;
 
@@ -121,16 +113,46 @@ void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &
 }
 
 
-void backendSolverMRS::targetCallbackMRS(const geometry_msgs::PoseStamped::ConstPtr& _msg) 
+void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _msg) 
 {
     has_poses[TARGET] = true;
-    target_odometry_.pose.pose = _msg->pose;
+    target_odometry_ = *_msg;
 }
 
-void backendSolver::callSolverLoop(){
+void backendSolver::stateMachine(){
     ROS_INFO("virutal declaration of the loop");
 }
 
+void backendSolver::dynamicState(){
+     // solver function
+    solver_rate_ = 1;
+    x_.clear();
+    y_.clear();
+    z_.clear();
+    vx_.clear();
+    vy_.clear();
+    vz_.clear();
+    if(target_){  // calculate the target trajectory if it exists
+        targetTrajectoryVelocityCTEModel();
+    }
+    ros::spinOnce();
+    solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+
+    if(solver_success==1){
+        std::vector<double> yaw = predictingYaw();
+        std::vector<double> pitch = predictingPitch();
+        //TODO where is going pitch and yaw?
+        publishSolvedTrajectory(x_,y_,z_, yaw,pitch);
+    }
+    logToCsv();
+    target_path_rviz_pub.publish(targetPathVisualization()); 
+    publishDesiredPoint();
+    publishPath();  
+}
+
+void backendSolver::publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch){
+    ROS_INFO("virtual definition of publish solved trajectory");
+}
 
 void backendSolver::publishTrajectory(){
     
@@ -409,7 +431,7 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
   }
 }
 
-void backendSolverMRS::staticLoop(){
+void backendSolver::staticLoop(){
     solver_rate_ = 0.5;
     x_.clear();
     y_.clear();
@@ -436,36 +458,13 @@ void backendSolverMRS::staticLoop(){
 
     publishSolvedTrajectory(x_,y_,z_,yaw,pitch);
 }
-void backendSolverMRS::callSolverLoop(){
+void backendSolverMRS::stateMachine(){
     ros::Rate r(1/solver_rate_);
     system("read -p 'Press Enter to continue...' var");
 
     while(ros::ok()  && !desired_position_reached_){
         if(activated_){
-            // solver function
-            solver_rate_ = 4;
-            x_.clear();
-            y_.clear();
-            z_.clear();
-            vx_.clear();
-            vy_.clear();
-            vz_.clear();
-            if(target_){  // calculate the target trajectory if it exists
-                targetTrajectoryVelocityCTEModel();
-            }
-            ros::spinOnce();
-            solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
-
-            if(solver_success==1){
-                std::vector<double> yaw = predictingYaw();
-                std::vector<double> pitch = predictingPitch();
-                //TODO where is going pitch and yaw?
-                publishSolvedTrajectory(x_,y_,z_, yaw,pitch);
-            }
-            logToCsv();
-            target_path_rviz_pub.publish(targetPathVisualization()); 
-            publishDesiredPoint();
-            publishPath();  
+            dynamicState();
             
         }else{
             staticLoop();
@@ -478,8 +477,8 @@ void backendSolverMRS::callSolverLoop(){
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh,_nh){
     ROS_INFO("Leader constructor");
     std::string target_topic;
-    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/worker/pose"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
-    target_array_sub = _pnh.subscribe<geometry_msgs::PoseStamped>(target_topic, 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
+    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
+    target_array_sub = _pnh.subscribe<nav_msgs::Odometry>(target_topic, 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
     mrs_trajectory_tracker_pub = _nh.advertise<mrs_msgs::TrackerTrajectory>("control_manager/mpc_tracker/set_trajectory",1);
     solved_trajectory_MRS_pub = _nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
     uav_odometry_sub = _nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &backendSolverMRS::uavCallback,this);
@@ -494,8 +493,8 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     }
     is_initialized = true;
     diagnostic_timer_ = _nh.createTimer(ros::Duration(0.5), &backendSolverMRS::diagTimer,this);
-    //main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
-    main_thread_ = std::thread(&backendSolverMRS::callSolverLoop,this);
+    //main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
+    main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
     ROS_INFO("Solver %d is ready", drone_id_);
 }
@@ -523,7 +522,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &_x, co
         aux_point_for_followers.yaw = yaw[i];
         aux_point_for_followers.pitch = pitch[i];
         aux_point_for_followers.phi = 0.0;
-        aux_point_for_followers.mode = 1;
+        aux_point_for_followers.mode = 2;
 
         traj_to_followers.points.push_back(aux_point_for_followers);
         traj_to_command.points.push_back(aux_point);

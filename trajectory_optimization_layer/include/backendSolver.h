@@ -173,7 +173,14 @@ class backendSolver{
 
         /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to visualize 
         **/
-        virtual void callSolverLoop();
+        virtual void stateMachine();
+        /*! \brief function that executes the dynamic state
+        **/
+        void dynamicState();
+        /*! \brief publish the solved trajectory for others
+        **/
+        virtual void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
+
         /** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
         *  \param desired_pos      This is the desired pose
         *  \param last_traj_pos    This is the last point of the calculated trajectory
@@ -204,6 +211,9 @@ class backendSolver{
         **/
         void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]);
         void pruebaDroneSubida();
+        /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
+         */
+        void staticLoop();
 
         bool subida;
 
@@ -220,7 +230,7 @@ class backendSolverMRS : backendSolver {
         /*! \brief Callback function to the target topic. This function save the pose reveived for the first in has_poses[0] and upload target_pose_ member
          *  \param 
          * */
-        void targetCallbackMRS(const geometry_msgs::PoseStamped::ConstPtr& _msg);
+        void targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _msg);
           /*! \brief Service callback to activate the planning
         *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
         *   \param res res.message = "message"
@@ -230,10 +240,8 @@ class backendSolverMRS : backendSolver {
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
         void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
-        /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
-         */
-        void staticLoop();
-        void callSolverLoop();
+
+        void stateMachine();
 
 
 };
