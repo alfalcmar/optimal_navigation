@@ -173,7 +173,7 @@ class backendSolver{
 
         /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to visualize 
         **/
-        virtual void stateMachine();
+        void stateMachine();
         /*! \brief function that executes the dynamic state
         **/
         void dynamicState();
@@ -240,8 +240,6 @@ class backendSolverMRS : backendSolver {
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
         void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
-
-        void stateMachine();
 
 
 };
