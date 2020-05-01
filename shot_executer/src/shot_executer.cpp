@@ -106,6 +106,14 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
     desired_point.pose.pose.orientation.z = myQuaternion.getZ();
     desired_point.pose.pose.orientation.w = myQuaternion.getW();
 
+    double roll,pitch,yaw;
+    tf::Quaternion q(   
+        target_pose_.pose.pose.orientation.x,
+        target_pose_.pose.pose.orientation.y,
+        target_pose_.pose.pose.orientation.z,
+        target_pose_.pose.pose.orientation.w);
+    tf::Matrix3x3 m(q);
+    m.getRPY(roll, pitch, yaw);
 
         switch(_shooting_action.shooting_action_type){
         //TODO
@@ -120,8 +128,8 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
             desired_point.twist.twist.linear.z =0;
             return desired_point;
         case 1:
-            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+_shooting_action.rt_parameters.x;//sin(-0.9)*_shooting_action.rt_parameters.x;
-            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+_shooting_action.rt_parameters.y;//cos(-0.9)*_shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.z  = drone_pose_.pose.pose.position.z;
 
             // desired
