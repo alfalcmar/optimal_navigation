@@ -66,8 +66,8 @@ class FORCESPROsolver{
         const float u_y = 1;
         const float u_z = 1;
 
-        const float p_x = 1;
-        const float p_y = 1;
+        const float p_x = 4;
+        const float p_y = 4;
         const float p_z = 26;
 
         const float v_x = 1;

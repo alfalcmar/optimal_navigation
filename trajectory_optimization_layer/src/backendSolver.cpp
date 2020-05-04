@@ -36,6 +36,9 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
 
+    main_thread_ = std::thread(&backendSolver::stateMachine,this);
+
+
     // TODO integrate it into the class UAL interface
     // pose and trajectory subscriptions
    /** for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
@@ -119,13 +122,10 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _ms
     target_odometry_ = *_msg;
 }
 
-void backendSolver::stateMachine(){
-    ROS_INFO("virutal declaration of the loop");
-}
 
 void backendSolver::dynamicState(){
      // solver function
-    solver_rate_ = 1;
+    solver_rate_ = solver_rate_dynamic_     ;
     x_.clear();
     y_.clear();
     z_.clear();
@@ -400,18 +400,18 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
     //setInitialPose();
     first_activation_ = false;
   }
-  if (activated_ == req.data) {
+  if (activated_ == req.data) { //if it was already in the state that is received
     res.success = false;
-    if (req.data) {
+    if (req.data) { // activated
       res.message = "Planning is already activated.";
       ROS_ERROR("%s", res.message.c_str());
-    } else {
+    } else {    // deactivated
       res.message = "Planning is already deactivated.";
       ROS_ERROR("%s", res.message.c_str());
     }
     return true;
-  }
-  if (req.data) {
+  } 
+  if (req.data) { 
     if (!planning_done_) {
       res.message = "Planning activated.";
       res.success = true;
@@ -432,17 +432,18 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
 }
 
 void backendSolver::staticLoop(){
-    solver_rate_ = 0.5;
+    solver_rate_ = solver_rate_static_;
     x_.clear();
     y_.clear();
     z_.clear();
     vx_.clear();
     vy_.clear();
     vz_.clear();
-    for(int i=0; i<time_horizon_;i++){
+    for(int i=0; i<time_horizon_;i++){ // maintain the position
         x_.push_back(uavs_pose_[drone_id_].pose.pose.position.x);
         y_.push_back(uavs_pose_[drone_id_].pose.pose.position.y);
     }
+    // TODO think about what to do with that
     if(subida){
         pruebaDroneSubida();
     }else{
@@ -458,7 +459,27 @@ void backendSolver::staticLoop(){
 
     publishSolvedTrajectory(x_,y_,z_,yaw,pitch);
 }
-void backendSolverMRS::stateMachine(){
+
+void backendSolver::IDLEState(){
+    ROS_INFO("Solver %d: IDLE state",drone_id_);
+}
+
+void backendSolver::stateMachine(){
+
+    // switch (state_)
+    // {
+    // case IDLE:
+    //     IDLEState();
+    //     break;
+    // case DYNAMIC:
+    //     dynamicState();
+    //     break;
+    // case STATIC:
+    //     staticLoop();
+    //     break;
+    // default:
+    //     break;
+    // }
     ros::Rate r(1/solver_rate_);
     system("read -p 'Press Enter to continue...' var");
 
@@ -494,7 +515,6 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     is_initialized = true;
     diagnostic_timer_ = _nh.createTimer(ros::Duration(0.5), &backendSolverMRS::diagTimer,this);
     //main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
-    main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
     ROS_INFO("Solver %d is ready", drone_id_);
 }

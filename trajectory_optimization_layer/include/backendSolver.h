@@ -78,6 +78,8 @@ class backendSolver{
         //solver
         int time_horizon_ = 40;
         float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
+        const float solver_rate_static_ = 0.5;            /**< Rate to call the static loop (s) */
+        const float solver_rate_dynamic_ = 1;        /**< Rate to call the dynamic loop (s) */
         int solver_success = false;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
@@ -214,9 +216,17 @@ class backendSolver{
         /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
          */
         void staticLoop();
+        /*! \brief loop to be inizialized but doing nothing
+         */
+        void IDLEState();
 
         bool subida;
-
+    
+    private:
+        enum State {
+            DYNAMIC, STATIC, IDLE
+        };
+        State state_ = IDLE;
 };
 
 class backendSolverMRS : backendSolver {
