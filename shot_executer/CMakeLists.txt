@@ -22,6 +22,10 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
 
+add_message_files(
+  FILES
+  DesiredShot.msg
+)
 
 add_service_files(
   FILES
@@ -32,6 +36,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  nav_msgs
 )
 
 catkin_package(

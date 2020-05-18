@@ -1,4 +1,8 @@
 
+uint8 GOTO = 0
+uint8 FOLLOW = 1
+uint8 FLYOVER = 2
+
 std_msgs/Header header
 string start_event           # identifies the event of this shooting action
 uint8 shooting_action_type   # identifies this shooting action

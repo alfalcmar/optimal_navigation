@@ -16,6 +16,7 @@
 #include <formation_church_planning/Diagnostic.h>
 #include <math.h>       /* sqrt */
 #include <ACADO.h>
+#include <shot_executer/DesiredShot.h>
 
 #include <algorithm>
 #define ZERO 0.000001
@@ -82,6 +83,7 @@ class backendSolver{
         // desired pose
         const double REACHING_TOLERANCE = 2.0;      /**< Distance to the desired pose that is set as reached */
         nav_msgs::Odometry desired_odometry_;       /**< Desired pose [x y z yaw] */ 
+        int desired_type_ = shot_executer::DesiredShot::IDLE;
         //solver
         int time_horizon_ = TIME_HORIZON;
         float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
@@ -122,7 +124,7 @@ class backendSolver{
         std::ofstream csv_pose;                 /**< object to log the trajectory */  
         std::ofstream csv_record;               /**< object to log parameters */
 
-        ACADOsolver acado_solver_;
+        ACADOsolver *acado_solver_pt_;
 
         FORCESPROsolver solver_;                /**< solver object */
 
@@ -139,7 +141,7 @@ class backendSolver{
          *   \param msg
          *   \TODO check yaw, not being save anymore
          */
-        void desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg);
+        void desiredPoseCallback(const shot_executer::DesiredShot::ConstPtr &msg);
         
         /*!  \brief Callback 
          *   \param msg solved trajectory of others saved in uavs_trajectory[drone_id]

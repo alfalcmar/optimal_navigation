@@ -19,7 +19,7 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
         ROS_WARN("Shot executer %d: invalid prediction mode. Orientation mode set by default");
     }
     // publisher
-    desired_pose_pub_ = _nh.advertise<nav_msgs::Odometry>("desired_pose",10);
+    desired_pose_pub_ = _nh.advertise<shot_executer::DesiredShot>("desired_pose",10);
     target_trajectory_pub_ = nh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
     // subscriber
     target_pose_sub_ = _nh.subscribe(target_topic,10,&ShotExecuter::targetPoseCallback,this);
@@ -95,12 +95,13 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
 }
 
 
-nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
+shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
 
     tf2::Quaternion myQuaternion;
     myQuaternion.setRPY( 0, camera_angles_[PITCH], camera_angles_[YAW]);  // Create this quaternion from roll/pitch/YAW (in radian
     //int dur = (int)(shooting_duration*10);
     nav_msgs::Odometry desired_point;
+    shot_executer::DesiredShot desired_shot;
     desired_point.pose.pose.orientation.x = myQuaternion.getX();
     desired_point.pose.pose.orientation.y = myQuaternion.getY();
     desired_point.pose.pose.orientation.z = myQuaternion.getZ();
@@ -117,7 +118,20 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
 
         switch(_shooting_action.shooting_action_type){
         //TODO
-        case 0:
+        case shot_executer::ShootingAction::Request::GOTO:
+            desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;
+            desired_point.pose.pose.position.y = _shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
+
+            // desired vel
+            desired_point.twist.twist.linear.x =0.0;
+            desired_point.twist.twist.linear.y =0.0;
+            desired_point.twist.twist.linear.z =0.0;
+            desired_shot.desired_odometry = desired_point;
+            desired_shot.type = shot_executer::DesiredShot::GOTO;
+            return desired_shot;
+
+        case shot_executer::ShootingAction::Request::FOLLOW:
             desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.y = _shooting_action.rt_parameters.y;//target_trajectory.back().pose.pose.position.y+_shooting_action.rt_parameters.y;//+(sin(-0.9)*_shooting_action.rt_parameters.x+cos(-0.9)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
@@ -126,8 +140,11 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
             desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
             desired_point.twist.twist.linear.z =0;
-            return desired_point;
-        case 1:
+            desired_shot.desired_odometry = desired_point;
+            desired_shot.type = shot_executer::DesiredShot::SHOT;
+            return desired_shot;
+
+        case shot_executer::ShootingAction::Request::FLYOVER:
             desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.z  = drone_pose_.pose.pose.position.z;
@@ -136,10 +153,14 @@ nav_msgs::Odometry ShotExecuter::calculateDesiredPoint(const struct shooting_act
             desired_point.twist.twist.linear.x =target_trajectory[time_horizon_-1].twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory[time_horizon_-1].twist.twist.linear.y;
             desired_point.twist.twist.linear.z =0;
-            return desired_point;;
+            desired_shot.desired_odometry = desired_point;
+            desired_shot.type = shot_executer::DesiredShot::SHOT;
+            return desired_shot;
+
         default:
             ROS_ERROR("Shooting action type invalid");
-            return desired_point;
+            return desired_shot;
+
     }
 }
 
@@ -184,10 +205,10 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
     while(!time_reached && !distance_reached && ros::ok() && !new_shooting_action_received_){
         //TODO predict
         std::vector<nav_msgs::Odometry> target_trajectory = targetTrajectoryPrediction();
-        nav_msgs::Odometry desired_pose = calculateDesiredPoint(shooting_action,target_trajectory);
+        shot_executer::DesiredShot desired_shot = calculateDesiredPoint(shooting_action,target_trajectory);
         // publish desired pose
-        desired_pose.header.frame_id = "uav1/gps_origin";
-        desired_pose_pub_.publish(desired_pose);
+        desired_shot.desired_odometry.header.frame_id = "uav1/gps_origin";
+        desired_pose_pub_.publish(desired_shot);
         ROS_INFO("desired_pose published");
         rate.sleep();
     }

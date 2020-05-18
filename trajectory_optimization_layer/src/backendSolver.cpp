@@ -30,7 +30,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     // subscripions
     
 
-    desired_pose_sub = nh.subscribe<nav_msgs::Odometry>("desired_pose",1,&backendSolver::desiredPoseCallback,this); // desired pose from shot executer
+    desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("desired_pose",1,&backendSolver::desiredPoseCallback,this); // desired pose from shot executer
     // publishers
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point",1);
     solved_trajectory_pub = pnh.advertise<optimal_control_interface::Solver>("trajectory",1);
@@ -49,7 +49,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     // initial_guess_["vx"] = aux_for_initialization;
     // initial_guess_["vy"] = aux_for_initialization;
     // initial_guess_["vz"] = aux_for_initialization;
-
+    acado_solver_pt_ = new ACADOsolver;
     main_thread_ = std::thread(&backendSolver::stateMachine,this);
 
 
@@ -82,11 +82,11 @@ void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr
     target_odometry_.pose.pose = msg->pose.pose;
 }
 
-void backendSolver::desiredPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
+void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstPtr &msg)
 {   
 
-    desired_odometry_.pose = msg->pose;
-
+    desired_odometry_.pose = msg->desired_odometry.pose;
+    desired_type_ = msg->type;
     //ROS_INFO("Desired pose received: x: %f y: %f z: %f",msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z]);
 }
 
@@ -563,22 +563,22 @@ void backendSolver::IDLEState(){
 
 void backendSolver::stateMachine(){
 
-    // switch (state_)
-    // {
-    // case IDLE:
-    //     IDLEState();
-    //     break;
-    // case GO_TO:
-    //      goToState();
-    // case SHOT:
-    //     dynamicState();
-    //     break;
-    // case STATIC:
-    //     staticLoop();
-    //     break;
-    // default:
-    //     break;
-    // }
+    switch (desired_type_)
+    {
+    case shot_executer::DesiredShot::IDLE:
+        IDLEState();
+        break;
+    case shot_executer::DesiredShot::GOTO:
+         //goToState();
+    case shot_executer::DesiredShot::SHOT:
+        dynamicState();
+        break;
+    /*case shot_executer::DesiredShot::STATIC: //should be the same that goto
+        staticLoop();
+        break; */
+    default:
+        break;
+    }
     ros::Rate r(1/solver_rate_);
     system("read -p 'Press Enter to continue...' var");
 

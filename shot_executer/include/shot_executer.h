@@ -19,6 +19,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <std_msgs/Float32.h>
 #include <tf/tf.h>
+#include <shot_executer/DesiredShot.h>
 
 
 
@@ -87,7 +88,7 @@ class ShotExecuter
          *  \TODO   z position and velocity, angle relative to target
          *  \TODO   calculate orientation by velocity and apply it to desired pose
          */
-        nav_msgs::Odometry calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory);
+        shot_executer::DesiredShot calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory);
         /** \brief Callback for action service. Receive the request and start a thread with this request actionThread()
          *         If there are any shooting action active, it command it to finish and wait it to finish
          */

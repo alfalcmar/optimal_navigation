@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   mrs_msgs
   formation_church_planning
+  shot_executer
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
@@ -75,13 +76,22 @@ add_library(ACADO_library
   src/ACADO.cpp
 )
 
+set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
+
+add_library(FORCES_PRO_library src/FORCES_PRO.cpp 
+solver/FORCESNLPsolver_casadi2forces.c 
+solver/FORCESNLPsolver_model_1.c
+solver/FORCESNLPsolver_model_40.c
+)
+
+
 ADD_DEFINITIONS( -std=c++11 )
 
 add_executable(optimal_control_interface_node src/solver_node.cpp)
 
 
 
-target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library)
+target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library FORCES_PRO_library)
 
 
 target_link_libraries(optimal_control_interface_node 
