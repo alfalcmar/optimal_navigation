@@ -25,6 +25,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
         has_poses[TARGET] = false;
         has_poses[drones[i]] = false;
     }
+
+    calculateNoFlyZonePoints(no_fly_zone_center_[0],no_fly_zone_center_[1],NO_FLY_ZONE_RADIUS);
     // subscripions
     
 
@@ -35,6 +37,18 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     path_rviz_pub = pnh.advertise<nav_msgs::Path>("path",1);
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
+
+    // initialize map
+    // std::array<float, time_horizon_> aux_for_initialization;
+    // initial_guess_["ax"] = aux_for_initialization;
+    // initial_guess_["ay"] = aux_for_initialization;
+    // initial_guess_["az"] = aux_for_initialization;
+    // initial_guess_["px"] = aux_for_initialization;
+    // initial_guess_["py"] = aux_for_initialization;
+    // initial_guess_["pz"] = aux_for_initialization;
+    // initial_guess_["vx"] = aux_for_initialization;
+    // initial_guess_["vy"] = aux_for_initialization;
+    // initial_guess_["vz"] = aux_for_initialization;
 
     main_thread_ = std::thread(&backendSolver::stateMachine,this);
 
@@ -125,7 +139,7 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _ms
 
 void backendSolver::dynamicState(){
      // solver function
-    solver_rate_ = solver_rate_dynamic_     ;
+    solver_rate_ = solver_rate_dynamic_;
     x_.clear();
     y_.clear();
     z_.clear();
@@ -333,13 +347,21 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double
 void backendSolver::logToCsv(){
     // logging all results
     csv_pose<<"Time horizon"<<time_horizon_<<std::endl;
-    csv_pose<<"My pose: "<<uavs_pose_[1].pose.pose.position.x<<", "<<uavs_pose_[1].pose.pose.position.y<<", "<<uavs_pose_[1].pose.pose.position.z<<std::endl;
+    csv_pose<<"My pose: "<<uavs_pose_[drone_id_].pose.pose.position.x<<", "<<uavs_pose_[drone_id_].pose.pose.position.y<<", "<<uavs_pose_[drone_id_].pose.pose.position.z<<std::endl;
+    csv_pose<<"My vel: "<<uavs_pose_[drone_id_].twist.twist.linear.x<<", "<<uavs_pose_[drone_id_].twist.twist.linear.y<<", "<<uavs_pose_[drone_id_].twist.twist.linear.z<<std::endl;
+    csv_pose<<"My accel: "<<0.0<<", "<<0.0<<", "<<0.0<<std::endl;
     //logging inter-uavs pose
     if(multi_){
         csv_pose<<"Drone 2: "<<uavs_pose_[2].pose.pose.position.x <<", "<< uavs_pose_[2].pose.pose.position.y<< ", "<<uavs_pose_[2].pose.pose.position.z<<", "<< std::endl;
         csv_pose<<"Drone 3: "<<uavs_pose_[3].pose.pose.position.x <<", "<< uavs_pose_[3].pose.pose.position.y<<", "<< uavs_pose_[3].pose.pose.position.z<<", "<< std::endl;
     }
-    csv_pose<<std::endl;
+    csv_pose<<"initial guess: "<<std::endl;
+    for(int i=0; i<initial_guess_.size();i++){
+        csv_pose <<initial_guess_["ax"][i] << ", " << initial_guess_["ay"][i] << ", " << initial_guess_["az"][i]<<std::endl;
+        csv_pose <<initial_guess_["px"][i] << ", " << initial_guess_["py"][i] << ", " << initial_guess_["pz"][i]<<std::endl;
+        csv_pose <<initial_guess_["vx"][i] << ", " << initial_guess_["vy"][i] << ", " << initial_guess_["vz"][i]<<std::endl;
+    }
+    csv_pose<<"Calculated trajectroy"<<std::endl;
      for(int i=0; i<x_.size(); i++){
         csv_pose << x_[i] << ", " << y_[i] << ", " << z_[i]<< ", "<< vx_[i]<< ", " <<vy_[i]<< ", " <<vz_[i]<<std::endl;
     }
@@ -388,10 +410,85 @@ bool backendSolver::checkConnectivity(){
     } 
 }
 
+void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius){
+    no_fly_zone_points_.clear();
+    std::array<float,2> aux;
+    const float SAFETY_OFFSET = 0.1;
+    for(float angle =0.0; angle<2*M_PI;angle = angle+0.25){
+        aux[0] = x_center+(radius+SAFETY_OFFSET)*cos(angle);
+        aux[1] = y_center+(radius+SAFETY_OFFSET)*sin(angle);
+        no_fly_zone_points_.push_back(aux);
+    }
+}
+
+
 bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose){
     ROS_INFO("");
 }
 
+void backendSolver::calculateInitialGuess(){
+    ROS_INFO("intial guess");
+    // calculate scalar direction
+    float aux_norm = sqrt(  pow((desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x),2)+
+                            pow((desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y),2)+
+                            pow((desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z),2)); 
+    float scalar_dir_x = (desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x)/aux_norm;
+    float scalar_dir_y = (desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y)/aux_norm;
+    float scalar_dir_z = (desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z)/aux_norm;
+    // accelerations
+    for (int i = 0; i<time_horizon_;i++){
+        initial_guess_["ax"][i] = ZERO;
+        initial_guess_["ay"][i] = ZERO;
+        initial_guess_["az"][i] = ZERO;
+    }
+    // velocity
+    float aux_val;
+    float vel_module_cte = max_vel/2; // vel cte guess for the initial 
+    for(int i=0; i<time_horizon_;i++){
+        aux_val = uavs_pose_[drone_id_].twist.twist.linear.x;
+        initial_guess_["vx"][i] = std::min(std::max(aux_val, -max_vel), max_vel); // saturating velocity
+
+        aux_val = uavs_pose_[drone_id_].twist.twist.linear.y;
+        initial_guess_["vy"][i] = std::min(std::max(aux_val, -max_vel), max_vel);
+
+        aux_val = uavs_pose_[drone_id_].twist.twist.linear.z;
+        initial_guess_["vz"][i] =  std::min(std::max(aux_val, -max_vel), max_vel);
+    }
+
+    initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.pose.position.x;
+    initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.pose.position.y;
+    initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.pose.position.z;
+
+    std::array<float,2> aux;
+    for(int i=1; i<time_horizon_;i++){
+        initial_guess_["px"][i] = initial_guess_["px"][i-1]+i* initial_guess_["vx"][i];
+        initial_guess_["py"][i] = initial_guess_["py"][i-1]+i* initial_guess_["vy"][i];
+        initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+i* initial_guess_["vz"][i];
+        if(sqrt(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2))<pow(NO_FLY_ZONE_RADIUS,2)){
+            aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
+            initial_guess_["px"][i] = aux[0];
+            initial_guess_["px"][i] = aux[1];
+        }
+    }
+
+}
+
+std::array<float,2> backendSolver::expandPose(float x, float y){
+   float aux_norm = 0.0;
+   float minor_distance = INFINITY;
+   std::array<float,2> point_to_return;
+
+   for(int i=0;i<no_fly_zone_points_.size();i++){
+        aux_norm = sqrt(  pow((no_fly_zone_points_[i][0]-x),2)+
+                          pow((no_fly_zone_points_[i][1]-y),2));
+        if(aux_norm<minor_distance){
+            minor_distance = aux_norm;
+            point_to_return[0] = no_fly_zone_points_[i][0];
+            point_to_return[1] = no_fly_zone_points_[i][1];
+        }
+   }
+   return point_to_return;
+}
 
 bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
   ROS_INFO("[%s]: Activation service called.", ros::this_node::getName().c_str());
@@ -471,7 +568,9 @@ void backendSolver::stateMachine(){
     // case IDLE:
     //     IDLEState();
     //     break;
-    // case DYNAMIC:
+    // case GO_TO:
+    //      goToState();
+    // case SHOT:
     //     dynamicState();
     //     break;
     // case STATIC:

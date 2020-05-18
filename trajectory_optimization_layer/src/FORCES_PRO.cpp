@@ -44,8 +44,6 @@ void FORCESPROsolver::saveParametersToCsv(const FORCESNLPsolver_params &params){
     }
 }
 
-
- 
 int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
 
     const int p_x = 0;
@@ -69,7 +67,7 @@ int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> 
 
     myparams.xinit[3] = uavs_pose[drone_id].pose.pose.position.x;
     myparams.xinit[4] = uavs_pose[drone_id].pose.pose.position.y;
-    myparams.xinit[5] = uavs_pose[drone_id].pose.pose.position.z;
+    myparams.xinit[5] = 3.0;
  
     myparams.xinit[6] = uavs_pose[drone_id].twist.twist.linear.x;
     myparams.xinit[7] = uavs_pose[drone_id].twist.twist.linear.y;
@@ -97,7 +95,7 @@ int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> 
         // desired position
         params.push_back(desired_odometry.pose.pose.position.x);
         params.push_back(desired_odometry.pose.pose.position.y);
-        params.push_back(uavs_pose[drone_id].pose.pose.position.z);
+        params.push_back(3.0);
         
         // desired velocity
         params.push_back(desired_odometry.twist.twist.linear.x);
@@ -2171,47 +2169,47 @@ int FORCESPROsolver::solverFunction(std::vector<double> &x, std::vector<double> 
     // vz.push_back(myoutput.x398[velocity_z]);
     // vz.push_back(myoutput.x399[velocity_z]);
     // vz.push_back(myoutput.x400[velocity_z]);
-    z.push_back(myoutput.x01[position_z]);
-    z.push_back(myoutput.x02[position_z]);
-    z.push_back(myoutput.x03[position_z]);
-    z.push_back(myoutput.x04[position_z]);
-    z.push_back(myoutput.x05[position_z]);
-    z.push_back(myoutput.x06[position_z]);
-    z.push_back(myoutput.x07[position_z]);
-    z.push_back(myoutput.x08[position_z]);
-    z.push_back(myoutput.x09[position_z]);
-    z.push_back(myoutput.x10[position_z]);
-    z.push_back(myoutput.x11[position_z]);
-    z.push_back(myoutput.x12[position_z]);
-    z.push_back(myoutput.x13[position_z]);
-    z.push_back(myoutput.x14[position_z]);
-    z.push_back(myoutput.x15[position_z]);
-    z.push_back(myoutput.x16[position_z]);
-    z.push_back(myoutput.x17[position_z]);
-    z.push_back(myoutput.x18[position_z]);
-    z.push_back(myoutput.x19[position_z]);
-    z.push_back(myoutput.x20[position_z]);
-    z.push_back(myoutput.x21[position_z]);
-    z.push_back(myoutput.x22[position_z]);
-    z.push_back(myoutput.x23[position_z]);
-    z.push_back(myoutput.x24[position_z]);
-    z.push_back(myoutput.x25[position_z]);
-    z.push_back(myoutput.x26[position_z]);
-    z.push_back(myoutput.x27[position_z]);
-    z.push_back(myoutput.x28[position_z]);
-    z.push_back(myoutput.x29[position_z]);
-    z.push_back(myoutput.x30[position_z]);
-    z.push_back(myoutput.x31[position_z]);
-    z.push_back(myoutput.x32[position_z]);
-    z.push_back(myoutput.x33[position_z]);
-    z.push_back(myoutput.x34[position_z]);
-    z.push_back(myoutput.x35[position_z]);
-    z.push_back(myoutput.x36[position_z]);
-    z.push_back(myoutput.x37[position_z]);
-    z.push_back(myoutput.x38[position_z]);
-    z.push_back(myoutput.x39[position_z]);
-    z.push_back(myoutput.x40[position_z]);
-    // z.push_back(myoutput.x041[position_z]);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    z.push_back(uavs_pose[drone_id].pose.pose.position.z);
+    // z.push_bauavs_pose[drone_ido.pose.pose.position.xn_z]);
     // z.push_back(myoutput.x042[position_z]);
     // z.push_back(myoutput.x043[position_z]);
     // z.push_back(myoutput.x044[position_z]);

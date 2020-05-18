@@ -15,8 +15,9 @@
 #include <formation_church_planning/Point.h>
 #include <formation_church_planning/Diagnostic.h>
 #include <math.h>       /* sqrt */
-
-
+#include <algorithm>
+#define ZERO 0.000001
+#define TIME_HORIZON 40
 /** this node is a backend to use optimization solvers with ROS for UAVs, 
  * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
  * to interface with the rest of the nodes.
@@ -63,6 +64,10 @@ class backendSolver{
         std::vector<double> vx_;
         std::vector<double> vy_;
         std::vector<double> vz_;
+        const std::array<float,2> no_fly_zone_center_{0.0,0.0};
+        const float NO_FLY_ZONE_RADIUS=3;
+        std::vector<std::array<float,2>> no_fly_zone_points_;
+        const float max_vel = 1.0;                                      /**< Max velocity imposed as constraint */
         //robots
         int drone_id_;
         std::map<int,nav_msgs::Odometry> uavs_pose_;                      /**< Last uavs odometry <drone_id,odometry> */
@@ -76,7 +81,7 @@ class backendSolver{
         const double REACHING_TOLERANCE = 2.0;      /**< Distance to the desired pose that is set as reached */
         nav_msgs::Odometry desired_odometry_;       /**< Desired pose [x y z yaw] */ 
         //solver
-        int time_horizon_ = 40;
+        int time_horizon_ = TIME_HORIZON;
         float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
         const float solver_rate_static_ = 0.5;            /**< Rate to call the static loop (s) */
         const float solver_rate_dynamic_ = 1;        /**< Rate to call the dynamic loop (s) */
@@ -84,6 +89,8 @@ class backendSolver{
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
         const double step_size = 0.2;               /**< step size (seg) */
+
+        std::map<std::string, std::array<float,TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
 
         std::vector<int> drones;
         // services and topics
@@ -219,7 +226,23 @@ class backendSolver{
         /*! \brief loop to be inizialized but doing nothing
          */
         void IDLEState();
-
+        /**! \brief Utility function to expand the position to comply with the no fly zone constraint
+         *          Used for the initial guess
+         */   
+        std::array<float,2> expandPose(float x, float y);
+        /**! \brief calculate no fly zone points. Used to the intial guess
+         *   \param x_center
+         *   \param y_center
+         *   \param radius
+         *   \return nothing but the calculation is saved in no_fly_zone_points_
+         */
+        void calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius);
+        /**! \brief Calculate initial guess
+         *          accel to zero
+         *          velocity cte 
+         *          vel cte model for path guess
+         */
+        void calculateInitialGuess();
         bool subida;
     
     private:
@@ -250,10 +273,7 @@ class backendSolverMRS : backendSolver {
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
         void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
-
-
 };
-
 
 class backendSolverUAL : backendSolver {
     public:
