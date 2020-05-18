@@ -3,7 +3,7 @@ std_msgs/Header header
 string start_event           # identifies the event of this shooting action
 uint8 shooting_action_type   # identifies this shooting action
 
-std_msgs/Duration duration  # Expected duration in seconds of the shooting action
+float32 duration  # Expected duration in seconds of the shooting action
 float32 length              # Expected length in meters of the reference target trajectory
 
 uint8 target_type

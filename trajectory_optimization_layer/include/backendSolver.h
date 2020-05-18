@@ -17,7 +17,9 @@
 #include <math.h>       /* sqrt */
 #include <ACADO.h>
 
-
+#include <algorithm>
+#define ZERO 0.000001
+#define TIME_HORIZON 40
 /** this node is a backend to use optimization solvers with ROS for UAVs, 
  * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
  * to interface with the rest of the nodes.
@@ -64,6 +66,10 @@ class backendSolver{
         std::vector<double> vx_;
         std::vector<double> vy_;
         std::vector<double> vz_;
+        const std::array<float,2> no_fly_zone_center_{0.0,0.0};
+        const float NO_FLY_ZONE_RADIUS=3;
+        std::vector<std::array<float,2>> no_fly_zone_points_;
+        const float max_vel = 1.0;                                      /**< Max velocity imposed as constraint */
         //robots
         int drone_id_;
         std::map<int,nav_msgs::Odometry> uavs_pose_;                      /**< Last uavs odometry <drone_id,odometry> */
@@ -77,11 +83,17 @@ class backendSolver{
         const double REACHING_TOLERANCE = 2.0;      /**< Distance to the desired pose that is set as reached */
         nav_msgs::Odometry desired_odometry_;       /**< Desired pose [x y z yaw] */ 
         //solver
-        int time_horizon_ = 39;                     /**< Number of steps */
-        double solver_rate_ = 4;                    /**< Rate to call the solver (s) */
+        int time_horizon_ = TIME_HORIZON;
+        float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
+        const float solver_rate_static_ = 0.5;            /**< Rate to call the static loop (s) */
+        const float solver_rate_dynamic_ = 1;        /**< Rate to call the dynamic loop (s) */
         int solver_success = false;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
+        const double step_size = 0.2;               /**< step size (seg) */
+
+        std::map<std::string, std::array<float,TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
+
         std::vector<int> drones;
         // services and topics
         ros::Subscriber target_array_sub;           /**< Subscriber to target topic */
@@ -98,7 +110,7 @@ class backendSolver{
         std::map<int, bool> has_poses;                   /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
         std::map<int,bool> trajectory_solved_received;   /**<  flags to receive the solved trajectories for others <drone_id, received> */
         bool is_initialized = false;            /**< object inizialized */
-        bool activated = false;                 /**< planning activated */
+        bool activated_ = false;                 /**< planning activated */
         bool first_activation_ = true;          /**< first activation of the planning */
         bool planning_done_ = false;            /**< planning finished */
         // timers and threads
@@ -106,9 +118,22 @@ class backendSolver{
         std::thread main_thread_;                   /**< Main thread that calls the solver*/
 
         const int TARGET = 0;                   /**< has_poses[TARGET] */
+    
+        std::ofstream csv_pose;                 /**< object to log the trajectory */  
+        std::ofstream csv_record;               /**< object to log parameters */
 
         ACADOsolver acado_solver_;
 
+        FORCESPROsolver solver_;                /**< solver object */
+
+        bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
+
+        /*! \brief utility function to calculate whether last trajectory reaches the desired pose
+        *    \param trajectory
+        *    \param desired_pose_
+        *    \return success
+        */
+        bool isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose);
         ///////////////// CALLBACKS MEMBERS ///////////////////////////////
         /*!  \brief callback for the desired pose. This function receives the pose in quaternion
          *   \param msg
@@ -158,16 +183,17 @@ class backendSolver{
         *   \return true if connectivity is correct
         **/
         bool checkConnectivity();
-        /*! \brief Service callback to activate the planning
-        *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
-        *   \param res res.message = "message"
-        *   \return planning_activated 
-        **/
-        bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
         /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to visualize 
         **/
-        virtual void callSolverLoop();
+        void stateMachine();
+        /*! \brief function that executes the dynamic state
+        **/
+        void dynamicState();
+        /*! \brief publish the solved trajectory for others
+        **/
+        virtual void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
+
         /** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
         *  \param desired_pos      This is the desired pose
         *  \param last_traj_pos    This is the last point of the calculated trajectory
@@ -197,7 +223,37 @@ class backendSolver{
         *    
         **/
         void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]);
-
+        void pruebaDroneSubida();
+        /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
+         */
+        void staticLoop();
+        /*! \brief loop to be inizialized but doing nothing
+         */
+        void IDLEState();
+        /**! \brief Utility function to expand the position to comply with the no fly zone constraint
+         *          Used for the initial guess
+         */   
+        std::array<float,2> expandPose(float x, float y);
+        /**! \brief calculate no fly zone points. Used to the intial guess
+         *   \param x_center
+         *   \param y_center
+         *   \param radius
+         *   \return nothing but the calculation is saved in no_fly_zone_points_
+         */
+        void calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius);
+        /**! \brief Calculate initial guess
+         *          accel to zero
+         *          velocity cte 
+         *          vel cte model for path guess
+         */
+        void calculateInitialGuess();
+        bool subida;
+    
+    private:
+        enum State {
+            DYNAMIC, STATIC, IDLE
+        };
+        State state_ = IDLE;
 };
 
 class backendSolverMRS : backendSolver {
@@ -211,16 +267,17 @@ class backendSolverMRS : backendSolver {
         /*! \brief Callback function to the target topic. This function save the pose reveived for the first in has_poses[0] and upload target_pose_ member
          *  \param 
          * */
-        void targetCallbackMRS(const geometry_msgs::PoseStamped::ConstPtr& _msg);
-        
+        void targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _msg);
+          /*! \brief Service callback to activate the planning
+        *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
+        *   \param res res.message = "message"
+        *   \return planning_activated 
+        **/
+        bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
-        void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch);
+        void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
         void diagTimer(const ros::TimerEvent &event);
-        void callSolverLoop();
-
-
 };
-
 
 class backendSolverUAL : backendSolver {
     public:

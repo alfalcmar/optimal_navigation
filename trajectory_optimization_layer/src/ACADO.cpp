@@ -153,10 +153,10 @@ void ACADOsolver::checkConstraints(nav_msgs::Odometry &desired_odometry, std::ma
     auto start = std::chrono::system_clock::now();
     ROS_INFO("calling solver function");
     DifferentialEquation model;
-    AlgebraicState pitch;
+    //AlgebraicState pitch;
     ROS_INFO("Acado constructor");
 
-    pitch = 2*atan2(pz_/(sqrt(pow((px_-tx),2) + pow((py_-ty),2)+pow(pz_,2))+sqrt(pow((px_-tx),2) + pow((py_-ty),2))));
+    //pitch = 2*atan2(pz_/(sqrt(pow((px_-tx),2) + pow((py_-ty),2)+pow(pz_,2))+sqrt(pow((px_-tx),2) + pow((py_-ty),2))));
     // define the model
     model << dot(px_) == vx_;
     model << dot(py_) == vy_;
@@ -181,7 +181,7 @@ void ACADOsolver::checkConstraints(nav_msgs::Odometry &desired_odometry, std::ma
     ocp_.subjectTo(  -1.0 <= vz_ <= 1.0   );
     ocp_.subjectTo( tx==target_x);
     ocp_.subjectTo( ty==target_y);
-    ocp_.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
+    //ocp_.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
     checkConstraints(desired_odometry,uavs_pose);
 
    // ocp_.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
@@ -191,12 +191,12 @@ void ACADOsolver::checkConstraints(nav_msgs::Odometry &desired_odometry, std::ma
     ocp_.subjectTo( AT_START, pz_ == uavs_pose.at(drone_id).pose.pose.position.z);
     ocp_.subjectTo( AT_START, vx_== uavs_pose.at(drone_id).twist.twist.linear.x);
     ocp_.subjectTo( AT_START, vy_== uavs_pose.at(drone_id).twist.twist.linear.y);
-    ocp_.subjectTo( AT_START, vz_== 0);
+    ocp_.subjectTo( AT_START, vz_== uavs_pose.at(drone_id).twist.twist.linear.z);
 
 
     ocp_.minimizeMayerTerm((desired_odometry.pose.pose.position.x-px_)*(desired_odometry.pose.pose.position.x-px_)+
                             (desired_odometry.pose.pose.position.y-py_)*(desired_odometry.pose.pose.position.y-py_)+
-                            (2-pz_)*(2-pz_));
+                            (desired_odometry.pose.pose.position.z-pz_)*(desired_odometry.pose.pose.position.z-pz_));
     ocp_.minimizeLagrangeTerm(ax_*ax_+ay_*ay_+az_*az_);
 
 
