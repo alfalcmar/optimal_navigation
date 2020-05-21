@@ -21,7 +21,9 @@
 #include <acado_toolkit.hpp>
 #include <acado/acado_optimal_control.hpp>
 USING_NAMESPACE_ACADO
+#define TIME_HORIZON 40
 
+// TODO use namespace
 
 class ACADOsolver{
     public:
@@ -33,17 +35,19 @@ class ACADOsolver{
         *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
         *  \TODO m                     manage priorities by drones (ID)
         */
-        int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, const int drone_id = 1, const bool target = true, const bool multi = false);
+        int solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z, std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
 
     private:
         void checkConstraints(nav_msgs::Odometry &desired_odometry, std::map<int,nav_msgs::Odometry> &uavs_pose);
 
         //////////// Solver variables /////////////
         // solver options
+
+
         const float t_start = 0.0;
         const int drone_id_ = 1;
-        const float t_end = 8.0; 
-        const int N = 39;
+        const float t_end = 7.8; 
+        const int N = TIME_HORIZON;
         const bool no_fly_zone = false;
         const bool debug = true;
         std::vector<int> priority;
@@ -53,11 +57,13 @@ class ACADOsolver{
         const float hovering_distance = 0.5;
         const int npar = 10;
         const float height = 1.7;
-        std::ofstream csv_pose; // logging the trajectory
+        std::ofstream csv; // logging the trajectory
         std::ofstream csv_debug; // logging the trajectory
         std::ofstream csv_record; // logging the trajectory
 
         LogRecord *logRecord;
+
+        Grid *my_grid_;
 
 
 };

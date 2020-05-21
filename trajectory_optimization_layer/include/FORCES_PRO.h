@@ -17,6 +17,7 @@
 #include <thread>         // std::thread, std::this_thread::sleep_for
 #include <uav_abstraction_layer/State.h>
 #include <optimal_control_interface/Solver.h>
+#define TIME_HORIZON 40
 
 
 class FORCESPROsolver{
@@ -33,11 +34,11 @@ class FORCESPROsolver{
         *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
         *  \TODO m                     manage priorities by drones (ID)
         */
-        int solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, const int drone_id = 1, const bool target = true, const bool multi = false);
+        int solverFunction(std::array<double,TIME_HORIZON> &ax, std::array<double,TIME_HORIZON> &ay, std::array<double,TIME_HORIZON> &az, std::array<double,TIME_HORIZON> &x, std::array<double,TIME_HORIZON> &y, std::array<double,TIME_HORIZON> &z, std::array<double,TIME_HORIZON> &vx, std::array<double,TIME_HORIZON> &vy, std::array<double,TIME_HORIZON> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, const int drone_id = 1, const bool target = true, const bool multi = false);
     private:
         //////////// Solver variables /////////////
         // solver options
-        const int time_horizon = 40;
+        const int time_horizon = TIME_HORIZON;
         const bool no_fly_zone = false;
         const bool debug = true;
         std::vector<int> priority;

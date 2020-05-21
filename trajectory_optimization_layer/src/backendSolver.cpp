@@ -138,33 +138,29 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr& _ms
 
 
 void backendSolver::dynamicState(){
+    ros::spinOnce();
+    calculateInitialGuess();
+
      // solver function
     solver_rate_ = solver_rate_dynamic_;
-    x_.clear();
-    y_.clear();
-    z_.clear();
-    vx_.clear();
-    vy_.clear();
-    vz_.clear();
     if(target_){  // calculate the target trajectory if it exists
         targetTrajectoryVelocityCTEModel();
     }
-    ros::spinOnce();
-    solver_success = solver_.solverFunction(x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
-
+    first_time_solving_ = false;
+    logToCsv();
+    solver_success = solver_.solverFunction(ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
     if(solver_success==1){
         std::vector<double> yaw = predictingYaw();
         std::vector<double> pitch = predictingPitch();
         //TODO where is going pitch and yaw?
-        publishSolvedTrajectory(x_,y_,z_, yaw,pitch);
+        publishSolvedTrajectory(yaw,pitch);
     }
-    logToCsv();
     target_path_rviz_pub.publish(targetPathVisualization()); 
     publishDesiredPoint();
     publishPath();  
 }
 
-void backendSolver::publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch){
+void backendSolver::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points /*0 default */){
     ROS_INFO("virtual definition of publish solved trajectory");
 }
 
@@ -237,7 +233,7 @@ void backendSolver::pruebaDroneSubida(){
     double vel = 0.5;
     for(int i=0; i<time_horizon_;i++){
         double aux = uavs_pose_[drone_id_].pose.pose.position.z + step_size*i*vel;
-        z_.push_back(aux);
+        z_[i]=aux;
     }
 }
 
@@ -356,15 +352,15 @@ void backendSolver::logToCsv(){
         csv_pose<<"Drone 3: "<<uavs_pose_[3].pose.pose.position.x <<", "<< uavs_pose_[3].pose.pose.position.y<<", "<< uavs_pose_[3].pose.pose.position.z<<", "<< std::endl;
     }
     csv_pose<<"initial guess: "<<std::endl;
-    for(int i=0; i<initial_guess_.size();i++){
-        csv_pose <<initial_guess_["ax"][i] << ", " << initial_guess_["ay"][i] << ", " << initial_guess_["az"][i]<<std::endl;
-        csv_pose <<initial_guess_["px"][i] << ", " << initial_guess_["py"][i] << ", " << initial_guess_["pz"][i]<<std::endl;
-        csv_pose <<initial_guess_["vx"][i] << ", " << initial_guess_["vy"][i] << ", " << initial_guess_["vz"][i]<<std::endl;
+    for(int i=0; i<time_horizon_;i++){
+        csv_pose <<initial_guess_["ax"][i] << ", " << initial_guess_["ay"][i] << ", " << initial_guess_["az"][i]<< ", "<<
+                    initial_guess_["px"][i] << ", " << initial_guess_["py"][i] << ", " << initial_guess_["pz"][i]<<", "<<
+                    initial_guess_["vx"][i] << ", " << initial_guess_["vy"][i] << ", " << initial_guess_["vz"][i]<<std::endl;
     }
-    csv_pose<<"Calculated trajectroy"<<std::endl;
-     for(int i=0; i<x_.size(); i++){
-        csv_pose << x_[i] << ", " << y_[i] << ", " << z_[i]<< ", "<< vx_[i]<< ", " <<vy_[i]<< ", " <<vz_[i]<<std::endl;
-    }
+    // csv_pose<<"Calculated trajectroy"<<std::endl;
+    //  for(int i=0; i<x_.size(); i++){
+    //     csv_pose <<ax_[i] << ", " << ay_[i] << ", " << az_[i]<< ", "<<x_[i] << ", " << y_[i] << ", " << z_[i]<< ", "<< vx_[i]<< ", " <<vy_[i]<< ", " <<vz_[i]<<std::endl;
+    // }
 }
 
 nav_msgs::Path backendSolver::targetPathVisualization()
@@ -428,49 +424,74 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 
 void backendSolver::calculateInitialGuess(){
     ROS_INFO("intial guess");
-    // calculate scalar direction
-    float aux_norm = sqrt(  pow((desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x),2)+
-                            pow((desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y),2)+
-                            pow((desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z),2)); 
-    float scalar_dir_x = (desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x)/aux_norm;
-    float scalar_dir_y = (desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y)/aux_norm;
-    float scalar_dir_z = (desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z)/aux_norm;
-    // accelerations
-    for (int i = 0; i<time_horizon_;i++){
-        initial_guess_["ax"][i] = ZERO;
-        initial_guess_["ay"][i] = ZERO;
-        initial_guess_["az"][i] = ZERO;
-    }
-    // velocity
-    float aux_val;
-    float vel_module_cte = max_vel/2; // vel cte guess for the initial 
-    for(int i=0; i<time_horizon_;i++){
-        aux_val = uavs_pose_[drone_id_].twist.twist.linear.x;
-        initial_guess_["vx"][i] = std::min(std::max(aux_val, -max_vel), max_vel); // saturating velocity
+    
+    if (first_time_solving_)
+    {
+            // calculate scalar direction
+        float aux_norm = sqrt(  pow((desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x),2)+
+                                pow((desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y),2)+
+                                pow((desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z),2)); 
+        float scalar_dir_x = (desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x)/aux_norm;
+        float scalar_dir_y = (desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y)/aux_norm;
+        float scalar_dir_z = (desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z)/aux_norm;
+        float vel_module_cte = max_vel/2; // vel cte guess for the initial 
+        // accelerations
+        initial_guess_["ax"][0] = ZERO;
+        initial_guess_["ay"][0] = ZERO;
+        initial_guess_["az"][0] = ZERO;
+        initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.pose.position.x;
+        initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.pose.position.y;
+        initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.pose.position.z;
+        initial_guess_["vx"][0] = scalar_dir_x*vel_module_cte;
+        initial_guess_["vy"][0] = scalar_dir_y*vel_module_cte;
+        initial_guess_["vz"][0] = scalar_dir_z*vel_module_cte;
+        for (int i = 1; i<time_horizon_;i++){
+            initial_guess_["ax"][i] = ZERO;
+            initial_guess_["ay"][i] = ZERO;
+            initial_guess_["az"][i] = ZERO;
+            initial_guess_["vx"][i] = scalar_dir_x*vel_module_cte;
+            initial_guess_["vy"][i] = scalar_dir_y*vel_module_cte;
+            initial_guess_["vz"][i] = scalar_dir_z*vel_module_cte;
+            initial_guess_["px"][i] = initial_guess_["px"][i-1]+step_size* initial_guess_["vx"][i-1];
+            initial_guess_["py"][i] = initial_guess_["py"][i-1]+step_size* initial_guess_["vy"][i-1];
+            initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+step_size* initial_guess_["vz"][i-1];
+        }
+    
+    }else{
+    
+        //previous one
+        for(int i = 0;i<time_horizon_;i++){
+            initial_guess_["ax"][i] = ax_[i];  
+            initial_guess_["ay"][i] = ay_[i];
+            initial_guess_["az"][i] = az_[i];
+            initial_guess_["px"][i] = x_[i];
+            initial_guess_["py"][i] = y_[i];
+            initial_guess_["pz"][i] = z_[i];
+            initial_guess_["vx"][i] = vx_[i];
+            initial_guess_["vy"][i] = vy_[i];
+            initial_guess_["vz"][i] = vz_[i];
 
-        aux_val = uavs_pose_[drone_id_].twist.twist.linear.y;
-        initial_guess_["vy"][i] = std::min(std::max(aux_val, -max_vel), max_vel);
-
-        aux_val = uavs_pose_[drone_id_].twist.twist.linear.z;
-        initial_guess_["vz"][i] =  std::min(std::max(aux_val, -max_vel), max_vel);
-    }
-
-    initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.pose.position.x;
-    initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.pose.position.y;
-    initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.pose.position.z;
-
-    std::array<float,2> aux;
-    for(int i=1; i<time_horizon_;i++){
-        initial_guess_["px"][i] = initial_guess_["px"][i-1]+i* initial_guess_["vx"][i];
-        initial_guess_["py"][i] = initial_guess_["py"][i-1]+i* initial_guess_["vy"][i];
-        initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+i* initial_guess_["vz"][i];
-        if(sqrt(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2))<pow(NO_FLY_ZONE_RADIUS,2)){
-            aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
-            initial_guess_["px"][i] = aux[0];
-            initial_guess_["px"][i] = aux[1];
         }
     }
+    // sequrity check
 
+    // saturate velocity
+    float aux_val;
+    std::array<float,2> aux;
+
+    for(int i=0; i<time_horizon_;i++){
+        initial_guess_["vx"][i] = std::min(std::max( (float)initial_guess_["vx"][i], -max_vel), max_vel); // saturating velocity
+
+        initial_guess_["vy"][i] = std::min(std::max((float) initial_guess_["vy"][i], -max_vel), max_vel);
+
+        initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
+        // no fly zone
+        //  if(sqrt(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2))<pow(NO_FLY_ZONE_RADIUS,2)){
+        //     aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
+        //     initial_guess_["px"][i] = aux[0];
+        //     initial_guess_["px"][i] = aux[1];
+        // }
+    }
 }
 
 std::array<float,2> backendSolver::expandPose(float x, float y){
@@ -530,22 +551,16 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
 
 void backendSolver::staticLoop(){
     solver_rate_ = solver_rate_static_;
-    x_.clear();
-    y_.clear();
-    z_.clear();
-    vx_.clear();
-    vy_.clear();
-    vz_.clear();
     for(int i=0; i<time_horizon_;i++){ // maintain the position
-        x_.push_back(uavs_pose_[drone_id_].pose.pose.position.x);
-        y_.push_back(uavs_pose_[drone_id_].pose.pose.position.y);
+        x_[i]=uavs_pose_[drone_id_].pose.pose.position.x;
+        y_[i]=uavs_pose_[drone_id_].pose.pose.position.y;
     }
     // TODO think about what to do with that
     if(subida){
         pruebaDroneSubida();
     }else{
         for(int i=0;i<time_horizon_;i++){
-            z_.push_back(uavs_pose_[drone_id_].pose.pose.position.z);
+            z_[i]=uavs_pose_[drone_id_].pose.pose.position.z;
         }
     }
    
@@ -554,43 +569,91 @@ void backendSolver::staticLoop(){
     std::vector<double> pitch = predictingPitch();
  
 
-    publishSolvedTrajectory(x_,y_,z_,yaw,pitch);
+    publishSolvedTrajectory(yaw,pitch);
 }
 
 void backendSolver::IDLEState(){
     ROS_INFO("Solver %d: IDLE state",drone_id_);
 }
 
+// void backendSolver::deletingPoints(const int number_of_points){
+//         x_.erase(x_.begin(),x_.begin()+number_of_points);
+//         y_.erase(y_.begin(),y_.begin()+number_of_points);
+//         z_.erase(z_.begin(),z_.begin()+number_of_points);
+//         vx_.erase(vx_.begin(),vx_.begin()+number_of_points);
+//         vy_.erase(vy_.begin(),vy_.begin()+number_of_points);
+//         vz_.erase(vz_.begin(),vz_.begin()+number_of_points);
+//         ax_.erase(ax_.begin(),ax_.begin()+number_of_points);
+//         ay_.erase(ay_.begin(),ay_.begin()+number_of_points);
+//         az_.erase(az_.begin(),az_.begin()+number_of_points);
+// }
+// void backendSolver::checkPoints(){
+//     for(int i=0;x_.size();i++){
+
+//     }
+// }
+int backendSolver::checkDelay(std::chrono::system_clock::time_point start){
+    std::chrono::duration<double> diff = std::chrono::system_clock::now() - start;
+    int number_of_points = diff.count()/step_size;
+    return number_of_points;
+}
 void backendSolver::stateMachine(){
-
-    switch (desired_type_)
-    {
-    case shot_executer::DesiredShot::IDLE:
-        IDLEState();
-        break;
-    case shot_executer::DesiredShot::GOTO:
-         //goToState();
-    case shot_executer::DesiredShot::SHOT:
-        dynamicState();
-        break;
-    /*case shot_executer::DesiredShot::STATIC: //should be the same that goto
-        staticLoop();
-        break; */
-    default:
-        break;
-    }
-    ros::Rate r(1/solver_rate_);
-    system("read -p 'Press Enter to continue...' var");
-
-    while(ros::ok()  && !desired_position_reached_){
-        if(activated_){
+    auto start = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff;
+    while(ros::ok){
+        switch (desired_type_)
+        {
+        case shot_executer::DesiredShot::IDLE:
+            IDLEState();
+            break;
+        case shot_executer::DesiredShot::GOTO:
+            solver_rate_ = solver_rate_dynamic_;
+            if(target_){  // calculate the target trajectory if it exists
+                targetTrajectoryVelocityCTEModel();
+            }
+            ros::spinOnce();
+            start = std::chrono::system_clock::now();
+            calculateInitialGuess();
+            first_time_solving_ = false;
+            logToCsv(); 
+            solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_);
+            if(solver_success==1){
+                std::vector<double> yaw = predictingYaw();
+                std::vector<double> pitch = predictingPitch();
+                //TODO where is going pitch and yaw?
+                int delayed_points = checkDelay(start);
+                //deletingPoints(delayed_points);
+                csv_pose<<"delayed_points: "<<delayed_points<<std::endl;
+                publishSolvedTrajectory(yaw,pitch,delayed_points);
+            }
+            diff = std::chrono::system_clock::now()-start;
+            csv_pose << "delay: " <<diff.count() << " s\n";
+            publishDesiredPoint();
+            publishPath();
+            break;
+        case shot_executer::DesiredShot::SHOT:
             dynamicState();
-            
-        }else{
+            break;
+        /*case shot_executer::DesiredShot::STATIC: //should be the same that goto
             staticLoop();
+            break; */
+        default:
+            break;
         }
+        ros::Rate r(1/solver_rate_);
         sleep(solver_rate_);
     }
+
+    // system("read -p 'Press Enter to continue...' var");
+
+    // while(ros::ok()  && !desired_position_reached_){
+    //     if(activated_){
+    //         dynamicState();
+            
+    //     }else{
+    //         staticLoop();
+    //     }
+    // }
         
 }
 
@@ -619,25 +682,26 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 }
 
 
-void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch){
+void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points){
     
     mrs_msgs::TrackerPoint aux_point;
     formation_church_planning::Point aux_point_for_followers;
     mrs_msgs::TrackerTrajectory traj_to_command;
     formation_church_planning::Trajectory traj_to_followers;
     traj_to_command.fly_now = true;
-    traj_to_command.use_yaw = true;
+    traj_to_command.use_yaw = true;    
+    // check that _x _y _z are the same size
     for(int i=0;i<time_horizon_; i++){
     
         //trajectory to command
-        aux_point.x = _x[i];
-        aux_point.y = _y[i];
-        aux_point.z = _z[i];
+        aux_point.x = x_[i];
+        aux_point.y = y_[i];
+        aux_point.z = z_[i];
         aux_point.yaw = yaw[i];
         //trajectory to followers
-        aux_point_for_followers.x = _x[i];
-        aux_point_for_followers.y = _y[i];
-        aux_point_for_followers.z = _z[i];
+        aux_point_for_followers.x = x_[i];
+        aux_point_for_followers.y = y_[i];
+        aux_point_for_followers.z = z_[i];
         aux_point_for_followers.yaw = yaw[i];
         aux_point_for_followers.pitch = pitch[i];
         aux_point_for_followers.phi = 0.0;

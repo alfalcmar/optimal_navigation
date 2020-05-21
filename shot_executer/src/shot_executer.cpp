@@ -121,7 +121,7 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         case shot_executer::ShootingAction::Request::GOTO:
             desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;
             desired_point.pose.pose.position.y = _shooting_action.rt_parameters.y;
-            desired_point.pose.pose.position.z = drone_pose_.pose.pose.position.z;
+            desired_point.pose.pose.position.z = _shooting_action.rt_parameters.z;
 
             // desired vel
             desired_point.twist.twist.linear.x =0.0;

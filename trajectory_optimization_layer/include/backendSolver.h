@@ -61,12 +61,15 @@ class backendSolver{
     protected:
 
         // solver output - state variables - position and velocities (ROBOT) change to array
-        std::vector<double> x_;  
-        std::vector<double> y_;
-        std::vector<double> z_;
-        std::vector<double> vx_;
-        std::vector<double> vy_;
-        std::vector<double> vz_;
+        std::array<double,TIME_HORIZON> x_;  
+        std::array<double,TIME_HORIZON> y_;
+        std::array<double,TIME_HORIZON> z_;
+        std::array<double,TIME_HORIZON> vx_;
+        std::array<double,TIME_HORIZON> vy_;
+        std::array<double,TIME_HORIZON> vz_;
+        std::array<double,TIME_HORIZON> ax_;
+        std::array<double,TIME_HORIZON> ay_;
+        std::array<double,TIME_HORIZON> az_;
         const std::array<float,2> no_fly_zone_center_{0.0,0.0};
         const float NO_FLY_ZONE_RADIUS=3;
         std::vector<std::array<float,2>> no_fly_zone_points_;
@@ -93,8 +96,10 @@ class backendSolver{
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
         const double step_size = 0.2;               /**< step size (seg) */
-
-        std::map<std::string, std::array<float,TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
+        bool first_time_solving_ = true; 
+              
+       
+        std::map<std::string, std::array<double,TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
 
         std::vector<int> drones;
         // services and topics
@@ -129,6 +134,17 @@ class backendSolver{
         FORCESPROsolver solver_;                /**< solver object */
 
         bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
+
+
+        /*! \brief utility function to calculate the delay of solving
+        *   \param start time to call the solver
+        *   \return number of points of the calculated trajectory that are delayed
+        */
+       int checkDelay(std::chrono::system_clock::time_point start);
+       /*! \brief Utility function to erase the points that are delayed
+       *   \param number_of_points that are delayed
+       */
+       //void deletingPoints(const int number_of_points);
 
         /*! \brief utility function to calculate whether last trajectory reaches the desired pose
         *    \param trajectory
@@ -194,7 +210,7 @@ class backendSolver{
         void dynamicState();
         /*! \brief publish the solved trajectory for others
         **/
-        virtual void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
+        virtual void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points = 0);
 
         /** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
         *  \param desired_pos      This is the desired pose
@@ -277,7 +293,7 @@ class backendSolverMRS : backendSolver {
         **/
         bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
-        void publishSolvedTrajectory(const std::vector<double> &_x, const std::vector<double> &_y, const std::vector<double> &_z,const std::vector<double> &yaw,const std::vector<double> &pitch);
+        void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points = 0);
         void diagTimer(const ros::TimerEvent &event);
 };
 
