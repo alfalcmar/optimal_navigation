@@ -47,6 +47,8 @@ class FORCESPROsolver{
         const float hovering_distance = 0.5;
         const int npar = 10;
         const float height = 1.7;
+        const float solving_rate_ = 1.0;
+        const float step_size_ = 0.2;
         // state vector
 
         const int acceleration_x = 0;

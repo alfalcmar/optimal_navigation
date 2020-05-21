@@ -135,6 +135,10 @@ class backendSolver{
 
         bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
 
+        /*! \brief log the solution to CSV file
+        */
+        void logToCSVCalculatedTrajectory();
+
         /*! \brief search the closest point of the trajectory
         *   \return closest point of the trajectory
         */

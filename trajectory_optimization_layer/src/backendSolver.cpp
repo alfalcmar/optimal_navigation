@@ -339,6 +339,12 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double
     path_no_fly_zone.publish(msg);
 }
 
+void backendSolver::logToCSVCalculatedTrajectory(){
+    csv_pose<<"Calculated trajectroy"<<std::endl;
+     for(int i=0; i<time_horizon_; i++){
+        csv_pose <<ax_[i] << ", " << ay_[i] << ", " << az_[i]<< ", "<<x_[i] << ", " << y_[i] << ", " << z_[i]<< ", "<< vx_[i]<< ", " <<vy_[i]<< ", " <<vz_[i]<<std::endl;
+    }
+}
 
 void backendSolver::logToCsv(){
     // logging all results
@@ -620,12 +626,11 @@ void backendSolver::stateMachine(){
     auto start = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
     while(ros::ok){
-        switch (desired_type_)
-        {
-        case shot_executer::DesiredShot::IDLE:
+        
+        if(desired_type_ == shot_executer::DesiredShot::IDLE){
             IDLEState();
-            break;
-        case shot_executer::DesiredShot::GOTO:
+        }
+        else if( desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT){
             solver_rate_ = solver_rate_dynamic_;
             if(target_){  // calculate the target trajectory if it exists
                 targetTrajectoryVelocityCTEModel();
@@ -634,8 +639,14 @@ void backendSolver::stateMachine(){
             start = std::chrono::system_clock::now();
             calculateInitialGuess();
             first_time_solving_ = false;
-            logToCsv(); 
-            solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_);
+            logToCsv();
+
+            if(desired_type_ == shot_executer::DesiredShot::GOTO){
+                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
+            }
+            else if(desired_type_ == shot_executer::DesiredShot::SHOT){
+                solver_success = solver_.solverFunction(ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+            }
             if(solver_success==1){
                 std::vector<double> yaw = predictingYaw();
                 std::vector<double> pitch = predictingPitch();
@@ -644,23 +655,26 @@ void backendSolver::stateMachine(){
                 //deletingPoints(delayed_points);
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
                 publishSolvedTrajectory(yaw,pitch,closest_point);
+                logToCSVCalculatedTrajectory();
             }
+            
             diff = std::chrono::system_clock::now()-start;
             csv_pose << "delay: " <<diff.count() << " s\n";
             publishDesiredPoint();
             publishPath();
-            break;
-        case shot_executer::DesiredShot::SHOT:
-            dynamicState();
-            break;
-        /*case shot_executer::DesiredShot::STATIC: //should be the same that goto
-            staticLoop();
-            break; */
-        default:
-            break;
         }
+        // case shot_executer::DesiredShot::SHOT:
+        //     dynamicState();
+        //     break;
+        // /*case shot_executer::DesiredShot::STATIC: //should be the same that goto
+        //     staticLoop();
+        //     break; */
+        // default:
+        //     break;
+        // }
         ros::Rate r(1/solver_rate_);
         sleep(solver_rate_);
+        ros::spinOnce();
     }
 
     // system("read -p 'Press Enter to continue...' var");
