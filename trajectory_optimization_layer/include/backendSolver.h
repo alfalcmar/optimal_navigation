@@ -135,7 +135,10 @@ class backendSolver{
 
         bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
 
-
+        /*! \brief search the closest point of the trajectory
+        *   \return closest point of the trajectory
+        */
+        int closestPose();
         /*! \brief utility function to calculate the delay of solving
         *   \param start time to call the solver
         *   \return number of points of the calculated trajectory that are delayed

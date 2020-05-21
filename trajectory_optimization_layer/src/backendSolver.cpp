@@ -417,6 +417,24 @@ void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y
     }
 }
 
+int backendSolver::closestPose(){
+    float nearest_distance = sqrt(pow((x_[0]-uavs_pose_[drone_id_].pose.pose.position.x),2)+
+                                pow((y_[0]-uavs_pose_[drone_id_].pose.pose.position.y),2)+
+                                pow((z_[0]-uavs_pose_[drone_id_].pose.pose.position.z),2));;
+    float point_distance = INFINITY;
+    for(int i = 1; i<time_horizon_;i++){
+        point_distance = sqrt(  pow((x_[i]-uavs_pose_[drone_id_].pose.pose.position.x),2)+
+                                pow((y_[i]-uavs_pose_[drone_id_].pose.pose.position.y),2)+
+                                pow((z_[i]-uavs_pose_[drone_id_].pose.pose.position.z),2)); 
+        if(point_distance<nearest_distance){
+            nearest_distance = point_distance;
+        }
+        else
+        {
+            return i;
+        }
+    }
+}
 
 bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose){
     ROS_INFO("");
@@ -510,6 +528,7 @@ std::array<float,2> backendSolver::expandPose(float x, float y){
    }
    return point_to_return;
 }
+
 
 bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
   ROS_INFO("[%s]: Activation service called.", ros::this_node::getName().c_str());
@@ -621,10 +640,10 @@ void backendSolver::stateMachine(){
                 std::vector<double> yaw = predictingYaw();
                 std::vector<double> pitch = predictingPitch();
                 //TODO where is going pitch and yaw?
-                int delayed_points = checkDelay(start);
+                int closest_point = closestPose();
                 //deletingPoints(delayed_points);
-                csv_pose<<"delayed_points: "<<delayed_points<<std::endl;
-                publishSolvedTrajectory(yaw,pitch,delayed_points);
+                csv_pose<<"delayed_points: "<<closest_point<<std::endl;
+                publishSolvedTrajectory(yaw,pitch,closest_point);
             }
             diff = std::chrono::system_clock::now()-start;
             csv_pose << "delay: " <<diff.count() << " s\n";
@@ -682,7 +701,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 }
 
 
-void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points){
+void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int closest_point){
     
     mrs_msgs::TrackerPoint aux_point;
     formation_church_planning::Point aux_point_for_followers;
@@ -691,7 +710,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.fly_now = true;
     traj_to_command.use_yaw = true;    
     // check that _x _y _z are the same size
-    for(int i=0;i<time_horizon_; i++){
+    for(int i=closest_point;i<time_horizon_; i++){
     
         //trajectory to command
         aux_point.x = x_[i];

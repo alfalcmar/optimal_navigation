@@ -87,9 +87,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ocp.subjectTo( AT_START, vx_== _uavs_pose.at(_drone_id).twist.twist.linear.x);
     ocp.subjectTo( AT_START, vy_== _uavs_pose.at(_drone_id).twist.twist.linear.y);
     ocp.subjectTo( AT_START, vz_== _uavs_pose.at(_drone_id).twist.twist.linear.z);
-    ocp.subjectTo( AT_START, ax_== 0.0); 
-    ocp.subjectTo( AT_START, ay_== 0.0);
-    ocp.subjectTo( AT_START, az_== 0.0);
+    ocp.subjectTo( AT_START, ax_== _ax[solving_rate_*N/t_end]); 
+    ocp.subjectTo( AT_START, ay_== _ay[solving_rate_*N/t_end]);
+    ocp.subjectTo( AT_START, az_== _az[solving_rate_*N/t_end]);
 
 
     ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
