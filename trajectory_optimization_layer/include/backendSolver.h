@@ -92,7 +92,7 @@ class backendSolver{
         float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
         const float solver_rate_static_ = 0.5;            /**< Rate to call the static loop (s) */
         const float solver_rate_dynamic_ = 1;        /**< Rate to call the dynamic loop (s) */
-        int solver_success = false;                 /**< the solver has solved successfully */
+        int solver_success = 0;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
         const double step_size = 0.2;               /**< step size (seg) */
@@ -137,7 +137,7 @@ class backendSolver{
 
         /*! \brief log the solution to CSV file
         */
-        void logToCSVCalculatedTrajectory();
+        void logToCSVCalculatedTrajectory(int solver_success);
 
         /*! \brief search the closest point of the trajectory
         *   \return closest point of the trajectory
@@ -212,9 +212,7 @@ class backendSolver{
         /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to visualize 
         **/
         void stateMachine();
-        /*! \brief function that executes the dynamic state
-        **/
-        void dynamicState();
+   
         /*! \brief publish the solved trajectory for others
         **/
         virtual void publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int delayed_points = 0);

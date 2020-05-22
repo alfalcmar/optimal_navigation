@@ -44,7 +44,7 @@ void FORCESPROsolver::saveParametersToCsv(const FORCESNLPsolver_params &params){
     }
 }
 
-int FORCESPROsolver::solverFunction(std::array<double,TIME_HORIZON> &ax, std::array<double,TIME_HORIZON> &ay, std::array<double,TIME_HORIZON> &az, std::array<double,TIME_HORIZON> &x, std::array<double,TIME_HORIZON> &y, std::array<double,TIME_HORIZON> &z, std::array<double,TIME_HORIZON> &vx, std::array<double,TIME_HORIZON> &vy, std::array<double,TIME_HORIZON> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
+int FORCESPROsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &ax, std::array<double,TIME_HORIZON> &ay, std::array<double,TIME_HORIZON> &az, std::array<double,TIME_HORIZON> &x, std::array<double,TIME_HORIZON> &y, std::array<double,TIME_HORIZON> &z, std::array<double,TIME_HORIZON> &vx, std::array<double,TIME_HORIZON> &vy, std::array<double,TIME_HORIZON> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
 
     const int p_x = 0;
     const int p_y = 1;  
@@ -78,6 +78,15 @@ int FORCESPROsolver::solverFunction(std::array<double,TIME_HORIZON> &ax, std::ar
     double x0i[] = {u_x, u_y, u_z, p_x, p_y, p_z, v_x, v_y, v_z};
     for (int j = 0; j < time_horizon; j++)
     {
+        x0i[0]=_initial_guess["ax"][j];
+        x0i[1]=_initial_guess["ay"][j];
+        x0i[2]=_initial_guess["az"][j];
+        x0i[3]=_initial_guess["px"][j];
+        x0i[4]=_initial_guess["py"][j];
+        x0i[5]=_initial_guess["pz"][j];
+        x0i[6]=_initial_guess["vx"][j];
+        x0i[7]=_initial_guess["vy"][j];
+        x0i[8]=_initial_guess["vz"][j];
         for (i = 0; i < n_states_variables; i++)
         {
             x0.push_back(x0i[i]);

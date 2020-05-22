@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
-  optimal_control_interface
   geometry_msgs
   mavros_msgs
 )
