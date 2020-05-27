@@ -47,22 +47,23 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     //Control s  ;  // slack variable
 
     
-    //Parameter tx,ty;
+    Parameter tx,ty;
     auto start = std::chrono::system_clock::now();
     ROS_INFO("calling solver function");
     DifferentialEquation model;
-    //AlgebraicState pitch;
+    AlgebraicState pitch;
     ROS_INFO("Acado constructor");
     Grid my_grid_( t_start,t_end,N );
 
-    //pitch = 2*atan2(pz_/(sqrt(pow((px_-tx),2) + pow((py_-ty),2)+pow(pz_,2))+sqrt(pow((px_-tx),2) + pow((py_-ty),2))));
+  
+    
+    //pitch = 2*atan(_uavs_pose[drone_id_].pose.pose.position.z/(sqrt(pow((px_-tx),2) + pow((py_-ty),2)+pow(_uavs_pose[drone_id_].pose.pose.position.z,2))+sqrt(pow((px_-tx),2) + pow((py_-ty),2))));
     // define the model
     model << dot(px_) == vx_;
     model << dot(py_) == vy_;
     model << dot(vx_) == ax_;
     model << dot(vy_) == ay_;
-    //VariablesGrid target_x(1,myGrid);
-    //VariablesGrid target_y(1,myGrid);
+    
     OCP ocp(my_grid_);// = new OCP( my_grid_); // possibility to set non equidistant time-horizon of the problem
     ocp.subjectTo(model);
     ocp.subjectTo( -5.0 <= ax_ <=  5.0   );  
@@ -71,9 +72,33 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
     ocp.subjectTo(  -1.0 <= vx_ <= 1.0   );
     ocp.subjectTo(  -1.0 <= vy_ <= 1.0   );
-    //ocp.subjectTo( tx==target_x);
-    //ocp.subjectTo( ty==target_y);
-    //ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
+    
+    // target set-up
+    VariablesGrid target_x(1,my_grid_);
+    VariablesGrid target_y(1,my_grid_);
+
+    // set target trajectory
+    for(uint i=0; i<N; i++){
+        target_x(i,0)=_target_trajectory[i].pose.pose.position.x;
+        target_y(i,0)=_target_trajectory[i].pose.pose.position.y;
+    }
+
+    ocp.subjectTo( tx==target_x);
+    ocp.subjectTo( ty==target_y);
+
+    
+    
+    /** pitch constraint formulation
+    * y = sqrt(pow((px_-tx),2) + pow((py_-ty),2))
+    * x= _uavs_pose[drone_id_].pose.pose.position.z
+    * pitch = atan2(y,x)
+    * atan2 = 2*atan(y/(sqrt(x^2+y^2)+x))
+    * ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
+    */
+
+    ocp.subjectTo(-M_PI_4<=2*atan(sqrt(pow((px_-tx),2) + pow((py_-ty),2))/(sqrt(pow(_uavs_pose[drone_id_].pose.pose.position.z,2)+
+            pow((px_-tx),2) + pow((py_-ty),2))+_uavs_pose[drone_id_].pose.pose.position.z))<=M_PI_2);
+
     checkConstraints(_desired_odometry,_uavs_pose);
 
     // ocp.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
@@ -88,7 +113,7 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
                             (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_));
-    ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/*+s*/);
+    ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/* + cinematography term */ /*+s*/);
 
 
     ROS_INFO("objective function defined");
