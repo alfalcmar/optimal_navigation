@@ -626,7 +626,7 @@ void backendSolver::stateMachine(){
 
                 //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
             }
-            if(solver_success==1){
+            if(solver_success==0){
                 std::vector<double> yaw = predictingYaw();
                 std::vector<double> pitch = predictingPitch();
                 //TODO where is going pitch and yaw?
@@ -634,6 +634,8 @@ void backendSolver::stateMachine(){
                 //deletingPoints(delayed_points);
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
                 publishSolvedTrajectory(yaw,pitch,closest_point);
+            }else{
+                first_time_solving_ = true;
             }
             logToCSVCalculatedTrajectory(solver_success);
             diff = std::chrono::system_clock::now()-start;

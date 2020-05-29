@@ -193,7 +193,8 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ax_.clearStaticCounters();
     ay_.clearStaticCounters();
     //s.clearStaticCounters(); slack variable
-    return 1;    
+    int success_value = value;
+    return success_value;
 }
 int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
@@ -338,8 +339,8 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ax_.clearStaticCounters();
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
-    //s.clearStaticCounters(); slack variable
-    return 1;    
+   int success_value = value;
+    return success_value;  
  }
 
 
