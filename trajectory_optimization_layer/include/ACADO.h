@@ -20,6 +20,7 @@
 #include <acado/acado_gnuplot.hpp>
 #include <acado_toolkit.hpp>
 #include <acado/acado_optimal_control.hpp>
+#include <chrono>
 USING_NAMESPACE_ACADO
 #define TIME_HORIZON 40
 
@@ -40,6 +41,7 @@ class ACADOsolver{
 
     private:
         void checkConstraints(nav_msgs::Odometry &desired_odometry, std::map<int,nav_msgs::Odometry> &uavs_pose);
+        int checkTime();
 
         //////////// Solver variables /////////////
         // solver options
@@ -65,6 +67,8 @@ class ACADOsolver{
         LogRecord *logRecord;
 
         Grid *my_grid_;
+        std::chrono::time_point<std::chrono::system_clock> start;
+
 
 
 };

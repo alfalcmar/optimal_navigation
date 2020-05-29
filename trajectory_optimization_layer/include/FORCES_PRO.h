@@ -36,6 +36,8 @@ class FORCESPROsolver{
         */
         int solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &ax, std::array<double,TIME_HORIZON> &ay, std::array<double,TIME_HORIZON> &az, std::array<double,TIME_HORIZON> &x, std::array<double,TIME_HORIZON> &y, std::array<double,TIME_HORIZON> &z, std::array<double,TIME_HORIZON> &vx, std::array<double,TIME_HORIZON> &vy, std::array<double,TIME_HORIZON> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, const int drone_id = 1, const bool target = true, const bool multi = false);
     private:
+        int checkTime();
+
         //////////// Solver variables /////////////
         // solver options
         const int time_horizon = TIME_HORIZON;
@@ -76,6 +78,8 @@ class FORCESPROsolver{
         const float v_x = 1;
         const float v_y = 1;
         const float v_z = 1;
+
+        std::chrono::time_point<std::chrono::system_clock> start;
 
         //log        
         std::ofstream csv_debug; // logging the trajectory

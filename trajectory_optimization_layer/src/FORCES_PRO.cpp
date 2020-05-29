@@ -44,7 +44,21 @@ void FORCESPROsolver::saveParametersToCsv(const FORCESNLPsolver_params &params){
     }
 }
 
+int FORCESPROsolver::checkTime(){
+    std::chrono::duration<double> diff = std::chrono::system_clock::now() - start;
+    csv_debug<<"time solving: "<<diff.count()<<std::endl;
+    if(diff.count()>3){
+        return 0;
+    }else{
+        int number_steps = diff.count()/step_size_;
+        return number_steps;
+    }
+
+}
+
 int FORCESPROsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &ax, std::array<double,TIME_HORIZON> &ay, std::array<double,TIME_HORIZON> &az, std::array<double,TIME_HORIZON> &x, std::array<double,TIME_HORIZON> &y, std::array<double,TIME_HORIZON> &z, std::array<double,TIME_HORIZON> &vx, std::array<double,TIME_HORIZON> &vy, std::array<double,TIME_HORIZON> &vz,const nav_msgs::Odometry &desired_odometry, const std::array<float,2> &obst, const std::vector<nav_msgs::Odometry> &target_trajectory, std::map<int,nav_msgs::Odometry> &uavs_pose, int drone_id, bool target,bool multi){
+    int number_steps = checkTime();
+
 
     const int p_x = 0;
     const int p_y = 1;  
@@ -61,9 +75,9 @@ int FORCESPROsolver::solverFunction(std::map<std::string, std::array<double,TIME
 
     // set initial postion and velocity
     ros::spinOnce();
-    myparams.xinit[0] = ax[solving_rate_*time_horizon/(step_size_*time_horizon)];
-    myparams.xinit[1] = ay[solving_rate_*time_horizon/(step_size_*time_horizon)];
-    myparams.xinit[2] = az[solving_rate_*time_horizon/(step_size_*time_horizon)];
+    myparams.xinit[0] = ax[number_steps];
+    myparams.xinit[1] = ay[number_steps];
+    myparams.xinit[2] = az[number_steps];
 
     myparams.xinit[3] = uavs_pose[drone_id].pose.pose.position.x;
     myparams.xinit[4] = uavs_pose[drone_id].pose.pose.position.y;

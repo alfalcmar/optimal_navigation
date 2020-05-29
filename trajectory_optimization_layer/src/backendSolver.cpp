@@ -606,13 +606,12 @@ void backendSolver::stateMachine(){
         
         if(desired_type_ == shot_executer::DesiredShot::IDLE){
             IDLEState();
+            sleep(1);
         }
         else if( desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT){
-            solver_rate_ = solver_rate_dynamic_;
             if(target_){  // calculate the target trajectory if it exists
                 targetTrajectoryVelocityCTEModel();
             }
-            ros::spinOnce();
             start = std::chrono::system_clock::now();
             calculateInitialGuess();
             first_time_solving_ = false;
@@ -638,14 +637,9 @@ void backendSolver::stateMachine(){
                 first_time_solving_ = true;
             }
             logToCSVCalculatedTrajectory(solver_success);
-            diff = std::chrono::system_clock::now()-start;
-            csv_pose << "delay: " <<diff.count() << " s\n";
             //publishDesiredPoint();
             publishPath();
         }
-
-        ros::Rate r(1/solver_rate_);
-        sleep(solver_rate_);
         ros::spinOnce();
     }
 
