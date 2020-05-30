@@ -5,9 +5,11 @@
 #include <thread>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#ifdef UAL
 #include <uav_abstraction_layer/TakeOff.h>
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <uav_abstraction_layer/Land.h>
+#endif
 #include <shot_executer/ShootingAction.h>
 #include <geometry_msgs/Vector3.h>
 #include <mavros_msgs/CommandBool.h>
@@ -135,7 +137,7 @@ class ShotExecuterMRS : public ShotExecuter{
         void publishCameraCommand();
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
 };
-
+#ifdef UAL
 class ShotExecuterUAL : public ShotExecuter{
     public:
         ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
@@ -151,6 +153,8 @@ class ShotExecuterUAL : public ShotExecuter{
 
 
 };
+
+#endif
 #ifdef MULTIDRONE
 class ShotExecuterMultidrone : public ShotExecuter{
     public:

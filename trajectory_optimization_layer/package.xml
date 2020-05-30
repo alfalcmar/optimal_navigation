@@ -48,18 +48,18 @@
   <build_depend>nav_msgs</build_depend>
   <build_depend>mrs_msgs</build_depend>
   <build_depend>shot_executer</build_depend>
-  <build_depend>uav_abstraction_layer</build_depend>
-  <build_depend>multidrone_msgs</build_depend>
+  <!-- <build_depend>uav_abstraction_layer</build_depend>
+  <build_depend>multidrone_msgs</build_depend> -->
   <build_depend>acado</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>tf</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>std_srvs</run_depend>
-  <run_depend>uav_abstraction_layer</run_depend>
+  <!-- <run_depend>uav_abstraction_layer</run_depend> -->
   <run_depend>nav_msgs</run_depend>
   <run_depend>mrs_msgs</run_depend>
-  <run_depend>multidrone_msgs</run_depend>
+  <!-- <run_depend>multidrone_msgs</run_depend> -->
   <run_depend>shot_executer</run_depend>
   <run_depend>acado</run_depend>
 

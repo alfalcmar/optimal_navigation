@@ -1,0 +1,3 @@
+<launch>
+<node name="visualizer" pkg="rviz_visualizer" type = "visualizer.py" />
+</launch>

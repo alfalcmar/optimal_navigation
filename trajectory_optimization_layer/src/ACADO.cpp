@@ -87,8 +87,8 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ocp.subjectTo(  -1.0 <= vy_ <= 1.0   );
     
     // target set-up
-    VariablesGrid target_x(1,my_grid_);
-    VariablesGrid target_y(1,my_grid_);
+    //VariablesGrid target_x(1,my_grid_);
+    //VariablesGrid target_y(1,my_grid_);
 
     //set target trajectory
     // for(uint i=0; i<N; i++){

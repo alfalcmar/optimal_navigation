@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslaunch
   std_msgs
   std_srvs
-  uav_abstraction_layer
+  #uav_abstraction_layer
   nav_msgs
   mrs_msgs
   formation_church_planning
@@ -43,7 +43,7 @@ geometry_msgs
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES backend_solver_library
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
   DEPENDS ACADO
 )
 
@@ -63,10 +63,6 @@ include_directories(
 
 )
 
-
-
-
-
 ## Declare a C++ library
 add_library(backend_solver_library
   src/backendSolver.cpp
@@ -76,13 +72,13 @@ add_library(ACADO_library
   src/ACADO.cpp
 )
 
-set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
+## set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
 
-add_library(FORCES_PRO_library src/FORCES_PRO.cpp 
-solver/FORCESNLPsolver_casadi2forces.c 
-solver/FORCESNLPsolver_model_1.c
-solver/FORCESNLPsolver_model_40.c
-)
+## add_library(FORCES_PRO_library src/FORCES_PRO.cpp 
+# solver/FORCESNLPsolver_casadi2forces.c 
+# solver/FORCESNLPsolver_model_1.c
+# solver/FORCESNLPsolver_model_40.c
+#)
 
 
 ADD_DEFINITIONS( -std=c++11 )
@@ -91,7 +87,7 @@ add_executable(optimal_control_interface_node src/solver_node.cpp)
 
 
 
-target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library FORCES_PRO_library)
+target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library) # FORCES_PRO_library)
 
 
 target_link_libraries(optimal_control_interface_node 

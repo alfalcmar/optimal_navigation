@@ -336,7 +336,7 @@ bool ShotExecuterMRS::callTakeOff(){
   ROS_INFO_COND(takeoff_called_succesfully_, "[%s]: ", ros::this_node::getName().c_str());
   return success;
 }
-
+#ifdef UAL
 ShotExecuterUAL::ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh){
 
     go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
@@ -355,6 +355,9 @@ bool ShotExecuterUAL::takeOff(const double _height){
         return true;
     }
 }
+#endif
+
+
 #ifdef MULTIDRONE
 ShotExecuterMultidrone::ShotExecuterMultidrone(ros::NodeHandle &_nh) : ShotExecuter(_nh){
     server_ = new actionlib::SimpleActionServer<multidrone_msgs::ExecuteAction>(_nh, "action_server", false);

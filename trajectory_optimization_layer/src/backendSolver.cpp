@@ -74,13 +74,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
 }
 
 
-/** \brief Callback for the target pose
- */
-void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg)
-{   
-    has_poses[TARGET] = true;
-    target_odometry_.pose.pose = msg->pose.pose;
-}
+
 
 void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstPtr &msg)
 {   
@@ -420,7 +414,7 @@ int backendSolver::closestPose(){
 }
 
 bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose){
-    ROS_INFO("");
+    ROS_INFO("Desired pose reached");
 }
 
 void backendSolver::calculateInitialGuess(){
@@ -552,7 +546,6 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
 }
 
 void backendSolver::staticLoop(){
-    solver_rate_ = solver_rate_static_;
     for(int i=0; i<time_horizon_;i++){ // maintain the position
         x_[i]=uavs_pose_[drone_id_].pose.pose.position.x;
         y_[i]=uavs_pose_[drone_id_].pose.pose.position.y;
@@ -727,7 +720,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
   }
 }
 
-
+#ifdef UAL
 void backendSolverUAL::ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg){
     ual_state_.state = msg->state;
 }
@@ -747,3 +740,13 @@ backendSolverUAL::backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     //set_velocity_pub = pnh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
     // main loop
 }
+
+/** \brief Callback for the target pose
+ */
+void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg)
+{   
+    has_poses[TARGET] = true;
+    target_odometry_.pose.pose = msg->pose.pose;
+}
+
+#endif

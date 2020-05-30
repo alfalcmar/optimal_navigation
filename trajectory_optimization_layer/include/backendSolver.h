@@ -1,12 +1,16 @@
+#ifdef FORCES
 #include "FORCESNLPsolver.h"
+#include <FORCES_PRO.h>
+#endif
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
-#include <uav_abstraction_layer/TakeOff.h>
+#ifdef UAL
+#include <uav_abstraction_layer/TakeOff.h>#include <uav_abstraction_layer/GoToWaypoint.h>
+#include <uav_abstraction_layer/GoToWaypoint.h>
+#endif
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
-#include <uav_abstraction_layer/GoToWaypoint.h>
-#include <FORCES_PRO.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerPoint.h>
 #include <std_srvs/SetBool.h>
@@ -17,6 +21,9 @@
 #include <math.h>       /* sqrt */
 #include <ACADO.h>
 #include <shot_executer/DesiredShot.h>
+#include <optimal_control_interface/Solver.h>
+#include <thread>         // std::thread, std::this_thread::sleep_for
+
 
 #include <algorithm>
 #define ZERO 0.000001
@@ -89,9 +96,7 @@ class backendSolver{
         int desired_type_ = shot_executer::DesiredShot::IDLE;
         //solver
         int time_horizon_ = TIME_HORIZON;
-        float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */
-        const float solver_rate_static_ = 0.5;            /**< Rate to call the static loop (s) */
-        const float solver_rate_dynamic_ = 1;        /**< Rate to call the dynamic loop (s) */
+        float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */ //NOT USED
         int solver_success = 0;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
@@ -131,7 +136,7 @@ class backendSolver{
 
         ACADOsolver *acado_solver_pt_;
 
-        FORCESPROsolver solver_;                /**< solver object */
+        //FORCESPROsolver solver_;                /**< solver object */
 
         bool desired_position_reached_ = false;  /**< flag to check if the last generated trajectory reach the desired point */
 
@@ -302,6 +307,8 @@ class backendSolverMRS : backendSolver {
         void diagTimer(const ros::TimerEvent &event);
 };
 
+
+#ifdef UAL
 class backendSolverUAL : backendSolver {
     public:
         backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh); /**< UAL backend constructor*/
@@ -321,3 +328,4 @@ class backendSolverUAL : backendSolver {
         void targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg);
 
 };
+#endif

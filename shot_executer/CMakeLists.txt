@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslaunch
   std_msgs
   std_srvs
-  uav_abstraction_layer
+#  uav_abstraction_layer
   nav_msgs
   geometry_msgs
   mavros_msgs
@@ -41,7 +41,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES shot_executer_library
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer multidrone_msgs
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs ##uav_abstraction_layer 
 )
 
 #roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)
