@@ -66,7 +66,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
 
 
     // log files
-    csv_pose.open("/home/alfonso/trajectories"+std::to_string(drone_id_)+".csv");
+    csv_pose.open("~/trajectories"+std::to_string(drone_id_)+".csv");
     //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id_)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
     //csv_record << std::fixed << std::setprecision(5);
@@ -657,7 +657,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
         ROS_INFO("Solver %d is not ready",drone_id_);
     }
     is_initialized = true;
-    diagnostic_timer_ = _nh.createTimer(ros::Duration(0.5), &backendSolverMRS::diagTimer,this);
+    diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer,this);
     //main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
     ROS_INFO("Solver %d is ready", drone_id_);

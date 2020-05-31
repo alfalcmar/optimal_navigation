@@ -8,7 +8,7 @@ USING_NAMESPACE_ACADO
 ACADOsolver::ACADOsolver(){
     
     ROS_INFO("Acado constructor");
-    csv.open("/home/alfonso/solver"+std::to_string(drone_id_)+".csv");
+    csv.open("~/solver"+std::to_string(drone_id_)+".csv");
     //my_grid_ = new Grid( t_start,t_end,N );
     //my_grid_->print();
 }
@@ -38,7 +38,6 @@ void ACADOsolver::checkConstraints(nav_msgs::Odometry &desired_odometry, std::ma
         ROS_WARN("z velocity out of bound");
     }
 }
-
 
 int ACADOsolver::checkTime(){
     std::chrono::duration<double> diff = std::chrono::system_clock::now() - start;

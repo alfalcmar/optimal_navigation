@@ -24,11 +24,8 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
     // subscriber
     target_pose_sub_ = _nh.subscribe(target_topic,10,&ShotExecuter::targetPoseCallback,this);
     // client
-
     // service
     shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
-    
-
 }
 
 /** \brief 
@@ -89,7 +86,7 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
     }else{
         ROS_ERROR("invalid mode");
     }
-    path_to_publish.header.frame_id ="uav1/gps_origin";
+    path_to_publish.header.frame_id ="uav"+std::to_string(drone_id_)+"/gps_origin";
     target_trajectory_pub_.publish(path_to_publish);
     return target_trajectory;
 }
@@ -117,6 +114,9 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
     m.getRPY(roll, pitch, yaw);
 
         switch(_shooting_action.shooting_action_type){
+        case shot_executer::ShootingAction::Request::IDLE:
+            desired_shot.type = shot_executer::DesiredShot::IDLE;
+            return desired_shot;
         //TODO
         case shot_executer::ShootingAction::Request::GOTO:
             desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;
@@ -171,7 +171,6 @@ bool ShotExecuter::actionCallback(shot_executer::ShootingAction::Request  &req, 
     shooting_action.rt_parameters = req.rt_parameter;
     shooting_action.duration = req.duration;
     shooting_action.length = req.length;
-    shooting_action.start_event = req.start_event;
     shooting_action.target_type = req.target_type;
     if(shooting_action_running_) 
     {
@@ -207,7 +206,7 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
         std::vector<nav_msgs::Odometry> target_trajectory = targetTrajectoryPrediction();
         shot_executer::DesiredShot desired_shot = calculateDesiredPoint(shooting_action,target_trajectory);
         // publish desired pose
-        desired_shot.desired_odometry.header.frame_id = "uav1/gps_origin";
+        desired_shot.desired_odometry.header.frame_id = "uav"+std::to_string(drone_id_)+"/gps_origin";
         desired_pose_pub_.publish(desired_shot);
         ROS_INFO("desired_pose published");
         rate.sleep();

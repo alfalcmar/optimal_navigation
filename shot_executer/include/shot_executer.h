@@ -26,7 +26,12 @@
 
 
 /**
-*  \brief The basic class description, it does:
+*  \brief This node calculate the desired position to perform the desired shot. It is calculated from the state of the target and the shot requested by the user.
+*         Input: 
+*               - shooting action request
+*               - target state
+*         Outpu: 
+*               - Desired pose
 */
 class ShotExecuter
 {    
@@ -65,9 +70,9 @@ class ShotExecuter
         const int PITCH = 2;
 
         int prediction_mode_ = 0; /**< to predict the direction of the target using target velocity (velocity mode = 0) or target orientation (orientation mode = 1)*/
-        const int VELOCITY_MODE = 0;
-        const int ORIENTATION_MODE = 1;
-        const double VEL_CTE = 0.5;
+        const int VELOCITY_MODE = 0;    /**< trajectory predicted using the target velocity */
+        const int ORIENTATION_MODE = 1; /**< trajectory predicted using the target orientation */
+        const double VEL_CTE = 0.5; /**< Target velocity guess to predict trajectory */
 
         // parameters
         int drone_id_ = 1; // TODO initialize by constructor
@@ -117,8 +122,9 @@ class ShotExecuter
 };
 
 /**
- * \TODO: target velocity is set as 0
-
+ * Class that interfaces with MRS system
+ * Input: inputs inherited from the base class
+ * Output: outputs inherited from the base class plus publishing the pitch command needed to point the camera to the target
  */
 class ShotExecuterMRS : public ShotExecuter{
     public:
@@ -134,8 +140,10 @@ class ShotExecuterMRS : public ShotExecuter{
         bool robot_in_offboard_mode_ = false;
         bool callTakeOff();
         bool all_motors_on_ = false;
-        void publishCameraCommand();
         void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
+        /*! \brief function that publishes the needed pitch to point the camera to the target
+         */
+        void publishCameraCommand();
 };
 #ifdef UAL
 class ShotExecuterUAL : public ShotExecuter{
