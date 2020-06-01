@@ -1,4 +1,4 @@
-# Optimization trajectory planning for cinematography #
+# Optimal trajectory planning for cinematography #
 
 
 ## How do I get set up? ##
