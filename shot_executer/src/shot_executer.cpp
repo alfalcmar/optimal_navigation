@@ -147,7 +147,7 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         case shot_executer::ShootingAction::Request::FLYOVER:
             desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
-            desired_point.pose.pose.position.z  = drone_pose_.pose.pose.position.z;
+            desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
 
             // desired
             desired_point.twist.twist.linear.x =target_trajectory[time_horizon_-1].twist.twist.linear.x;

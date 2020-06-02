@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <ros/ros.h>
+#include <ros/package.h>
+
 // #include <cmath>
 // #include <uav_abstraction_layer/GoToWaypoint.h>
 // #include <boost/thread/thread.hpp>

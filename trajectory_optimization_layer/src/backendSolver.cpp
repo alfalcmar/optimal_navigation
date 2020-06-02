@@ -66,7 +66,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
 
 
     // log files
-    csv_pose.open("~/trajectories"+std::to_string(drone_id_)+".csv");
+    std::string mypackage = ros::package::getPath("optimal_control_interface");
+    csv_pose.open(mypackage+"/logs/"+"trajectories_"+std::to_string(drone_id_)+".csv");
     //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id_)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
     //csv_record << std::fixed << std::setprecision(5);
@@ -81,6 +82,11 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 
     desired_odometry_.pose = msg->desired_odometry.pose;
     desired_type_ = msg->type;
+    if(abs(desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z)>0.8){
+        height_reached_ = false;
+    }else{
+        height_reached_ = true;
+    }
     //ROS_INFO("Desired pose received: x: %f y: %f z: %f",msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z]);
 }
 
@@ -408,7 +414,7 @@ int backendSolver::closestPose(){
         }
         else
         {
-            return i;
+            return i; //+1 implementation delays
         }
     }
 }
@@ -610,10 +616,12 @@ void backendSolver::stateMachine(){
             first_time_solving_ = false;
             logToCsv();
 
-            if(desired_type_ == shot_executer::DesiredShot::GOTO){
+            if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
+                csv_pose<<"goto"<<std::endl;
                  solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
             }
             else if(desired_type_ == shot_executer::DesiredShot::SHOT){
+                 csv_pose<<"shot"<<std::endl;
                  solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
 
                 //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     

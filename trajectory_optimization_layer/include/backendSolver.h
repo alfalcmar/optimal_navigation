@@ -81,6 +81,7 @@ class backendSolver{
         const float NO_FLY_ZONE_RADIUS=3;
         std::vector<std::array<float,2>> no_fly_zone_points_;
         const float max_vel = 1.0;                                      /**< Max velocity imposed as constraint */
+        const float diagnostic_timer_rate_ = 0.5; /**< rate of the diagnostic timer for MRS system (s) */
         //robots
         int drone_id_;
         std::map<int,nav_msgs::Odometry> uavs_pose_;                      /**< Last uavs odometry <drone_id,odometry> */
@@ -102,7 +103,7 @@ class backendSolver{
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
         const double step_size = 0.2;               /**< step size (seg) */
         bool first_time_solving_ = true; 
-              
+        bool height_reached_ = false;               /**< utility flag to set true when the height of the shot is reached */
        
         std::map<std::string, std::array<double,TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
 
