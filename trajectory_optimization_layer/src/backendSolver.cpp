@@ -325,6 +325,10 @@ void backendSolver::logToCSVCalculatedTrajectory(int solver_success){
 
 void backendSolver::logToCsv(){
     // logging all results
+    csv_pose<<"shot type "<<desired_type_<<std::endl;
+    csv_pose<<"Desired pose: "<<desired_odometry_.pose.pose.position.x<<", "<<desired_odometry_.pose.pose.position.y<<", "<<desired_odometry_.pose.pose.position.z<<std::endl;
+    csv_pose<<"target pose: "<<target_odometry_.pose.pose.position.x<<", "<<target_odometry_.pose.pose.position.y<<", "<<target_odometry_.pose.pose.position.z<<std::endl;
+    csv_pose<<"target vel: "<<target_odometry_.twist.twist.linear.x<<", "<<target_odometry_.twist.twist.linear.y<<", "<<target_odometry_.twist.twist.linear.z<<std::endl;
     csv_pose<<"Time horizon"<<time_horizon_<<std::endl;
     csv_pose<<"My pose: "<<uavs_pose_[drone_id_].pose.pose.position.x<<", "<<uavs_pose_[drone_id_].pose.pose.position.y<<", "<<uavs_pose_[drone_id_].pose.pose.position.z<<std::endl;
     csv_pose<<"My vel: "<<uavs_pose_[drone_id_].twist.twist.linear.x<<", "<<uavs_pose_[drone_id_].twist.twist.linear.y<<", "<<uavs_pose_[drone_id_].twist.twist.linear.z<<std::endl;
