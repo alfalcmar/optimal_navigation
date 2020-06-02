@@ -118,8 +118,8 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
     ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
-    ocp.subjectTo( AT_START, vx_== _vx[number_steps+1]);
-    ocp.subjectTo( AT_START, vy_== _vy[number_steps+1]);
+    ocp.subjectTo( AT_START, vx_== _uavs_pose.at(_drone_id).twist.twist.linear.x);
+    ocp.subjectTo( AT_START, vy_== _uavs_pose.at(_drone_id).twist.twist.linear.y);
     ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
     ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
     //ocp.subjectTo( s >= 0 ); slack variable
@@ -265,9 +265,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ocp.subjectTo( AT_START, az_== _az[number_steps]);
     //ocp.subjectTo( s >= 0 ); slack variable
 
-    ocp.minimizeMayerTerm(0.1*(_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
-                            0.1*(_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_)+
-                            0.1*(_desired_odometry.pose.pose.position.z-pz_)*(_desired_odometry.pose.pose.position.z-pz_));
+    ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
+                            (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_)+
+                            (_desired_odometry.pose.pose.position.z-pz_)*(_desired_odometry.pose.pose.position.z-pz_));
     ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_+az_*az_/*+s*/);
 
 
