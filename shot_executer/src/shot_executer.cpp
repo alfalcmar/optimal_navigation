@@ -8,7 +8,7 @@
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
     //params
     std::string target_topic = "";
-    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose");
+    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry");
     std::string prediction_mode = "";   
     _pnh.param<std::string>("prediction_mode",prediction_mode, "orientation"); // add pnh to the constructor
     if(prediction_mode == "velocity"){

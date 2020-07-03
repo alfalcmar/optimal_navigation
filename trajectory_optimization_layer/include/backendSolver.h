@@ -11,8 +11,8 @@
 #endif
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
-#include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/TrackerPoint.h>
+#include <mrs_msgs/TrajectoryReference.h>
+#include <mrs_msgs/Reference.h>
 #include <std_srvs/SetBool.h>
 #include <tf/tf.h>
 #include <formation_church_planning/Trajectory.h>

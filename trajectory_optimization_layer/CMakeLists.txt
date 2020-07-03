@@ -6,6 +6,7 @@ add_compile_options(-std=c++11)
 
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
+SET( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -27,7 +28,7 @@ if(NOT ACADO_FOUND)
   message(FATAL_ERROR " ACADO *not* found")
 endif()
 
-
+link_directories(${ACADO_LIBRARY_DIRS})
 
 add_message_files(
   FILES
