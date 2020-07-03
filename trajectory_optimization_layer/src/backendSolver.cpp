@@ -369,23 +369,23 @@ nav_msgs::Path backendSolver::targetPathVisualization()
 
 bool backendSolver::checkConnectivity(){
     // check the connectivity with drones and target
-    int cont = 0;   
-    for(int i=0; i<drones.size(); i++){ // check drones pose
+    size_t cont = 0;   
+    for(size_t i= 0; i < drones.size(); i++){ // check drones pose
         if(has_poses[drones[i]] == true){
             cont++;
         }
     }
     if(target_){ // if target included 
         if(has_poses[TARGET]){ // check target pose
-        cont++;
+            cont++;
         }
-        if(cont==drones.size()+1){ //+1 because the target
+        if(cont == drones.size() + 1){ //+1 because the target
             return true;
         }else{
             return false;
         }
     }else{
-        if(cont==drones.size()){
+        if(cont == drones.size()){
             return true;
         }else{
             return false;
@@ -524,35 +524,37 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
     //setInitialPose();
     first_activation_ = false;
   }
-  if (activated_ == req.data) { //if it was already in the state that is received
-    res.success = false;
-    if (req.data) { // activated
-      res.message = "Planning is already activated.";
-      ROS_ERROR("%s", res.message.c_str());
-    } else {    // deactivated
-      res.message = "Planning is already deactivated.";
-      ROS_ERROR("%s", res.message.c_str());
-    }
-    return true;
-  } 
-  if (req.data) { 
-    if (!planning_done_) {
-      res.message = "Planning activated.";
-      res.success = true;
-      ROS_WARN("%s", res.message.c_str());
-      activated_ = req.data;
-    } else {
-      res.message = "Planning cannot be activated because it is finished. Call reset service.";
-      res.success = false;
-      ROS_ERROR("%s", res.message.c_str());
-    }
-  } else {
-    subida = true;
-    res.message = "Planning deactivated.";
-    res.success = true;
-    ROS_WARN("%s", res.message.c_str());
-    activated_ = req.data;
-  }
+  res.message = "Planning activated.";
+  res.success = true;
+  /* if (activated_ == req.data) { //if it was already in the state that is received */
+  /*   res.success = false; */
+  /*   if (req.data) { // activated */
+  /*     res.message = "Planning is already activated."; */
+  /*     ROS_ERROR("%s", res.message.c_str()); */
+  /*   } else {    // deactivated */
+  /*     res.message = "Planning is already deactivated."; */
+  /*     ROS_ERROR("%s", res.message.c_str()); */
+  /*   } */
+  /*   return true; */
+  /* } */ 
+  /* if (req.data) { */ 
+  /*   if (!planning_done_) { */
+  /*     res.message = "Planning activated."; */
+  /*     res.success = true; */
+  /*     ROS_WARN("%s", res.message.c_str()); */
+  /*     activated_ = req.data; */
+  /*   } else { */
+  /*     res.message = "Planning cannot be activated because it is finished. Call reset service."; */
+  /*     res.success = false; */
+  /*     ROS_ERROR("%s", res.message.c_str()); */
+  /*   } */
+  /* } else { */
+  /*   subida = true; */
+  /*   res.message = "Planning deactivated."; */
+  /*   res.success = true; */
+  /*   ROS_WARN("%s", res.message.c_str()); */
+  /*   activated_ = req.data; */
+  /* } */
 }
 
 void backendSolver::staticLoop(){
@@ -653,14 +655,14 @@ void backendSolver::stateMachine(){
 
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh,_nh){
     ROS_INFO("Leader constructor");
-    std::string target_topic;
-    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
-    target_array_sub = _pnh.subscribe<nav_msgs::Odometry>(target_topic, 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
-    mrs_trajectory_tracker_pub = _nh.advertise<mrs_msgs::TrajectoryReference>("control_manager/mpc_tracker/set_trajectory",1);
-    solved_trajectory_MRS_pub = _nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
-    uav_odometry_sub = _nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &backendSolverMRS::uavCallback,this);
-    diagnostics_pub = _nh.advertise<formation_church_planning::Diagnostic>("formation_church_planning/diagnostics",1);
-    service_for_activation = _nh.advertiseService("formation_church_planning/toggle_state", &backendSolverMRS::activationServiceCallback,this);
+    /* std::string target_topic; */
+    /* _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose */
+    target_array_sub = _pnh.subscribe<nav_msgs::Odometry>("target_topic", 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
+    mrs_trajectory_tracker_pub = _pnh.advertise<mrs_msgs::TrajectoryReference>("desired_trajectory",1);
+    solved_trajectory_MRS_pub = _pnh.advertise<formation_church_planning::Trajectory>("planned_trajectory",1);
+    uav_odometry_sub = _pnh.subscribe<nav_msgs::Odometry>("odometry_in",1, &backendSolverMRS::uavCallback,this);
+    diagnostics_pub = _pnh.advertise<formation_church_planning::Diagnostic>("diagnostics",1);
+    service_for_activation = _pnh.advertiseService("toggle_state", &backendSolverMRS::activationServiceCallback,this);
 
     ros::Rate rate(1); //hz
     while(!checkConnectivity()){
@@ -669,6 +671,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
         ROS_INFO("Solver %d is not ready",drone_id_);
     }
     is_initialized = true;
+    ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
     diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer,this);
     //main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
@@ -677,7 +680,6 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int closest_point){
-    
     mrs_msgs::Reference aux_point;
     geometry_msgs::Point position;
     formation_church_planning::Point aux_point_for_followers;
@@ -709,6 +711,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
         traj_to_followers.points.push_back(aux_point_for_followers);
         traj_to_command.points.push_back(aux_point);
     }
+    ROS_INFO("[%s]: Publishing trajectory of length = %lu", ros::this_node::getName().c_str(), traj_to_command.points.size());
     solved_trajectory_MRS_pub.publish(traj_to_followers);   
     mrs_trajectory_tracker_pub.publish(traj_to_command);
 }
