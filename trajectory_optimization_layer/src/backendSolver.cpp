@@ -654,9 +654,9 @@ void backendSolver::stateMachine(){
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh,_nh){
     ROS_INFO("Leader constructor");
     std::string target_topic;
-    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_target/jeff_electrician/pose"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
+    _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic   /gazebo/dynamic_target/dynamic_pickup/pose
     target_array_sub = _pnh.subscribe<nav_msgs::Odometry>(target_topic, 1, &backendSolverMRS::targetCallbackMRS,this); //target pose
-    mrs_trajectory_tracker_pub = _nh.advertise<mrs_msgs::TrackerTrajectory>("control_manager/mpc_tracker/set_trajectory",1);
+    mrs_trajectory_tracker_pub = _nh.advertise<mrs_msgs::TrajectoryReference>("control_manager/mpc_tracker/set_trajectory",1);
     solved_trajectory_MRS_pub = _nh.advertise<formation_church_planning::Trajectory>("formation_church_planning/planned_trajectory",1);
     uav_odometry_sub = _nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &backendSolverMRS::uavCallback,this);
     diagnostics_pub = _nh.advertise<formation_church_planning::Diagnostic>("formation_church_planning/diagnostics",1);
@@ -678,20 +678,25 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int closest_point){
     
-    mrs_msgs::TrackerPoint aux_point;
+    mrs_msgs::Reference aux_point;
+    geometry_msgs::Point position;
     formation_church_planning::Point aux_point_for_followers;
-    mrs_msgs::TrackerTrajectory traj_to_command;
+    mrs_msgs::TrajectoryReference traj_to_command;
     formation_church_planning::Trajectory traj_to_followers;
     traj_to_command.fly_now = true;
-    traj_to_command.use_yaw = true;    
+    traj_to_command.use_heading = true;  
+    traj_to_command.header.frame_id = "uav1/gps_origin";
+    traj_to_command.dt              = 0.2;
+  
     // check that _x _y _z are the same size
     for(int i=closest_point;i<time_horizon_; i++){
     
         //trajectory to command
-        aux_point.x = x_[i];
-        aux_point.y = y_[i];
-        aux_point.z = z_[i];
-        aux_point.yaw = yaw[i];
+        position.x = x_[i];
+        position.y = y_[i];
+        position.z = z_[i];
+        aux_point.position = position;
+        aux_point.heading = yaw[i];
         //trajectory to followers
         aux_point_for_followers.x = x_[i];
         aux_point_for_followers.y = y_[i];
