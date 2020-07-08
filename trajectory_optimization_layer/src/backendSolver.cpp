@@ -641,10 +641,11 @@ void backendSolver::stateMachine(){
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
                 publishSolvedTrajectory(yaw,pitch,closest_point);
             }else{
+                csv_pose<<"error to solve"<<std::endl;
                 first_time_solving_ = true;
             }
             logToCSVCalculatedTrajectory(solver_success);
-            //publishDesiredPoint();
+            publishDesiredPoint();
             publishPath();
         }
         ros::spinOnce();
@@ -681,7 +682,6 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch, const int closest_point){
     mrs_msgs::Reference aux_point;
-    geometry_msgs::Point position;
     formation_church_planning::Point aux_point_for_followers;
     mrs_msgs::TrajectoryReference traj_to_command;
     formation_church_planning::Trajectory traj_to_followers;
@@ -694,10 +694,9 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     for(int i=closest_point;i<time_horizon_; i++){
     
         //trajectory to command
-        position.x = x_[i];
-        position.y = y_[i];
-        position.z = z_[i];
-        aux_point.position = position;
+        aux_point.position.x = x_[i];
+        aux_point.position.y = y_[i];
+        aux_point.position.z = z_[i];
         aux_point.heading = yaw[i];
         //trajectory to followers
         aux_point_for_followers.x = x_[i];
