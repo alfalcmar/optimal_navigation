@@ -61,10 +61,10 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     //Control s  ;  // slack variable
 
-    //Parameter tx,ty;
+    // Parameter tx,ty;
     ROS_INFO("calling solver function");
     DifferentialEquation model;
-    AlgebraicState pitch;
+    // AlgebraicState pitch;
     ROS_INFO("Acado constructor");
     Grid my_grid_( t_start,t_end,N );
 
@@ -87,10 +87,10 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ocp.subjectTo(  -1.0 <= vy_ <= 1.0   );
     
     // target set-up
-    //VariablesGrid target_x(1,my_grid_);
-    //VariablesGrid target_y(1,my_grid_);
+    VariablesGrid target_x(1,my_grid_);
+    VariablesGrid target_y(1,my_grid_);
 
-    //set target trajectory
+    // //set target trajectory
     // for(uint i=0; i<N; i++){
     //     target_x(i,0)=_target_trajectory[i].pose.pose.position.x;
     //     target_y(i,0)=_target_trajectory[i].pose.pose.position.y;
@@ -110,13 +110,9 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     */
 
     // ocp.subjectTo(-M_PI_4<=2*atan(sqrt(pow((px_-tx),2) + pow((py_-ty),2))/(sqrt(pow(_uavs_pose[drone_id_].pose.pose.position.z,2)+
-    //         pow((px_-tx),2) + pow((py_-ty),2))+_uavs_pose[drone_id_].pose.pose.position.z))<=M_PI_2);
+            // pow((px_-tx),2) + pow((py_-ty),2))+_uavs_pose[drone_id_].pose.pose.position.z))<=M_PI_2);
 
-    checkConstraints(_desired_odometry,_uavs_pose);
-
-    // ocp.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
-    
-
+    checkConstraints(_desired_odometry,_uavs_pose);    
 
     ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
     ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);

@@ -263,14 +263,15 @@ class backendSolver{
          *          Used for the initial guess
          */   
         std::array<float,2> expandPose(float x, float y);
-        /**! \brief calculate no fly zone points. Used to the intial guess
+        /**! \brief calculate no fly zone points. Used to make to intial guess outside the constraints
          *   \param x_center
          *   \param y_center
          *   \param radius
          *   \return nothing but the calculation is saved in no_fly_zone_points_
          */
         void calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius);
-        /**! \brief Calculate initial guess
+        /**! \brief Calculate initial guess as straight line to the desired point or as the previous calculation
+         *          Saturate velocity to not guess initial states out of the constraints
          *          accel to zero
          *          velocity cte 
          *          vel cte model for path guess

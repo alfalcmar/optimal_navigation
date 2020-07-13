@@ -3,7 +3,7 @@
 
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
-      // parameters
+    // parameters
     pnh.param<float>("solver_rate", solver_rate_, 4); // solver rate
    
     if (ros::param::has("~drones")) {
@@ -28,8 +28,6 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
 
     calculateNoFlyZonePoints(no_fly_zone_center_[0],no_fly_zone_center_[1],NO_FLY_ZONE_RADIUS);
     // subscripions
-    
-
     desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("desired_pose",1,&backendSolver::desiredPoseCallback,this); // desired pose from shot executer
     // publishers
     desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point",1);
@@ -38,43 +36,15 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     path_no_fly_zone = pnh.advertise<nav_msgs::Path>("noflyzone",1);   
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
 
-    // initialize map
-    // std::array<float, time_horizon_> aux_for_initialization;
-    // initial_guess_["ax"] = aux_for_initialization;
-    // initial_guess_["ay"] = aux_for_initialization;
-    // initial_guess_["az"] = aux_for_initialization;
-    // initial_guess_["px"] = aux_for_initialization;
-    // initial_guess_["py"] = aux_for_initialization;
-    // initial_guess_["pz"] = aux_for_initialization;
-    // initial_guess_["vx"] = aux_for_initialization;
-    // initial_guess_["vy"] = aux_for_initialization;
-    // initial_guess_["vz"] = aux_for_initialization;
+    // acado object and thread
     acado_solver_pt_ = new ACADOsolver;
     main_thread_ = std::thread(&backendSolver::stateMachine,this);
-
-
-    // TODO integrate it into the class UAL interface
-    // pose and trajectory subscriptions
-   /** for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
-        drone_pose_sub[drones[i]] = pnh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
-        if(drones[i] !=drone_id_){
-            drone_trajectory_sub[drones[i]] = pnh.subscribe<optimal_control_interface::Solver>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
-        }
-        //initialize
-        trajectory_solved_received[drones[i]] = false;     
-    }*/
-
 
     // log files
     std::string mypackage = ros::package::getPath("optimal_control_interface");
     csv_pose.open(mypackage+"/logs/"+"trajectories_"+std::to_string(drone_id_)+".csv");
-    //csv_record.open("/home/alfonso/to_reproduce"+std::to_string(drone_id_)+".csv");
     csv_pose << std::fixed << std::setprecision(5);
-    //csv_record << std::fixed << std::setprecision(5);
-    //csv_debug.open("/home/alfonso/debug_"+std::to_string(drone_id_)+".csv");
 }
-
-
 
 
 void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstPtr &msg)
@@ -97,8 +67,6 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
     uavs_pose_[drone_id_] = *msg;
     has_poses[drone_id_] = true; 
 }
-
-
 
 /** \brief This callback receives the solved trajectory of uavs
  */
@@ -405,31 +373,26 @@ void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y
 }
 
 int backendSolver::closestPose(){
-    float nearest_distance = sqrt(pow((x_[0]-uavs_pose_[drone_id_].pose.pose.position.x),2)+
-                                pow((y_[0]-uavs_pose_[drone_id_].pose.pose.position.y),2)+
-                                pow((z_[0]-uavs_pose_[drone_id_].pose.pose.position.z),2));;
-    float point_distance = INFINITY;
-    for(int i = 1; i<time_horizon_;i++){
+    int nearest_point = 0;
+    float nearest_distance = INFINITY;
+    float point_distance = 0;
+    for(int i = 0; i<time_horizon_;i++){
         point_distance = sqrt(  pow((x_[i]-uavs_pose_[drone_id_].pose.pose.position.x),2)+
                                 pow((y_[i]-uavs_pose_[drone_id_].pose.pose.position.y),2)+
                                 pow((z_[i]-uavs_pose_[drone_id_].pose.pose.position.z),2)); 
         if(point_distance<nearest_distance){
             nearest_distance = point_distance;
-        }
-        else
-        {
-            return i; //+1 implementation delays
+            nearest_point = i;
         }
     }
+    return nearest_point;
 }
 
 bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose){
     ROS_INFO("Desired pose reached");
 }
 
-void backendSolver::calculateInitialGuess(){
-    ROS_INFO("intial guess");
-    
+void backendSolver::calculateInitialGuess(){    
     if (first_time_solving_)
     {
             // calculate scalar direction
@@ -463,7 +426,6 @@ void backendSolver::calculateInitialGuess(){
         }
     
     }else{
-    
         //previous one
         for(int i = 0;i<time_horizon_;i++){
             initial_guess_["ax"][i] = ax_[i];  
@@ -490,6 +452,7 @@ void backendSolver::calculateInitialGuess(){
         initial_guess_["vy"][i] = std::min(std::max((float) initial_guess_["vy"][i], -max_vel), max_vel);
 
         initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
+        
         // no fly zone
         //  if(sqrt(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2))<pow(NO_FLY_ZONE_RADIUS,2)){
         //     aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
@@ -608,7 +571,6 @@ void backendSolver::stateMachine(){
     auto start = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
     while(ros::ok){
-        
         if(desired_type_ == shot_executer::DesiredShot::IDLE){
             IDLEState();
             sleep(1);
@@ -636,6 +598,7 @@ void backendSolver::stateMachine(){
                 std::vector<double> yaw = predictingYaw();
                 std::vector<double> pitch = predictingPitch();
                 //TODO where is going pitch and yaw?
+                ros::spinOnce();
                 int closest_point = closestPose();
                 //deletingPoints(delayed_points);
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
@@ -758,6 +721,17 @@ backendSolverUAL::backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     // ros::Subscriber target_pose_sub = pnh.subscribe<nav_msgs::Odometry>(target_topic, 1, targetPoseCallbackGRVC);
     //set_velocity_pub = pnh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);
     // main loop
+
+        // TODO integrate it into the class UAL interface
+    // pose and trajectory subscriptions
+   /** for(int i=0; i<drones.size(); i++){ // for each drone, subscribe to the calculated trajectory and the drone pose
+        drone_pose_sub[drones[i]] = pnh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drones[i])+"/ual/pose", 10, std::bind(&uavPoseCallback, std::placeholders::_1, drones[i]));               // Change for each drone ID
+        if(drones[i] !=drone_id_){
+            drone_trajectory_sub[drones[i]] = pnh.subscribe<optimal_control_interface::Solver>("/drone_"+std::to_string(drones[i])+"/solver", 1, std::bind(&uavTrajectoryCallback, std::placeholders::_1, drones[i]));
+        }
+        //initialize
+        trajectory_solved_received[drones[i]] = false;     
+    }*/
 }
 
 /** \brief Callback for the target pose
