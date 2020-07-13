@@ -120,13 +120,51 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
                                     // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.x);
     // ocp.subjectTo( AT_START, vy_== 0.5*(_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y)/
                                     // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.y);
-    // ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
-    // ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
+    ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
+    ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
     //ocp.subjectTo( s >= 0 ); slack variable
 
-    ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
-                            (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_));
-    ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/* + cinematography term */ /*+s*/);
+    // DEFINE LSQ function to minimize the end distance to the desired pose
+    Function h_1;
+
+    h_1 << px_;
+    h_1 << py_;
+
+    DMatrix S_1(2,2);
+    DVector r_1(2);
+
+    S_1.setIdentity();
+	S_1(0,0) = 1.0;
+	S_1(1,1) = 1.0;
+
+    r_1(0) = _desired_odometry.pose.pose.position.x;
+    r_1(1) = _desired_odometry.pose.pose.position.y;
+
+    ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
+
+
+    // ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
+    //                         (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_));
+    
+    // DEFINE LSQ function to minimize accelerations
+    Function h;
+
+    h << ax_;
+    h << ay_;
+
+    DMatrix S(2,2);
+    DVector r(2);
+
+    S.setIdentity();
+	S(0,0) = 1.0;
+	S(1,1) = 1.0;
+
+    r.setAll( 0.0 );
+
+    ocp.minimizeLSQ( S, h, r );
+
+
+    //ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/* + cinematography term */ /*+s*/);
 
 
     ROS_INFO("objective function defined");
