@@ -52,9 +52,9 @@ int ACADOsolver::checkTime(){
 
 }
 
-int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     
-    int number_steps = checkTime();
+    int number_steps_1 = checkTime();
     DifferentialState px_,py_,vx_,vy_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_;
@@ -114,14 +114,27 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     checkConstraints(_desired_odometry,_uavs_pose);    
 
-    ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
-    ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
+    csv<<"first time: "<<first_time_solving<<std::endl; // check it
+    
+    if(first_time_solving){
+       ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
+       ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
+    }else{
+        ocp.subjectTo( AT_START, px_ == _x[number_steps+2]);
+        ocp.subjectTo( AT_START, py_ == _y[number_steps+2]);
+        ocp.subjectTo( 1, px_ == _x[number_steps+3]);
+        ocp.subjectTo( 1, py_ == _y[number_steps+3]);
+        ocp.subjectTo( 2, px_ == _x[number_steps+4]);
+        ocp.subjectTo( 2, py_ == _y[number_steps+4]);
+        ocp.subjectTo( 3, px_ == _x[number_steps+5]);
+        ocp.subjectTo( 3, py_ == _y[number_steps+5]);
+    }
     // ocp.subjectTo( AT_START, vx_== 0.5*(_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x)/
                                     // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.x);
     // ocp.subjectTo( AT_START, vy_== 0.5*(_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y)/
                                     // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.y);
-    ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
-    ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
+    // ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
+    // ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
     //ocp.subjectTo( s >= 0 ); slack variable
 
     // DEFINE LSQ function to minimize the end distance to the desired pose
@@ -129,16 +142,22 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     h_1 << px_;
     h_1 << py_;
+    h_1 << vx_;
+    h_1 << vy_;
 
-    DMatrix S_1(2,2);
-    DVector r_1(2);
+    DMatrix S_1(4,4);
+    DVector r_1(4);
 
     S_1.setIdentity();
 	S_1(0,0) = 1.0;
 	S_1(1,1) = 1.0;
+	S_1(2,2) = 1.0;
+	S_1(3,3) = 1.0;
 
     r_1(0) = _desired_odometry.pose.pose.position.x;
     r_1(1) = _desired_odometry.pose.pose.position.y;
+    r_1(2) = _desired_odometry.twist.twist.linear.x;
+    r_1(4) = _desired_odometry.twist.twist.linear.y;
 
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
