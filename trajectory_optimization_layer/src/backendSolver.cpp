@@ -582,12 +582,11 @@ void backendSolver::stateMachine(){
             }
             start = std::chrono::system_clock::now();
             calculateInitialGuess();
-            first_time_solving_ = false;
             logToCsv();
-
+            csv_pose<<"first time solving: "<<first_time_solving_<<std::endl;
             if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
                 csv_pose<<"goto"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
+                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
             }
             else if(desired_type_ == shot_executer::DesiredShot::SHOT){
                  csv_pose<<"shot"<<std::endl;
@@ -604,6 +603,7 @@ void backendSolver::stateMachine(){
                 //deletingPoints(delayed_points);
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
                 publishSolvedTrajectory(yaw,pitch,closest_point);
+                first_time_solving_ = false;
             }else{
                 csv_pose<<"error to solve"<<std::endl;
                 first_time_solving_ = true;
@@ -655,7 +655,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.dt              = 0.2;
   
     // check that _x _y _z are the same size
-    for(int i=closest_point;i<time_horizon_; i++){
+    for(int i=closest_point+1;i<time_horizon_; i++){
     
         //trajectory to command
         aux_point.position.x = x_[i];
