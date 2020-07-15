@@ -50,7 +50,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
 void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstPtr &msg)
 {   
 
-    desired_odometry_.pose = msg->desired_odometry.pose;
+    desired_odometry_ = msg->desired_odometry;
     desired_type_ = msg->type;
     if(abs(desired_odometry_.pose.pose.position.z-uavs_pose_[drone_id_].pose.pose.position.z)>0.8){
         height_reached_ = false;
@@ -454,11 +454,11 @@ void backendSolver::calculateInitialGuess(){
         initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
         
         // no fly zone
-        //  if(sqrt(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2))<pow(NO_FLY_ZONE_RADIUS,2)){
-        //     aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
-        //     initial_guess_["px"][i] = aux[0];
-        //     initial_guess_["px"][i] = aux[1];
-        // }
+         if(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2)<pow(NO_FLY_ZONE_RADIUS,2)){
+            aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
+            initial_guess_["px"][i] = aux[0];
+            initial_guess_["py"][i] = aux[1];
+        }
     }
 }
 
@@ -568,6 +568,7 @@ int backendSolver::checkDelay(std::chrono::system_clock::time_point start){
     return number_of_points;
 }
 void backendSolver::stateMachine(){
+    int closest_point = 0;
     auto start = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
     while(ros::ok){
@@ -581,16 +582,15 @@ void backendSolver::stateMachine(){
             }
             start = std::chrono::system_clock::now();
             calculateInitialGuess();
-            first_time_solving_ = false;
             logToCsv();
-
+            csv_pose<<"first time solving: "<<first_time_solving_<<std::endl;
             if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
                 csv_pose<<"goto"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
+                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
             }
             else if(desired_type_ == shot_executer::DesiredShot::SHOT){
                  csv_pose<<"shot"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_); // ACADO
+                 solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
 
                 //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
             }
@@ -599,10 +599,11 @@ void backendSolver::stateMachine(){
                 std::vector<double> pitch = predictingPitch();
                 //TODO where is going pitch and yaw?
                 ros::spinOnce();
-                int closest_point = closestPose();
+                closest_point = closestPose();
                 //deletingPoints(delayed_points);
                 csv_pose<<"delayed_points: "<<closest_point<<std::endl;
                 publishSolvedTrajectory(yaw,pitch,closest_point);
+                first_time_solving_ = false;
             }else{
                 csv_pose<<"error to solve"<<std::endl;
                 first_time_solving_ = true;
@@ -654,7 +655,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.dt              = 0.2;
   
     // check that _x _y _z are the same size
-    for(int i=closest_point;i<time_horizon_; i++){
+    for(int i=closest_point+1;i<time_horizon_; i++){
     
         //trajectory to command
         aux_point.position.x = x_[i];

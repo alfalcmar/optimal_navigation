@@ -53,9 +53,12 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
             aux.pose.pose.position.x = target_pose_.pose.pose.position.x+ step_size_*i*target_pose_.twist.twist.linear.x;
             aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
             aux.pose.pose.position.z = target_pose_.pose.pose.position.z + step_size_*i*target_pose_.twist.twist.linear.z;
+            aux.twist.twist = target_pose_.twist.twist;
+            // to visualize
             aux_path.pose.position.x = aux.pose.pose.position.x;
             aux_path.pose.position.y = aux.pose.pose.position.y;
             aux_path.pose.position.z = aux.pose.pose.position.z;
+
             target_trajectory.push_back(aux);
             path_to_publish.poses.push_back(aux_path);
         }
