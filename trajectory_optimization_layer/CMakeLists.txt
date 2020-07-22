@@ -2,11 +2,14 @@ cmake_minimum_required(VERSION 2.8.3)
 project(optimal_control_interface)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
+ADD_DEFINITIONS( -std=c++11 )
 add_compile_options(-std=c++11)
 
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
 SET( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
+
+set(ENV{ACADO} "true")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -23,10 +26,15 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
-find_package(ACADO REQUIRED)
-if(NOT ACADO_FOUND)
-  message(FATAL_ERROR " ACADO *not* found")
+
+
+if(DEFINED ENV{ACADO})
+  find_package(ACADO REQUIRED)
+  if(NOT ACADO_FOUND)
+    message(FATAL_ERROR " ACADO *not* found")
+  endif()
 endif()
+
 
 link_directories(${ACADO_LIBRARY_DIRS})
 
@@ -45,8 +53,9 @@ catkin_package(
  INCLUDE_DIRS include
   LIBRARIES backend_solver_library
   CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
-  DEPENDS ACADO
+  #DEPENDS ACADO
 )
+
 
 #roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)
 
@@ -60,36 +69,43 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
-  ${ACADO_INCLUDE_DIRS}
 
 )
+if(DEFINED ENV{ACADO})
+  include_directories(  ${ACADO_INCLUDE_DIRS})
+  add_library(ACADO_library
+  src/ACADO.cpp
+  )
+endif()
+
 
 ## Declare a C++ library
 add_library(backend_solver_library
   src/backendSolver.cpp
 )
-## Declare a C++ library
-add_library(ACADO_library
-  src/ACADO.cpp
-)
 
-## set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
+if(DEFINED ENV{FORCES})
+  set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
 
-## add_library(FORCES_PRO_library src/FORCES_PRO.cpp 
-# solver/FORCESNLPsolver_casadi2forces.c 
-# solver/FORCESNLPsolver_model_1.c
-# solver/FORCESNLPsolver_model_40.c
-#)
+  add_library(FORCES_PRO_library src/FORCES_PRO.cpp 
+   solver/FORCESNLPsolver_casadi2forces.c 
+   solver/FORCESNLPsolver_model_1.c
+   solver/FORCESNLPsolver_model_40.c
+  )
+endif()
 
-
-ADD_DEFINITIONS( -std=c++11 )
 
 add_executable(optimal_control_interface_node src/solver_node.cpp)
 
 
+if(DEFINED ENV{ACADO})
+  target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library) # FORCES_PRO_library)
+endif()
 
-target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library) # FORCES_PRO_library)
-
+if(DEFINED ENV{FORCES})
+    add_definitions(-FORCES)
+    target_link_libraries(optimal_control_interface_node backend_solver_library FORCES_PRO_library)
+endif()
 
 target_link_libraries(optimal_control_interface_node 
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES} ${ACADO_SHARED_LIBRARIES}) 
