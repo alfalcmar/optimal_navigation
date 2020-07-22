@@ -262,7 +262,7 @@ class backendSolver{
         /**! \brief Utility function to expand the position to comply with the no fly zone constraint
          *          Used for the initial guess
          */   
-        std::array<float,2> expandPose(float x, float y);
+        std::array<float,2> expandPose(float x, float y, float obst_x, float obst_y);
         /**! \brief calculate no fly zone points. Used to make to intial guess outside the constraints
          *   \param x_center
          *   \param y_center

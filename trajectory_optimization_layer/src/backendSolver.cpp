@@ -424,25 +424,7 @@ void backendSolver::calculateInitialGuess(){
             initial_guess_["py"][i] = initial_guess_["py"][i-1]+step_size* initial_guess_["vy"][i-1];
             initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+step_size* initial_guess_["vz"][i-1];
         }
-    
-    }else{
-        //previous one
-        for(int i = 0;i<time_horizon_;i++){
-            initial_guess_["ax"][i] = ax_[i];  
-            initial_guess_["ay"][i] = ay_[i];
-            initial_guess_["az"][i] = az_[i];
-            initial_guess_["px"][i] = x_[i];
-            initial_guess_["py"][i] = y_[i];
-            initial_guess_["pz"][i] = z_[i];
-            initial_guess_["vx"][i] = vx_[i];
-            initial_guess_["vy"][i] = vy_[i];
-            initial_guess_["vz"][i] = vz_[i];
-
-        }
-    }
-    // sequrity check
-
-    // saturate velocity
+        // saturate velocity
     float aux_val;
     std::array<float,2> aux;
 
@@ -460,6 +442,24 @@ void backendSolver::calculateInitialGuess(){
             initial_guess_["py"][i] = aux[1];
         }
     }
+
+    }else{
+        //previous one
+        for(int i = 0;i<time_horizon_;i++){
+            initial_guess_["ax"][i] = ax_[i];  
+            initial_guess_["ay"][i] = ay_[i];
+            initial_guess_["az"][i] = az_[i];
+            initial_guess_["px"][i] = x_[i];
+            initial_guess_["py"][i] = y_[i];
+            initial_guess_["pz"][i] = z_[i];
+            initial_guess_["vx"][i] = vx_[i];
+            initial_guess_["vy"][i] = vy_[i];
+            initial_guess_["vz"][i] = vz_[i];
+
+        }
+    }
+
+    
 }
 
 std::array<float,2> backendSolver::expandPose(float x, float y){

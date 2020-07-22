@@ -57,12 +57,11 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     
     int number_steps_1 = checkTime();
     DifferentialState px_,py_,vx_,vy_;
-    //DifferentialState   dummy;  // dummy state
     Control ax_,ay_;
 
-    //Control s  ;  // slack variable
+    Control s  ;  // slack variable
 
-    // Parameter tx,ty;
+    Parameter tx,ty;
     ROS_INFO("calling solver function");
     DifferentialEquation model;
     // AlgebraicState pitch;
@@ -91,16 +90,20 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     VariablesGrid target_x(1,my_grid_);
     VariablesGrid target_y(1,my_grid_);
 
-    // //set target trajectory
-    // for(uint i=0; i<N; i++){
-    //     target_x(i,0)=_target_trajectory[i].pose.pose.position.x;
-    //     target_y(i,0)=_target_trajectory[i].pose.pose.position.y;
-    // }
 
-    // ocp.subjectTo( tx==target_x);
-    // ocp.subjectTo( ty==target_y);
+    //set target trajectory
+    for(uint i=0; i<N; i++){
+        target_x(i,0)=_target_trajectory[i].pose.pose.position.x;
+        target_y(i,0)=_target_trajectory[i].pose.pose.position.y;
+    }
 
-    
+    ocp.subjectTo( tx==target_x);
+    ocp.subjectTo( ty==target_y);
+
+    float radius = 5.0;
+    ocp.subjectTo(radius*radius <=  (px_-tx)*(px_-tx)+(py_-ty)*(py_-ty) +s);
+    ocp.subjectTo(0<=s);
+
     
     /** pitch constraint formulation
     * y = sqrt(pow((px_-tx),2) + pow((py_-ty),2))
@@ -136,7 +139,6 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
                                     // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.y);
     // ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
     // ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
-    //ocp.subjectTo( s >= 0 ); slack variable
 
     // DEFINE LSQ function to minimize the end distance to the desired pose
     Function h_1;
@@ -171,18 +173,19 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     h << ax_;
     h << ay_;
+    h << s;
 
-    DMatrix S(2,2);
-    DVector r(2);
+    DMatrix S(3,3);
+    DVector r(3);
 
     S.setIdentity();
 	S(0,0) = 1.0;
 	S(1,1) = 1.0;
+	S(2,2) = 0.2;
 
     r.setAll( 0.0 );
 
     ocp.minimizeLSQ( S, h, r );
-
 
     //ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/* + cinematography term */ /*+s*/);
 
@@ -190,8 +193,7 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ROS_INFO("objective function defined");
     // TODO parameters
 
-    float radius = 4.0;
-    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
+    //ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
     ROS_INFO("defining solver");
     // define the solver
     // LogRecord logRecord(LOG_AT_EACH_ITERATION);
