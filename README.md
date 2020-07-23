@@ -4,7 +4,7 @@
 ## How do I get set up? ##
 
 ```
-git clone https://github.com/grvcTeam/multidrone_planning.git
+git clone https://github.com/alfalcmar/oc_interface.git
 
 ```
 ## How to command a shot ##
