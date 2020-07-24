@@ -424,24 +424,24 @@ void backendSolver::calculateInitialGuess(){
             initial_guess_["py"][i] = initial_guess_["py"][i-1]+step_size* initial_guess_["vy"][i-1];
             initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+step_size* initial_guess_["vz"][i-1];
         }
-        // saturate velocity
-    float aux_val;
-    std::array<float,2> aux;
+        // check  constraints
+        // float aux_val;
+        // std::array<float,2> aux;
 
-    for(int i=0; i<time_horizon_;i++){
-        initial_guess_["vx"][i] = std::min(std::max( (float)initial_guess_["vx"][i], -max_vel), max_vel); // saturating velocity
+        // for(int i=0; i<time_horizon_;i++){
+        //     initial_guess_["vx"][i] = std::min(std::max( (float)initial_guess_["vx"][i], -max_vel), max_vel); // saturating velocity
 
-        initial_guess_["vy"][i] = std::min(std::max((float) initial_guess_["vy"][i], -max_vel), max_vel);
+        //     initial_guess_["vy"][i] = std::min(std::max((float) initial_guess_["vy"][i], -max_vel), max_vel);
 
-        initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
-        
-        // no fly zone
-         if(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2)<pow(NO_FLY_ZONE_RADIUS,2)){
-            aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
-            initial_guess_["px"][i] = aux[0];
-            initial_guess_["py"][i] = aux[1];
-        }
-    }
+        //     initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
+            
+        //     // no fly zone
+        //     if(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2)<pow(NO_FLY_ZONE_RADIUS,2)){
+        //         aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i], obst_[0], obst_[1]);
+        //         initial_guess_["px"][i] = aux[0];
+        //         initial_guess_["py"][i] = aux[1];
+        //     }
+        // }
 
     }else{
         //previous one
@@ -462,7 +462,7 @@ void backendSolver::calculateInitialGuess(){
     
 }
 
-std::array<float,2> backendSolver::expandPose(float x, float y){
+std::array<float,2> backendSolver::expandPose(float x, float y, float obst_x, float obst_y){
    float aux_norm = 0.0;
    float minor_distance = INFINITY;
    std::array<float,2> point_to_return;

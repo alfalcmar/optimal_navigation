@@ -102,6 +102,10 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
 
     float radius = 5.0;
     ocp.subjectTo(radius*radius <=  (px_-tx)*(px_-tx)+(py_-ty)*(py_-ty) +s);
+    ocp.subjectTo(radius*radius <=  (px_)*(px_)+(py_)*(py_) +s);
+
+    
+    
     ocp.subjectTo(0<=s);
 
     
