@@ -59,14 +59,10 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     DifferentialState px_,py_,vx_,vy_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_;
-
     //Control s  ;  // slack variable
-
     // Parameter tx,ty;
-    ROS_INFO("calling solver function");
     DifferentialEquation model;
     // AlgebraicState pitch;
-    ROS_INFO("Acado constructor");
     Grid my_grid_( t_start,t_end,N );
 
   
@@ -121,21 +117,19 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
     }else{
-        ocp.subjectTo( AT_START, px_ == _x[number_steps+1]);
-        ocp.subjectTo( AT_START, py_ == _y[number_steps+1]);
-        ocp.subjectTo( 1, px_ == _x[number_steps+2]);
-        ocp.subjectTo( 1, py_ == _y[number_steps+2]);
-        ocp.subjectTo( 2, px_ == _x[number_steps+3]);
-        ocp.subjectTo( 2, py_ == _y[number_steps+3]);
-        ocp.subjectTo( 3, px_ == _x[number_steps+4]);
-        ocp.subjectTo( 3, py_ == _y[number_steps+4]);
+        ocp.subjectTo( AT_START, px_ == _x[number_steps]);
+        ocp.subjectTo( AT_START, py_ == _y[number_steps]);
+        ocp.subjectTo( 1, px_ == _x[number_steps+1]);
+        ocp.subjectTo( 1, py_ == _y[number_steps+1]);
+        ocp.subjectTo( 2, px_ == _x[number_steps+2]);
+        ocp.subjectTo( 2, py_ == _y[number_steps+2]);
+        ocp.subjectTo( 3, px_ == _x[number_steps+3]);
+        ocp.subjectTo( 3, py_ == _y[number_steps+3]);
     }
-    // ocp.subjectTo( AT_START, vx_== 0.5*(_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x)/
-                                    // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.x);
-    // ocp.subjectTo( AT_START, vy_== 0.5*(_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y)/
-                                    // sqrt(pow((_desired_odometry.pose.pose.position.x-_uavs_pose.at(_drone_id).pose.pose.position.x),2)+pow((_desired_odometry.pose.pose.position.y-_uavs_pose.at(_drone_id).pose.pose.position.y),2)));//_uavs_pose.at(_drone_id).twist.twist.linear.y);
-    // ocp.subjectTo( AT_START, ax_== _ax[number_steps+1]); 
-    // ocp.subjectTo( AT_START, ay_== _ay[number_steps+1]);
+
+    float radius = 4.0;
+    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
+
     //ocp.subjectTo( s >= 0 ); slack variable
 
     // DEFINE LSQ function to minimize the end distance to the desired pose
@@ -161,10 +155,6 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     r_1(3) = _desired_odometry.twist.twist.linear.y;
 
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
-
-
-    // ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
-    //                         (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_));
     
     // DEFINE LSQ function to minimize accelerations
     Function h;
@@ -184,15 +174,6 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ocp.minimizeLSQ( S, h, r );
 
 
-    //ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_/* + cinematography term */ /*+s*/);
-
-
-    ROS_INFO("objective function defined");
-    // TODO parameters
-
-    float radius = 4.0;
-    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
-    ROS_INFO("defining solver");
     // define the solver
     // LogRecord logRecord(LOG_AT_EACH_ITERATION);
     // logRecord << LOG_NUM_NLP_ITERATIONS;
