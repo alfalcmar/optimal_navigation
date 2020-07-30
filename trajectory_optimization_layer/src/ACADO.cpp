@@ -298,18 +298,25 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
         ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).pose.pose.position.z);
     }else{
-        ocp.subjectTo( AT_START, px_ == _x[number_steps+1]);
-        ocp.subjectTo( AT_START, py_ == _y[number_steps+1]);
-        ocp.subjectTo( AT_START, pz_ == _z[number_steps+1]);
-        ocp.subjectTo( 1, px_ == _x[number_steps+2]);
-        ocp.subjectTo( 1, py_ == _y[number_steps+2]);
-        ocp.subjectTo( 1, pz_ == _z[number_steps+2]);
-        ocp.subjectTo( 2, px_ == _x[number_steps+3]);
-        ocp.subjectTo( 2, py_ == _y[number_steps+3]);
-        ocp.subjectTo( 2, pz_ == _z[number_steps+3]);
+        ocp.subjectTo( AT_START, px_ == _x[number_steps]);
+        ocp.subjectTo( AT_START, py_ == _y[number_steps]);
+        ocp.subjectTo( AT_START, pz_ == _z[number_steps]);
+        ocp.subjectTo( 1, px_ == _x[number_steps+1]);
+        ocp.subjectTo( 1, py_ == _y[number_steps+1]);
+        ocp.subjectTo( 1, pz_ == _z[number_steps+1]);
+        ocp.subjectTo( 2, px_ == _x[number_steps+2]);
+        ocp.subjectTo( 2, py_ == _y[number_steps+2]);
+        ocp.subjectTo( 2, pz_ == _z[number_steps+2]);
+        ocp.subjectTo( 3, px_ == _x[number_steps+3]);
+        ocp.subjectTo( 3, py_ == _y[number_steps+3]);
+        ocp.subjectTo( 3, pz_ == _z[number_steps+3]);
         ocp.subjectTo( 3, px_ == _x[number_steps+4]);
         ocp.subjectTo( 3, py_ == _y[number_steps+4]);
         ocp.subjectTo( 3, pz_ == _z[number_steps+4]);
+        ocp.subjectTo( 3, px_ == _x[number_steps+5]);
+        ocp.subjectTo( 3, py_ == _y[number_steps+5]);
+        ocp.subjectTo( 3, pz_ == _z[number_steps+5]);
+
     }
     // ocp.subjectTo( AT_START, vx_== _vx[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.x);
     // ocp.subjectTo( AT_START, vy_== _vy[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.y);
@@ -333,7 +340,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     S_1.setIdentity();
 	S_1(0,0) = 1.0;
 	S_1(1,1) = 1.0;
-	S_1(2,2) = 1.0;
+	S_1(2,2) = 3.0;
 	S_1(3,3) = 1.0;
 	S_1(4,4) = 1.0;
 	S_1(5,5) = 1.0;
@@ -351,14 +358,32 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     // ocp.minimizeMayerTerm((_desired_odometry.pose.pose.position.x-px_)*(_desired_odometry.pose.pose.position.x-px_)+
     //                         (_desired_odometry.pose.pose.position.y-py_)*(_desired_odometry.pose.pose.position.y-py_)+
     //                         (_desired_odometry.pose.pose.position.z-pz_)*(_desired_odometry.pose.pose.position.z-pz_));
-    ocp.minimizeLagrangeTerm(ax_*ax_+ay_*ay_+az_*az_/*+s*/);
 
+
+     // DEFINE LSQ function to minimize accelerations
+    Function h;
+
+    h << ax_;
+    h << ay_;
+    h << az_;
+
+    DMatrix S(3,3);
+    DVector r(3);
+
+    S.setIdentity();
+	S(0,0) = 1.0;
+	S(1,1) = 1.0;
+	S(2,2) = 10.0;
+
+    r.setAll( 0.0 );
+
+    ocp.minimizeLSQ( S, h, r );
 
     ROS_INFO("objective function defined");
     // TODO parameters
 
     float radius = 4.0;
-    //ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
+    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
     ROS_INFO("defining solver");
     // define the solver
     // LogRecord logRecord(LOG_AT_EACH_ITERATION);
