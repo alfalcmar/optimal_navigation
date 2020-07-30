@@ -4,7 +4,7 @@
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
     // parameters
-    pnh.param<float>("solver_rate", solver_rate_, 4); // solver rate
+    // pnh.param<float>("solver_rate", solver_rate_, 4); // solver rate
    
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
@@ -19,6 +19,11 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     }
     else {
         ROS_ERROR("fail to get the drones id");
+    }
+    if(ros::param::has("~solver_rate")){
+        ros::param::get("~solver_rate",solver_rate_);
+    }else{
+        ROS_ERROR("fail to get solver rate");
     }
     // parameters
     for(int i=0; i<drones.size(); i++){
@@ -284,6 +289,7 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double
 }
 
 void backendSolver::logToCSVCalculatedTrajectory(int solver_success){
+    csv_pose<<"first time solving: "<<first_time_solving_<<std::endl;
     csv_pose<<"solver_success: "<<solver_success<<std::endl;
     csv_pose<<"Calculated trajectroy"<<std::endl;
      for(int i=0; i<time_horizon_; i++){
@@ -567,10 +573,11 @@ int backendSolver::checkDelay(std::chrono::system_clock::time_point start){
     int number_of_points = diff.count()/step_size;
     return number_of_points;
 }
+
+
 void backendSolver::stateMachine(){
     int closest_point = 0;
-    auto start = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff;
+    ros::Rate solver(solver_rate_);
     while(ros::ok){
         ros::spinOnce();
         if(!first_time_solving_){
@@ -584,10 +591,8 @@ void backendSolver::stateMachine(){
             if(target_){  // calculate the target trajectory if it exists
                 targetTrajectoryVelocityCTEModel();
             }
-            start = std::chrono::system_clock::now();
             calculateInitialGuess();
             logToCsv();
-            csv_pose<<"first time solving: "<<first_time_solving_<<std::endl;
             if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
                 // csv_pose<<"goto"<<std::endl;
                  solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
@@ -595,7 +600,7 @@ void backendSolver::stateMachine(){
             else if(desired_type_ == shot_executer::DesiredShot::SHOT){
                 //  csv_pose<<"shot"<<std::endl;
                  solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
-
+                // FORCES PRO FUNCTION
                 //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
             }
             if(solver_success==0){
@@ -611,7 +616,9 @@ void backendSolver::stateMachine(){
             publishDesiredPoint();
             publishPath();
         }
-
+        if(solver_success==0){
+            solver.sleep();
+        }
     }   
 }
 
@@ -652,7 +659,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.dt              = 0.2;
   
     // check that _x _y _z are the same size
-    for(int i=closest_point+1;i<time_horizon_; i++){
+    for(int i=closest_point+3;i<time_horizon_; i++){
     
         //trajectory to command
         aux_point.position.x = x_[i];

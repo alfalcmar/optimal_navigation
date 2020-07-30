@@ -97,7 +97,7 @@ class backendSolver{
         int desired_type_ = shot_executer::DesiredShot::IDLE;
         //solver
         int time_horizon_ = TIME_HORIZON;
-        float solver_rate_ = 2.0;                    /**< Rate to call the solver (s) */ //NOT USED
+        float solver_rate_ = 0.5;                    /**< Rate to call the solver (Hz) */ //NOT USED
         int solver_success = 0;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
