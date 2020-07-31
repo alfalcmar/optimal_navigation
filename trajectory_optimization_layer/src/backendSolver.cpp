@@ -634,14 +634,15 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     service_for_activation = _pnh.advertiseService("toggle_state", &backendSolverMRS::activationServiceCallback,this);
 
     ros::Rate rate(1); //hz
+    // publish diag message before getting the target pose, otherwise the mission controller does not let the UAv to take off since is supposes that the planning node is not running 
+    ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
+    diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer,this);
     while(!checkConnectivity()){
         ros::spinOnce();
         rate.sleep();
         ROS_INFO("Solver %d is not ready",drone_id_);
     }
     is_initialized = true;
-    ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
-    diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer,this);
     //main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
     ROS_INFO("Solver %d is ready", drone_id_);
@@ -685,9 +686,9 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
 }
 
 void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
-  if (!is_initialized){
-    return;
-  }
+  /* if (!is_initialized){ */
+  /*   return; */
+  /* } */
   formation_church_planning::Diagnostic diag_msg;
   diag_msg.header.stamp               = ros::Time::now();
   diag_msg.uav_name                   = "uav"+std::to_string(drone_id_);

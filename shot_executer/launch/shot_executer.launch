@@ -1,6 +1,8 @@
 <launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
 <node pkg="shot_executer" name="shot_executer_node" type="shot_executer_node" output="screen" ns="uav1">
-    <param name = "target_topic" value = "/gazebo/dynamic_model/jeff_electrician/odometry"/>
+    <!-- <param name = "target_topic" value = "/gazebo/dynamic_model/jeff_electrician/odometry"/> -->
+    <param name= "target_topic" value = "/$(arg uav_name)/balloon_filter/chosen_out" />
     <param name = "prediction_mode" value = "velocity"/>     <!-- orientation or velocity mode -->
 </node>
 </launch>
