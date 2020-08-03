@@ -370,7 +370,7 @@ bool backendSolver::checkConnectivity(){
 void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius){
     no_fly_zone_points_.clear();
     std::array<float,2> aux;
-    const float SAFETY_OFFSET = 0.1;
+    const float SAFETY_OFFSET = 4;
     for(float angle =0.0; angle<2*M_PI;angle = angle+0.25){
         aux[0] = x_center+(radius+SAFETY_OFFSET)*cos(angle);
         aux[1] = y_center+(radius+SAFETY_OFFSET)*sin(angle);
@@ -401,6 +401,7 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 void backendSolver::calculateInitialGuess(){    
     if (first_time_solving_)
     {
+        std::array<float,2> aux;
             // calculate scalar direction
         float aux_norm = sqrt(  pow((desired_odometry_.pose.pose.position.x-uavs_pose_[drone_id_].pose.pose.position.x),2)+
                                 pow((desired_odometry_.pose.pose.position.y-uavs_pose_[drone_id_].pose.pose.position.y),2)+
@@ -429,8 +430,14 @@ void backendSolver::calculateInitialGuess(){
             initial_guess_["px"][i] = initial_guess_["px"][i-1]+step_size* initial_guess_["vx"][i-1];
             initial_guess_["py"][i] = initial_guess_["py"][i-1]+step_size* initial_guess_["vy"][i-1];
             initial_guess_["pz"][i] = initial_guess_["pz"][i-1]+step_size* initial_guess_["vz"][i-1];
+            // no fly zone
+            if(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2)<pow(NO_FLY_ZONE_RADIUS,2)){
+                csv_pose<<"expanding pose "<<i<<std::endl;
+                aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
+                initial_guess_["px"][i] = aux[0];
+                initial_guess_["py"][i] = aux[1];
+            }
         }
-    
     }else{
         //previous one
         for(int i = 0;i<time_horizon_;i++){
@@ -446,26 +453,7 @@ void backendSolver::calculateInitialGuess(){
 
         }
     }
-    // sequrity check
 
-    // saturate velocity
-    float aux_val;
-    std::array<float,2> aux;
-
-    for(int i=0; i<time_horizon_;i++){
-        initial_guess_["vx"][i] = std::min(std::max( (float)initial_guess_["vx"][i], -max_vel), max_vel); // saturating velocity
-
-        initial_guess_["vy"][i] = std::min(std::max((float) initial_guess_["vy"][i], -max_vel), max_vel);
-
-        initial_guess_["vz"][i] =  std::min(std::max( (float)initial_guess_["vz"][i], -max_vel), max_vel);
-        
-        // no fly zone
-         if(pow(initial_guess_["px"][i]-no_fly_zone_center_[0],2)+pow(initial_guess_["py"][i]-no_fly_zone_center_[1],2)<pow(NO_FLY_ZONE_RADIUS,2)){
-            aux = expandPose(initial_guess_["px"][i],initial_guess_["py"][i]);
-            initial_guess_["px"][i] = aux[0];
-            initial_guess_["py"][i] = aux[1];
-        }
-    }
 }
 
 std::array<float,2> backendSolver::expandPose(float x, float y){
