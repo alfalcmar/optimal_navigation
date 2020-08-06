@@ -6,9 +6,7 @@
 
 
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
-    //params
-    std::string target_topic = "";
-    _nh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry");
+
     std::string prediction_mode = "";   
     _pnh.param<std::string>("prediction_mode",prediction_mode, "orientation"); // add pnh to the constructor
     if(prediction_mode == "velocity"){
@@ -22,7 +20,7 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
     desired_pose_pub_ = _nh.advertise<shot_executer::DesiredShot>("desired_pose",10);
     target_trajectory_pub_ = nh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
     // subscriber
-    target_pose_sub_ = _nh.subscribe(target_topic,10,&ShotExecuter::targetPoseCallback,this);
+    target_pose_sub_ = _pnh.subscribe("target_topic",10,&ShotExecuter::targetPoseCallback,this);
     // client
     // service
     shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
@@ -155,6 +153,19 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
             // desired
             desired_point.twist.twist.linear.x =target_trajectory[time_horizon_-1].twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory[time_horizon_-1].twist.twist.linear.y;
+            desired_point.twist.twist.linear.z =0;
+            desired_shot.desired_odometry = desired_point;
+            desired_shot.type = shot_executer::DesiredShot::SHOT;
+            return desired_shot;
+        
+        case shot_executer::ShootingAction::Request::ESTABLISH:
+            desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;
+            desired_point.pose.pose.position.y =  _shooting_action.rt_parameters.y;
+            desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
+
+            // desired
+            desired_point.twist.twist.linear.x =0;
+            desired_point.twist.twist.linear.y =0;
             desired_point.twist.twist.linear.z =0;
             desired_shot.desired_odometry = desired_point;
             desired_shot.type = shot_executer::DesiredShot::SHOT;

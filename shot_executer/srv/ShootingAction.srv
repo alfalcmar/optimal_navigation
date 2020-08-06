@@ -2,6 +2,7 @@ uint8 IDLE = 0
 uint8 GOTO = 1
 uint8 FOLLOW = 2
 uint8 FLYOVER = 3
+uint8 ESTABLISH = 4
 
 std_msgs/Header header
 uint8 shooting_action_type   # identifies this shooting action

@@ -77,7 +77,7 @@ class backendSolver{
         std::array<double,TIME_HORIZON> ax_;
         std::array<double,TIME_HORIZON> ay_;
         std::array<double,TIME_HORIZON> az_;
-        const std::array<float,2> no_fly_zone_center_{0.0,0.0};
+        std::vector<float> no_fly_zone_center_;
         const float NO_FLY_ZONE_RADIUS=4;
         std::vector<std::array<float,2>> no_fly_zone_points_;
         const float max_vel = 1.0;                                      /**< Max velocity imposed as constraint */

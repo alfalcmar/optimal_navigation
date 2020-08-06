@@ -53,7 +53,7 @@ int ACADOsolver::checkTime(){
 
 }
 
-int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     
     int number_steps_1 = checkTime();
     DifferentialState px_,py_,vx_,vy_;
@@ -128,7 +128,10 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     }
 
     float radius = 4.0;
-    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
+  //  if(_obst.size()==2){ //if obst has the correct size
+        ocp.subjectTo(radius*radius <=  (px_-_target_trajectory[0].pose.pose.position.x)*(px_-_target_trajectory[0].pose.pose.position.x)+
+                                        (py_-_target_trajectory[0].pose.pose.position.y)*(py_-_target_trajectory[0].pose.pose.position.y) /*+s*/);
+   // }
 
     //ocp.subjectTo( s >= 0 ); slack variable
 
@@ -248,7 +251,7 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     int success_value = value;
     return success_value;
 }
-int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::array<float,2> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
@@ -277,9 +280,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     //VariablesGrid target_y(1,myGrid);
     OCP ocp(my_grid_);// = new OCP( my_grid_); // possibility to set non equidistant time-horizon of the problem
     ocp.subjectTo(model);
-    ocp.subjectTo( -5.0 <= ax_ <=  5.0   );  
-    ocp.subjectTo(  -5.0 <= ay_ <= 5.0   );
-    ocp.subjectTo(  -5.0 <= az_ <= 5.0   );
+    ocp.subjectTo( -1.0 <= ax_ <=  1.0   );  
+    ocp.subjectTo(  -1.0 <= ay_ <= 1.0   );
+    ocp.subjectTo(  -1.0 <= az_ <= 1.0   );
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
     ocp.subjectTo(  1.0 <= pz_ <= 20.0   );
@@ -297,6 +300,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
         ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
         ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).pose.pose.position.z);
+        ocp.subjectTo( AT_START, ax_ == 0.0);
+        ocp.subjectTo( AT_START, ay_ == 0.0);
+        ocp.subjectTo( AT_START, az_ == 0.0);
     }else{
         ocp.subjectTo( AT_START, px_ == _x[number_steps]);
         ocp.subjectTo( AT_START, py_ == _y[number_steps]);
@@ -373,7 +379,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     S.setIdentity();
 	S(0,0) = 1.0;
 	S(1,1) = 1.0;
-	S(2,2) = 10.0;
+	S(2,2) = 3.0;
 
     r.setAll( 0.0 );
 
@@ -383,7 +389,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     // TODO parameters
 
     float radius = 4.0;
-    ocp.subjectTo(radius*radius <=  px_*px_+py_*py_ /*+s*/);
+    if(_obst.size()==2){ //if obst has the correct size
+        ocp.subjectTo(radius*radius <=  (px_-_obst[0])*(px_-_obst[0])+(py_-_obst[1])*(py_-_obst[1]) /*+s*/);
+    }
     ROS_INFO("defining solver");
     // define the solver
     // LogRecord logRecord(LOG_AT_EACH_ITERATION);

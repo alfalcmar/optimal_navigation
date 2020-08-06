@@ -3,9 +3,8 @@
 
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     ROS_INFO("backend solver constructor");
-    // parameters
-    // pnh.param<float>("solver_rate", solver_rate_, 4); // solver rate
-   
+    
+    // drones param
     if (ros::param::has("~drones")) {
         if(!ros::param::get("~drones",drones)){
             ROS_ERROR("'Drones' does not have the rigth type");
@@ -13,6 +12,14 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     }
     else {
         ROS_ERROR("fail to get the drones ids");
+    }
+    // no fly zone param
+    if (ros::param::has("~no_fly_zone")){
+        if(!ros::param::get("~no_fly_zone", no_fly_zone_center_)){
+            ROS_ERROR("'No fly zone param does not have the right type");
+        }
+    }else{
+        ROS_ERROR("fail to get no fly zone param");
     }
     if (ros::param::has("~drone_id")) {
         ros::param::get("~drone_id",drone_id_);
@@ -30,8 +37,11 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
         has_poses[TARGET] = false;
         has_poses[drones[i]] = false;
     }
-
-    calculateNoFlyZonePoints(no_fly_zone_center_[0],no_fly_zone_center_[1],NO_FLY_ZONE_RADIUS);
+    if(no_fly_zone_center_.size()==2){
+        calculateNoFlyZonePoints(no_fly_zone_center_[0],no_fly_zone_center_[1],NO_FLY_ZONE_RADIUS);
+    }else{
+        ROS_ERROR("No fly zone is not set");
+    }
     // subscripions
     desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("desired_pose",1,&backendSolver::desiredPoseCallback,this); // desired pose from shot executer
     // publishers
@@ -70,6 +80,7 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     uavs_pose_[drone_id_] = *msg;
+    
     has_poses[drone_id_] = true; 
 }
 
@@ -583,13 +594,13 @@ void backendSolver::stateMachine(){
             logToCsv();
             if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
                 // csv_pose<<"goto"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
+                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
             }
             else if(desired_type_ == shot_executer::DesiredShot::SHOT){
                 //  csv_pose<<"shot"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, obst_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
+                 solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
                 // FORCES PRO FUNCTION
-                //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, obst_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+                //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
             }
             if(solver_success==0){
                 std::vector<double> yaw = predictingYaw();
@@ -668,7 +679,12 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
         traj_to_command.points.push_back(aux_point);
     }
     ROS_INFO("[%s]: Publishing trajectory of length = %lu", ros::this_node::getName().c_str(), traj_to_command.points.size());
-    traj_to_command.header.stamp = uavs_pose_[drone_id_].header.stamp;
+    float vel_module = sqrt(pow(uavs_pose_[drone_id_].twist.twist.linear.x,2)+
+                            pow(uavs_pose_[drone_id_].twist.twist.linear.y,2)+
+                            pow(uavs_pose_[drone_id_].twist.twist.linear.z,2));
+    if(vel_module>0.1){ //drone is not following any trajectory
+        traj_to_command.header.stamp = uavs_pose_[drone_id_].header.stamp;
+    }
     solved_trajectory_MRS_pub.publish(traj_to_followers);   
     mrs_trajectory_tracker_pub.publish(traj_to_command);
 }
