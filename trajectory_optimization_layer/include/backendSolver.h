@@ -135,6 +135,7 @@ class backendSolver{
         std::ofstream csv_pose;                 /**< object to log the trajectory */  
         std::ofstream csv_record;               /**< object to log parameters */
 
+        bool hovering_ = true;
         ACADOsolver *acado_solver_pt_;
 
         //FORCESPROsolver solver_;                /**< solver object */

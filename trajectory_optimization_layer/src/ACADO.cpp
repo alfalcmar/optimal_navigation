@@ -125,13 +125,33 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
         ocp.subjectTo( 2, py_ == _y[number_steps+2]);
         ocp.subjectTo( 3, px_ == _x[number_steps+3]);
         ocp.subjectTo( 3, py_ == _y[number_steps+3]);
+        ocp.subjectTo( 4, px_ == _x[number_steps+4]);
+        ocp.subjectTo( 4, py_ == _y[number_steps+4]);
+        ocp.subjectTo( 5, px_ == _x[number_steps+5]);
+        ocp.subjectTo( 5, py_ == _y[number_steps+5]);
+        ocp.subjectTo( 6, px_ == _x[number_steps+6]);
+        ocp.subjectTo( 6, py_ == _y[number_steps+6]);
+        ocp.subjectTo( 7, px_ == _x[number_steps+7]);
+        ocp.subjectTo( 7, py_ == _y[number_steps+7]);
+        ocp.subjectTo( 8, px_ == _x[number_steps+8]);
+        ocp.subjectTo( 8, py_ == _y[number_steps+8]);
+        ocp.subjectTo( 9, px_ == _x[number_steps+9]);
+        ocp.subjectTo( 9, py_ == _y[number_steps+9]);
+
     }
 
+
     float radius = 4.0;
-  //  if(_obst.size()==2){ //if obst has the correct size
-        ocp.subjectTo(radius*radius <=  (px_-_target_trajectory[0].pose.pose.position.x)*(px_-_target_trajectory[0].pose.pose.position.x)+
-                                        (py_-_target_trajectory[0].pose.pose.position.y)*(py_-_target_trajectory[0].pose.pose.position.y) /*+s*/);
-   // }
+
+    while(radius*radius>(( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)*( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)+
+                                        ( _uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y)*(_uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y))){
+        csv<<"in"<<std::endl;
+        radius = radius - 0.25;
+
+    }
+    ocp.subjectTo(radius*radius <=  (px_-_target_trajectory[0].pose.pose.position.x)*(px_-_target_trajectory[0].pose.pose.position.x)+
+                                    (py_-_target_trajectory[0].pose.pose.position.y)*(py_-_target_trajectory[0].pose.pose.position.y) /*+s*/);
+
 
     //ocp.subjectTo( s >= 0 ); slack variable
 
@@ -316,12 +336,27 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         ocp.subjectTo( 3, px_ == _x[number_steps+3]);
         ocp.subjectTo( 3, py_ == _y[number_steps+3]);
         ocp.subjectTo( 3, pz_ == _z[number_steps+3]);
-        ocp.subjectTo( 3, px_ == _x[number_steps+4]);
-        ocp.subjectTo( 3, py_ == _y[number_steps+4]);
-        ocp.subjectTo( 3, pz_ == _z[number_steps+4]);
-        ocp.subjectTo( 3, px_ == _x[number_steps+5]);
-        ocp.subjectTo( 3, py_ == _y[number_steps+5]);
-        ocp.subjectTo( 3, pz_ == _z[number_steps+5]);
+        ocp.subjectTo( 4, px_ == _x[number_steps+4]);
+        ocp.subjectTo( 4, py_ == _y[number_steps+4]);
+        ocp.subjectTo( 4, pz_ == _z[number_steps+4]);
+        ocp.subjectTo( 5, px_ == _x[number_steps+5]);
+        ocp.subjectTo( 5, py_ == _y[number_steps+5]);
+        ocp.subjectTo( 5, pz_ == _z[number_steps+5]);
+        ocp.subjectTo( 6, px_ == _x[number_steps+6]);
+        ocp.subjectTo( 6, py_ == _y[number_steps+6]);
+        ocp.subjectTo( 6, pz_ == _z[number_steps+6]);
+        ocp.subjectTo( 7, px_ == _x[number_steps+7]);
+        ocp.subjectTo( 7, py_ == _y[number_steps+7]);
+        ocp.subjectTo( 7, pz_ == _z[number_steps+7]);
+        ocp.subjectTo( 8, px_ == _x[number_steps+8]);
+        ocp.subjectTo( 8, py_ == _y[number_steps+8]);
+        ocp.subjectTo( 8, pz_ == _z[number_steps+8]);
+        ocp.subjectTo( 9, px_ == _x[number_steps+9]);
+        ocp.subjectTo( 9, py_ == _y[number_steps+9]);
+        ocp.subjectTo( 9, pz_ == _z[number_steps+9]);
+        ocp.subjectTo( 10, px_ == _x[number_steps+10]);
+        ocp.subjectTo( 10, py_ == _y[number_steps+10]);
+        ocp.subjectTo( 10, pz_ == _z[number_steps+10]);
 
     }
     // ocp.subjectTo( AT_START, vx_== _vx[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.x);

@@ -81,7 +81,18 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     uavs_pose_[drone_id_] = *msg;
     
-    has_poses[drone_id_] = true; 
+    has_poses[drone_id_] = true;
+
+    float vel_module = sqrt(pow(uavs_pose_[drone_id_].twist.twist.linear.x,2)+
+                            pow(uavs_pose_[drone_id_].twist.twist.linear.y,2)+
+                            pow(uavs_pose_[drone_id_].twist.twist.linear.z,2));
+    if(vel_module<0.2){
+        first_time_solving_ = true;
+        hovering_ = true;
+    }
+    else{
+        hovering_ = false;
+    }
 }
 
 /** \brief This callback receives the solved trajectory of uavs
@@ -300,6 +311,7 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2],double
 }
 
 void backendSolver::logToCSVCalculatedTrajectory(int solver_success){
+    csv_pose<<"hovering: "<<hovering_<<std::endl;
     csv_pose<<"first time solving: "<<first_time_solving_<<std::endl;
     csv_pose<<"solver_success: "<<solver_success<<std::endl;
     csv_pose<<"Calculated trajectroy"<<std::endl;
@@ -659,7 +671,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.dt              = 0.2;
   
     // check that _x _y _z are the same size
-    for(int i=closest_point+3;i<time_horizon_; i++){
+    for(int i=closest_point;i<time_horizon_; i++){ //+3
     
         //trajectory to command
         aux_point.position.x = x_[i];
@@ -679,10 +691,8 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
         traj_to_command.points.push_back(aux_point);
     }
     ROS_INFO("[%s]: Publishing trajectory of length = %lu", ros::this_node::getName().c_str(), traj_to_command.points.size());
-    float vel_module = sqrt(pow(uavs_pose_[drone_id_].twist.twist.linear.x,2)+
-                            pow(uavs_pose_[drone_id_].twist.twist.linear.y,2)+
-                            pow(uavs_pose_[drone_id_].twist.twist.linear.z,2));
-    if(vel_module>0.1){ //drone is not following any trajectory
+    
+    if(!hovering_){ //drone is not following any trajectory
         traj_to_command.header.stamp = uavs_pose_[drone_id_].header.stamp;
     }
     solved_trajectory_MRS_pub.publish(traj_to_followers);   
