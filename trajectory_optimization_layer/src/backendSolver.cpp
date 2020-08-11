@@ -52,7 +52,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh){
     target_path_rviz_pub = pnh.advertise<nav_msgs::Path>("target/path",1);
 
     // acado object and thread
-    acado_solver_pt_ = new ACADOsolver;
+    acado_solver_pt_ = new ACADOsolver(solver_rate_);
     main_thread_ = std::thread(&backendSolver::stateMachine,this);
 
     // log files

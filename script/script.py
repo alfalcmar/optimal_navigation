@@ -85,8 +85,8 @@ if __name__ == "__main__":
         shooting_action = ShootingActionRequest()
         shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
         #relative position
-        shooting_action.rt_parameter.x = 0
-        shooting_action.rt_parameter.y = 10
+        shooting_action.rt_parameter.x = 10
+        shooting_action.rt_parameter.y = -10
         shooting_action.rt_parameter.z = 3
         try:
             desired_pose(shooting_action)
@@ -97,8 +97,8 @@ if __name__ == "__main__":
         shooting_action = ShootingActionRequest()
         shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
         #relative position
-        shooting_action.rt_parameter.x = 0
-        shooting_action.rt_parameter.y = -10
+        shooting_action.rt_parameter.x = -10
+        shooting_action.rt_parameter.y = 10
         shooting_action.rt_parameter.z = 3
         try:
             desired_pose(shooting_action)

@@ -30,7 +30,7 @@ USING_NAMESPACE_ACADO
 
 class ACADOsolver{
     public:
-        ACADOsolver();
+        ACADOsolver(float solving_rate);
         /** \brief This function fill the solver inputs and call it
         *  \param x y z vx vy vz       These are the variables where the calculated path will place
         *  \param desired_pose         Desired position
@@ -48,7 +48,7 @@ class ACADOsolver{
         //////////// Solver variables /////////////
         // solver options
 
-        const float solving_rate_ = 2.0; // solving rate (s)
+        float solving_rate_ = 1.0; // solving rate (s)
         const float t_start = 0.0;
         const int drone_id_ = 1;
         const float t_end = 7.8; 

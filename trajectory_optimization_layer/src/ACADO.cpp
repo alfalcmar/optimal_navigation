@@ -5,11 +5,12 @@
 USING_NAMESPACE_ACADO
 
     
-ACADOsolver::ACADOsolver(){
+ACADOsolver::ACADOsolver(float solving_rate){
     
     ROS_INFO("Acado constructor");
     std::string mypackage = ros::package::getPath("optimal_control_interface");
     csv.open(mypackage+"/logs/"+"acado_log_"+std::to_string(drone_id_)+".csv");
+    solving_rate_ = 1/solving_rate;  // hz to s
     //my_grid_ = new Grid( t_start,t_end,N );
     //my_grid_->print();
 }
@@ -40,21 +41,8 @@ void ACADOsolver::checkConstraints(nav_msgs::Odometry &desired_odometry, std::ma
     }
 }
 
-int ACADOsolver::checkTime(){
-    std::chrono::duration<double> diff = std::chrono::system_clock::now() - start;
-    csv<<"time solving: "<<diff.count()<<std::endl;
-    if(diff.count()>3){
-        return 0;
-    }else{
-        int number_steps = (diff.count()/step_size);
-        return number_steps;
-    }
-    csv<<"time solving: "<<diff.count()<<std::endl;
-
-}
 
 int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
-    auto start = std::chrono::system_clock::now();
     DifferentialState px_,py_,vx_,vy_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_;
@@ -109,8 +97,6 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
             // pow((px_-tx),2) + pow((py_-ty),2))+_uavs_pose[drone_id_].pose.pose.position.z))<=M_PI_2);
 
     checkConstraints(_desired_odometry,_uavs_pose);    
-
-    csv<<"first time: "<<first_time_solving<<std::endl; // check it
     
     if(first_time_solving){
        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
@@ -266,8 +252,6 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ay_.clearStaticCounters();
     //s.clearStaticCounters(); slack variable
     int success_value = value;
-    int number_steps_1 = checkTime();
-
     return success_value;
 }
 int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
@@ -279,7 +263,6 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
 
     
     //Parameter tx,ty;
-    auto start = std::chrono::system_clock::now();
     ROS_INFO("calling solver function");
     DifferentialEquation model;
     //AlgebraicState pitch;
@@ -500,7 +483,6 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
    int success_value = value;
-   int number_steps_1 = checkTime();
 
     return success_value;  
  }
