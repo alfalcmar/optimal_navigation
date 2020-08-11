@@ -48,7 +48,7 @@ class ACADOsolver{
         //////////// Solver variables /////////////
         // solver options
 
-        const float solving_rate_ = 1.0; // solving rate (s)
+        const float solving_rate_ = 2.0; // solving rate (s)
         const float t_start = 0.0;
         const int drone_id_ = 1;
         const float t_end = 7.8; 

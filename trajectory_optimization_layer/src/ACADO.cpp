@@ -54,8 +54,7 @@ int ACADOsolver::checkTime(){
 }
 
 int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
-    
-    int number_steps_1 = checkTime();
+    auto start = std::chrono::system_clock::now();
     DifferentialState px_,py_,vx_,vy_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_;
@@ -117,31 +116,29 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
     }else{
-        ocp.subjectTo( AT_START, px_ == _x[number_steps]);
-        ocp.subjectTo( AT_START, py_ == _y[number_steps]);
-        ocp.subjectTo( 1, px_ == _x[number_steps+1]);
-        ocp.subjectTo( 1, py_ == _y[number_steps+1]);
-        ocp.subjectTo( 2, px_ == _x[number_steps+2]);
-        ocp.subjectTo( 2, py_ == _y[number_steps+2]);
-        ocp.subjectTo( 3, px_ == _x[number_steps+3]);
-        ocp.subjectTo( 3, py_ == _y[number_steps+3]);
-        ocp.subjectTo( 4, px_ == _x[number_steps+4]);
-        ocp.subjectTo( 4, py_ == _y[number_steps+4]);
-        ocp.subjectTo( 5, px_ == _x[number_steps+5]);
-        ocp.subjectTo( 5, py_ == _y[number_steps+5]);
-        ocp.subjectTo( 6, px_ == _x[number_steps+6]);
-        ocp.subjectTo( 6, py_ == _y[number_steps+6]);
-        ocp.subjectTo( 7, px_ == _x[number_steps+7]);
-        ocp.subjectTo( 7, py_ == _y[number_steps+7]);
-        ocp.subjectTo( 8, px_ == _x[number_steps+8]);
-        ocp.subjectTo( 8, py_ == _y[number_steps+8]);
-        ocp.subjectTo( 9, px_ == _x[number_steps+9]);
-        ocp.subjectTo( 9, py_ == _y[number_steps+9]);
+        ocp.subjectTo( AT_START, px_ == _x[solving_rate_/step_size]);
+        ocp.subjectTo( AT_START, py_ == _y[solving_rate_/step_size]);
+        ocp.subjectTo( 1, px_ == _x[solving_rate_/step_size+1]);
+        ocp.subjectTo( 1, py_ == _y[solving_rate_/step_size+1]);
+        ocp.subjectTo( 2, px_ == _x[solving_rate_/step_size+2]);
+        ocp.subjectTo( 2, py_ == _y[solving_rate_/step_size+2]);
+        ocp.subjectTo( 3, px_ == _x[solving_rate_/step_size+3]);
+        ocp.subjectTo( 3, py_ == _y[solving_rate_/step_size+3]);
+        // ocp.subjectTo( 5, px_ == _x[number_steps+5]);
+        // ocp.subjectTo( 5, py_ == _y[number_steps+5]);
+        // ocp.subjectTo( 6, px_ == _x[number_steps+6]);
+        // ocp.subjectTo( 6, py_ == _y[number_steps+6]);
+        // ocp.subjectTo( 7, px_ == _x[number_steps+7]);
+        // ocp.subjectTo( 7, py_ == _y[number_steps+7]);
+        // ocp.subjectTo( 8, px_ == _x[number_steps+8]);
+        // ocp.subjectTo( 8, py_ == _y[number_steps+8]);
+        // ocp.subjectTo( 9, px_ == _x[number_steps+9]);
+        // ocp.subjectTo( 9, py_ == _y[number_steps+9]);
 
     }
 
 
-    float radius = 4.0;
+    float radius = 6.0;
 
     while(radius*radius>(( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)*( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)+
                                         ( _uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y)*(_uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y))){
@@ -269,6 +266,8 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ay_.clearStaticCounters();
     //s.clearStaticCounters(); slack variable
     int success_value = value;
+    int number_steps_1 = checkTime();
+
     return success_value;
 }
 int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, int number_steps, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
@@ -277,7 +276,6 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     Control ax_,ay_,az_;
 
     //Control s  ;  // slack variable
-    int number_steps_1 = checkTime();
 
     
     //Parameter tx,ty;
@@ -324,39 +322,39 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);
     }else{
-        ocp.subjectTo( AT_START, px_ == _x[number_steps]);
-        ocp.subjectTo( AT_START, py_ == _y[number_steps]);
-        ocp.subjectTo( AT_START, pz_ == _z[number_steps]);
-        ocp.subjectTo( 1, px_ == _x[number_steps+1]);
-        ocp.subjectTo( 1, py_ == _y[number_steps+1]);
-        ocp.subjectTo( 1, pz_ == _z[number_steps+1]);
-        ocp.subjectTo( 2, px_ == _x[number_steps+2]);
-        ocp.subjectTo( 2, py_ == _y[number_steps+2]);
-        ocp.subjectTo( 2, pz_ == _z[number_steps+2]);
-        ocp.subjectTo( 3, px_ == _x[number_steps+3]);
-        ocp.subjectTo( 3, py_ == _y[number_steps+3]);
-        ocp.subjectTo( 3, pz_ == _z[number_steps+3]);
-        ocp.subjectTo( 4, px_ == _x[number_steps+4]);
-        ocp.subjectTo( 4, py_ == _y[number_steps+4]);
-        ocp.subjectTo( 4, pz_ == _z[number_steps+4]);
-        ocp.subjectTo( 5, px_ == _x[number_steps+5]);
-        ocp.subjectTo( 5, py_ == _y[number_steps+5]);
-        ocp.subjectTo( 5, pz_ == _z[number_steps+5]);
-        ocp.subjectTo( 6, px_ == _x[number_steps+6]);
-        ocp.subjectTo( 6, py_ == _y[number_steps+6]);
-        ocp.subjectTo( 6, pz_ == _z[number_steps+6]);
-        ocp.subjectTo( 7, px_ == _x[number_steps+7]);
-        ocp.subjectTo( 7, py_ == _y[number_steps+7]);
-        ocp.subjectTo( 7, pz_ == _z[number_steps+7]);
-        ocp.subjectTo( 8, px_ == _x[number_steps+8]);
-        ocp.subjectTo( 8, py_ == _y[number_steps+8]);
-        ocp.subjectTo( 8, pz_ == _z[number_steps+8]);
-        ocp.subjectTo( 9, px_ == _x[number_steps+9]);
-        ocp.subjectTo( 9, py_ == _y[number_steps+9]);
-        ocp.subjectTo( 9, pz_ == _z[number_steps+9]);
-        ocp.subjectTo( 10, px_ == _x[number_steps+10]);
-        ocp.subjectTo( 10, py_ == _y[number_steps+10]);
-        ocp.subjectTo( 10, pz_ == _z[number_steps+10]);
+        ocp.subjectTo( AT_START, px_ == _x[solving_rate_/step_size]);
+        ocp.subjectTo( AT_START, py_ == _y[solving_rate_/step_size]);
+        ocp.subjectTo( AT_START, pz_ == _z[solving_rate_/step_size]);
+        ocp.subjectTo( 1, px_ == _x[solving_rate_/step_size+1]);
+        ocp.subjectTo( 1, py_ == _y[solving_rate_/step_size+1]);
+        ocp.subjectTo( 1, pz_ == _z[solving_rate_/step_size+1]);
+        ocp.subjectTo( 2, px_ == _x[solving_rate_/step_size+2]);
+        ocp.subjectTo( 2, py_ == _y[solving_rate_/step_size+2]);
+        ocp.subjectTo( 2, pz_ == _z[solving_rate_/step_size+2]);
+        ocp.subjectTo( 3, px_ == _x[solving_rate_/step_size+3]);
+        ocp.subjectTo( 3, py_ == _y[solving_rate_/step_size+3]);
+        ocp.subjectTo( 3, pz_ == _z[solving_rate_/step_size+3]);
+        ocp.subjectTo( 4, px_ == _x[solving_rate_/step_size+4]);
+        ocp.subjectTo( 4, py_ == _y[solving_rate_/step_size+4]);
+        ocp.subjectTo( 4, pz_ == _z[solving_rate_/step_size+4]);
+        ocp.subjectTo( 5, px_ == _x[solving_rate_/step_size+5]);
+        ocp.subjectTo( 5, py_ == _y[solving_rate_/step_size+5]);
+        ocp.subjectTo( 5, pz_ == _z[solving_rate_/step_size+5]);
+        ocp.subjectTo( 6, px_ == _x[solving_rate_/step_size+6]);
+        ocp.subjectTo( 6, py_ == _y[solving_rate_/step_size+6]);
+        ocp.subjectTo( 6, pz_ == _z[solving_rate_/step_size+6]);
+        ocp.subjectTo( 7, px_ == _x[solving_rate_/step_size+7]);
+        ocp.subjectTo( 7, py_ == _y[solving_rate_/step_size+7]);
+        ocp.subjectTo( 7, pz_ == _z[solving_rate_/step_size+7]);
+        ocp.subjectTo( 8, px_ == _x[solving_rate_/step_size+8]);
+        ocp.subjectTo( 8, py_ == _y[solving_rate_/step_size+8]);
+        ocp.subjectTo( 8, pz_ == _z[solving_rate_/step_size+8]);
+        ocp.subjectTo( 9, px_ == _x[solving_rate_/step_size+9]);
+        ocp.subjectTo( 9, py_ == _y[solving_rate_/step_size+9]);
+        ocp.subjectTo( 9, pz_ == _z[solving_rate_/step_size+9]);
+        ocp.subjectTo( 10, px_ == _x[solving_rate_/step_size+10]);
+        ocp.subjectTo( 10, py_ == _y[solving_rate_/step_size+10]);
+        ocp.subjectTo( 10, pz_ == _z[solving_rate_/step_size+10]);
 
     }
     // ocp.subjectTo( AT_START, vx_== _vx[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.x);
@@ -471,10 +469,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     solver_.set( INTEGRATOR_TOLERANCE , 1e-8            );
     //solver_.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver_.set( KKT_TOLERANCE        , 1e-3            );
-    
-
-    start = std::chrono::system_clock::now();
-    
+        
     // call the solver
     returnValue value = solver_.solve();
     // get solution
@@ -505,6 +500,8 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
    int success_value = value;
+   int number_steps_1 = checkTime();
+
     return success_value;  
  }
 

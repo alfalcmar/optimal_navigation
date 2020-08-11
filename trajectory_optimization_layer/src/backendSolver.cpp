@@ -82,17 +82,6 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg)
     uavs_pose_[drone_id_] = *msg;
     
     has_poses[drone_id_] = true;
-
-    float vel_module = sqrt(pow(uavs_pose_[drone_id_].twist.twist.linear.x,2)+
-                            pow(uavs_pose_[drone_id_].twist.twist.linear.y,2)+
-                            pow(uavs_pose_[drone_id_].twist.twist.linear.z,2));
-    if(vel_module<0.2){
-        first_time_solving_ = true;
-        hovering_ = true;
-    }
-    else{
-        hovering_ = false;
-    }
 }
 
 /** \brief This callback receives the solved trajectory of uavs
@@ -589,47 +578,56 @@ int backendSolver::checkDelay(std::chrono::system_clock::time_point start){
 void backendSolver::stateMachine(){
     int closest_point = 0;
     ros::Rate solver(solver_rate_);
+    bool loop_rate_violated = false;
     while(ros::ok){
-        ros::spinOnce();
-        if(!first_time_solving_){
-            closest_point = closestPose();
+        if(solver_success==0){
+            std::vector<double> yaw = predictingYaw();
+            std::vector<double> pitch = predictingPitch();
+            publishSolvedTrajectory(yaw,pitch,closest_point);
+            first_time_solving_ = false;
+        }else{
+            first_time_solving_=true;
         }
         if(desired_type_ == shot_executer::DesiredShot::IDLE){
             IDLEState();
             sleep(1);
         }
         else if( desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT){
-            if(target_){  // calculate the target trajectory if it exists
-                targetTrajectoryVelocityCTEModel();
+            do{
+                ros::spinOnce();
+                if(target_){  // calculate the target trajectory if it exists
+                    targetTrajectoryVelocityCTEModel();
+                }
+                calculateInitialGuess();
+                logToCsv();
+                if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
+                    // csv_pose<<"goto"<<std::endl;
+                    solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
+                }
+                else if(desired_type_ == shot_executer::DesiredShot::SHOT){
+                    //  csv_pose<<"shot"<<std::endl;
+                    solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
+                    // FORCES PRO FUNCTION
+                    //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
+                }
+                logToCSVCalculatedTrajectory(solver_success);
+                publishDesiredPoint();
+                publishPath();
             }
-            calculateInitialGuess();
-            logToCsv();
-            if((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_){
-                // csv_pose<<"goto"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_, uavs_pose_, closest_point, first_time_solving_); // ACADO
-            }
-            else if(desired_type_ == shot_executer::DesiredShot::SHOT){
-                //  csv_pose<<"shot"<<std::endl;
-                 solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_,desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_, closest_point, first_time_solving_); // ACADO
-                // FORCES PRO FUNCTION
-                //solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_, no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h     
-            }
-            if(solver_success==0){
-                std::vector<double> yaw = predictingYaw();
-                std::vector<double> pitch = predictingPitch();
-                publishSolvedTrajectory(yaw,pitch);
-                first_time_solving_ = false;
-            }else{
-                csv_pose<<"error to solve"<<std::endl;
-                first_time_solving_ = true;
-            }
-            logToCSVCalculatedTrajectory(solver_success);
-            publishDesiredPoint();
-            publishPath();
+            while(solver_success!=0);
         }
-        if(solver_success==0){
-            solver.sleep();
+        if(solver.cycleTime().toSec()>(0.2+1/solver_rate_ || first_time_solving_)){
+            csv_pose<<"violated"<<std::endl;
+            ros::spinOnce();
+            closest_point = closestPose()+3;
+            loop_rate_violated = true; 
+        }else{
+            loop_rate_violated = false;
+            closest_point = 0;
         }
+        csv_pose<<"closest point: "<<closest_point<<std::endl;
+        csv_pose<<"time: "<<solver.cycleTime().toSec()<<std::endl;
+        solver.sleep();
     }   
 }
 
@@ -669,9 +667,9 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
     traj_to_command.use_heading = true;  
     traj_to_command.header.frame_id = "uav1/gps_origin";
     traj_to_command.dt              = 0.2;
-  
+    
     // check that _x _y _z are the same size
-    for(int i=closest_point;i<time_horizon_; i++){ //+3
+    for(int i=closest_point;i<time_horizon_; i++){ 
     
         //trajectory to command
         aux_point.position.x = x_[i];
@@ -690,11 +688,8 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw,co
         traj_to_followers.points.push_back(aux_point_for_followers);
         traj_to_command.points.push_back(aux_point);
     }
-    ROS_INFO("[%s]: Publishing trajectory of length = %lu", ros::this_node::getName().c_str(), traj_to_command.points.size());
     
-    if(!hovering_){ //drone is not following any trajectory
-        traj_to_command.header.stamp = uavs_pose_[drone_id_].header.stamp;
-    }
+    traj_to_command.header.stamp = ros::Time::now();
     solved_trajectory_MRS_pub.publish(traj_to_followers);   
     mrs_trajectory_tracker_pub.publish(traj_to_command);
 }

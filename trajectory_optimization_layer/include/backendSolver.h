@@ -98,7 +98,7 @@ class backendSolver{
         //solver
         int time_horizon_ = TIME_HORIZON;
         float solver_rate_ = 0.5;                    /**< Rate to call the solver (Hz) */ //NOT USED
-        int solver_success = 0;                 /**< the solver has solved successfully */
+        int solver_success = -1;                 /**< the solver has solved successfully */
         bool multi_ = false;                        /**< true if multi uav formation is activated */
         bool target_ = true;                        /**< true if there is a target that is being filmed*/
         const double step_size = 0.2;               /**< step size (seg) */
