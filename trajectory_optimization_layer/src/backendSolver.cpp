@@ -617,7 +617,7 @@ void backendSolver::stateMachine(){
             }
             while(solver_success!=0);
         }
-        if(solver.cycleTime().toSec()>(0.2+1/solver_rate_ || first_time_solving_)){
+        if(solver.cycleTime().toSec()>(0.2+1/solver_rate_) || first_time_solving_){
             csv_pose<<"violated"<<std::endl;
             ros::spinOnce();
             closest_point = closestPose()+3;

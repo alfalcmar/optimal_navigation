@@ -87,7 +87,7 @@ if __name__ == "__main__":
     #relative position
     shooting_action.rt_parameter.x = 0
     shooting_action.rt_parameter.y = -7
-    shooting_action.rt_parameter.z = 3
+    shooting_action.rt_parameter.z = 2
     try:
         desired_pose(shooting_action)
     except:
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     #relative position
     shooting_action.rt_parameter.x = 7
     shooting_action.rt_parameter.y = -7
-    shooting_action.rt_parameter.z = 3
+    shooting_action.rt_parameter.z = 2
     try:
         desired_pose(shooting_action)
     except:
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     #relative position
     shooting_action.rt_parameter.x = -7
     shooting_action.rt_parameter.y = 7
-    shooting_action.rt_parameter.z = 3
+    shooting_action.rt_parameter.z = 2
     try:
         desired_pose(shooting_action)
     except:
