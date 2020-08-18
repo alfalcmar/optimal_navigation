@@ -53,7 +53,7 @@ if __name__ == "__main__":
     
     key = raw_input("press a key to start estimation")
     start_estimation_srv = StartEstimationRequest()
-    start_estimation_srv.radius = 20
+    start_estimation_srv.radius = 50
     start_vision(start_estimation_srv)
    # key = raw_input("press a key to start the ballon filter")
     while(1):
