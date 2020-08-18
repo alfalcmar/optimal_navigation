@@ -67,8 +67,8 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     ocp.subjectTo(  -5.0 <= ay_ <= 5.0   );
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
-    ocp.subjectTo(  -1.0 <= vx_ <= 1.0   );
-    ocp.subjectTo(  -1.0 <= vy_ <= 1.0   );
+    ocp.subjectTo(  -0.6 <= vx_ <= 0.6   );
+    ocp.subjectTo(  -0.6 <= vy_ <= 0.6   );
     
     // target set-up
     VariablesGrid target_x(1,my_grid_);
@@ -124,7 +124,7 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     }
 
 
-    float radius = 6.0;
+    float radius = 3.0;
 
     while(radius*radius>(( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)*( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)+
                                         ( _uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y)*(_uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y))){
@@ -287,9 +287,9 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
     ocp.subjectTo(  1.0 <= pz_ <= 20.0   );
-    ocp.subjectTo(  -1.0 <= vx_ <= 1.0   );
-    ocp.subjectTo(  -1.0 <= vy_ <= 1.0   );
-    ocp.subjectTo(  -1.0 <= vz_ <= 1.0   );
+    ocp.subjectTo(  -0.5 <= vx_ <= 0.5   );
+    ocp.subjectTo(  -0.5 <= vy_ <= 0.5   );
+    ocp.subjectTo(  -0.5 <= vz_ <= 0.5   );
     //ocp.subjectTo( tx==target_x);
     //ocp.subjectTo( ty==target_y);
     //ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
@@ -404,7 +404,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ROS_INFO("objective function defined");
     // TODO parameters
 
-    float radius = 4.0;
+    float radius = 3.0;
     if(_obst.size()==2){ //if obst has the correct size
         ocp.subjectTo(radius*radius <=  (px_-_obst[0])*(px_-_obst[0])+(py_-_obst[1])*(py_-_obst[1]) /*+s*/);
     }

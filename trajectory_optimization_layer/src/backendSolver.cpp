@@ -613,6 +613,7 @@ void backendSolver::stateMachine(){
                 logToCSVCalculatedTrajectory(solver_success);
                 publishDesiredPoint();
                 publishPath();
+                if(solver_success!=0) first_time_solving_ = true;
             }
             while(solver_success!=0);
         }

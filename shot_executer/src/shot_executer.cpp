@@ -135,8 +135,10 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         case shot_executer::ShootingAction::Request::FOLLOW:
             desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
             desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
-            desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
-
+            desired_point.pose.pose.position.z = _shooting_action.rt_parameters.z;
+            // desired_point.pose.pose.position.x  = target_trajectory[0].pose.pose.position.x+_shooting_action.rt_parameters.x;
+            // desired_point.pose.pose.position.y =  target_trajectory[0].pose.pose.position.y+_shooting_action.rt_parameters.y;
+            // desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
             // desired vel
             desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
