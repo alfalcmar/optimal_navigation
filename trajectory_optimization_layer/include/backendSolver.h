@@ -18,6 +18,7 @@
 #include <formation_church_planning/Trajectory.h>
 #include <formation_church_planning/Point.h>
 #include <formation_church_planning/Diagnostic.h>
+#include <formation_church_planning/Status.h>
 #include <math.h> /* sqrt */
 #include <ACADO.h>
 #include <shot_executer/DesiredShot.h>
@@ -303,8 +304,9 @@ private:
   ros::Subscriber uav_odometry_sub; /**< Subscriber to UAV's odometry*/
   ros::Publisher  diagnostics_pub;
   ros::Publisher  solved_trajectory_MRS_pub;
-  ros::Publisher  pub_target_odometry_;
+  ros::Publisher  target_odometry_pub;
   ros::Publisher  mrs_trajectory_tracker_pub;
+  ros::Publisher  mrs_status_pub;
   /*! \brief Callback function to the target topic. This function save the pose reveived for the first in has_poses[0] and upload target_pose_ member
    *  \param
    * */
@@ -320,6 +322,7 @@ private:
   void diagTimer(const ros::TimerEvent &event);
 
   void publishTargetOdometry();
+  void publishState(const bool state);
 };
 
 

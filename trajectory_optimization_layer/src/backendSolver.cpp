@@ -147,10 +147,10 @@ void backendSolverMRS::publishTargetOdometry() {
   nav_msgs::Odometry msg = target_odometry_;
   msg.header.frame_id    = "uav2/gps_origin";
   try {
-    pub_target_odometry_.publish(msg);
+    target_odometry_pub.publish(msg);
   }
   catch (...) {
-    ROS_ERROR("exception caught during publishing topic '%s'", pub_target_odometry_.getTopic().c_str());
+    ROS_ERROR("exception caught during publishing topic '%s'", target_odometry_pub.getTopic().c_str());
   }
 }
 
@@ -657,6 +657,7 @@ void backendSolver::stateMachine() {
         logToCSVCalculatedTrajectory(solver_success);
         publishDesiredPoint();
         publishPath();
+        /* if(solver_success!=0) first_time_solving_ = true; */
       } while (solver_success != 0);
     }
     if (solver.cycleTime().toSec() > (0.2 + 1 / solver_rate_ || first_time_solving_)) {
@@ -684,7 +685,8 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
   solved_trajectory_MRS_pub  = _pnh.advertise<formation_church_planning::Trajectory>("planned_trajectory", 1);
   uav_odometry_sub           = _pnh.subscribe<nav_msgs::Odometry>("odometry_in", 1, &backendSolverMRS::uavCallback, this);
   diagnostics_pub            = _pnh.advertise<formation_church_planning::Diagnostic>("diagnostics", 1);
-  pub_target_odometry_       = _pnh.advertise<nav_msgs::Odometry>("target_odometry_out", 1);
+  target_odometry_pub        = _pnh.advertise<nav_msgs::Odometry>("target_odometry_out", 1);
+  mrs_status_pub             = _pnh.advertise<formation_church_planning::Status>("mrs_status", 1);
   service_for_activation     = _pnh.advertiseService("toggle_state", &backendSolverMRS::activationServiceCallback, this);
 
   ros::Rate rate(1);  // hz
@@ -700,12 +702,12 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
   }
   is_initialized = true;
   // main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
-
   ROS_INFO("Solver %d is ready", drone_id_);
 }
 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int closest_point) {
+  publishState(true);
   mrs_msgs::Reference                   aux_point;
   formation_church_planning::Point      aux_point_for_followers;
   mrs_msgs::TrajectoryReference         traj_to_command;
@@ -736,7 +738,8 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     traj_to_command.points.push_back(aux_point);
   }
   for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
-    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), traj_to_followers.points[k].x, traj_to_followers.points[k].y, traj_to_followers.points[k].z); 
+    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), traj_to_followers.points[k].x, traj_to_followers.points[k].y,
+             traj_to_followers.points[k].z);
   }
   traj_to_command.header.stamp = ros::Time::now();
   traj_to_followers.stamp      = ros::Time::now();
@@ -767,6 +770,18 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
   }
   catch (...) {
     ROS_ERROR("Exception caught during publishing topic %s.", diagnostics_pub.getTopic().c_str());
+  }
+}
+
+void backendSolverMRS::publishState(const bool state) {
+  formation_church_planning::Status msg;
+  msg.ready    = state;
+  msg.uav_name = "uav" + std::to_string(drone_id_);
+  try {
+    mrs_status_pub.publish(msg);
+  }
+  catch (...) {
+    ROS_ERROR("Exception caught during publishing topic %s.", mrs_status_pub.getTopic().c_str());
   }
 }
 

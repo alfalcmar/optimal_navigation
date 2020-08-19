@@ -14,6 +14,7 @@
       <remap from="~diagnostics" to="formation_church_planning/diagnostics" />
       <remap from="~desired_trajectory" to="control_manager/trajectory_reference" />
       <remap from="~planned_trajectory" to="formation_church_planning/planned_trajectory" />
+      <remap from="~mrs_status" to="formation_church_planning/status" />
       <remap from="~toggle_state" to="formation_church_planning/toggle_state" />
       <!-- <remap from="~target_topic" to="/gazebo/dynamic_model/jeff_electrician/odometry" /> -->
       <remap from="~target_topic" to="/$(arg uav_name)/balloon_filter/chosen_out" />

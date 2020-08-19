@@ -1,0 +1,17 @@
+
+# ignore temp files
+*~
+
+# ignore vim temp files
+*.swp
+*.swo
+
+# Runtime-python
+*.pyc
+
+# ignore bagfiles
+*.bag
+*.bag.active
+
+# ignore logs
+trajectory_optimization_layer/logs
