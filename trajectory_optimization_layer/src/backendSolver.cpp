@@ -145,7 +145,7 @@ void backendSolverMRS::publishTargetOdometry() {
     return;
   }
   nav_msgs::Odometry msg = target_odometry_;
-  msg.header.frame_id    = "uav2/gps_origin";
+  msg.header.frame_id    = "uav47/gps_origin";
   try {
     target_odometry_pub.publish(msg);
   }
@@ -694,7 +694,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
   // node is not running
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
-  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav" + std::to_string(drone_id_));
+  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav44");
   while (!checkConnectivity()) {
     ros::spinOnce();
     rate.sleep();
@@ -702,6 +702,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
   }
   is_initialized = true;
   // main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
+
   ROS_INFO("Solver %d is ready", drone_id_);
 }
 
@@ -755,7 +756,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
   publishTargetOdometry();
   formation_church_planning::Diagnostic diag_msg;
   diag_msg.header.stamp               = ros::Time::now();
-  diag_msg.uav_name                   = "uav" + std::to_string(drone_id_);
+  diag_msg.uav_name                   = "uav" + std::to_string(44);
   diag_msg.robot_role                 = "leader";
   diag_msg.state                      = "waiting_in_initial_position";
   diag_msg.flying_mode                = "1";
@@ -776,7 +777,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
 void backendSolverMRS::publishState(const bool state) {
   formation_church_planning::Status msg;
   msg.ready    = state;
-  msg.uav_name = "uav" + std::to_string(drone_id_);
+  msg.uav_name = "uav" + std::to_string(44);
   try {
     mrs_status_pub.publish(msg);
   }

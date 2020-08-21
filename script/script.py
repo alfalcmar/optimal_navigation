@@ -45,11 +45,11 @@ if __name__ == "__main__":
 
     planning_2 = rospy.ServiceProxy('/uav2/formation_church_planning/toggle_state', SetBool)
     planning_3 = rospy.ServiceProxy('/uav3/formation_church_planning/toggle_state', SetBool)
-    start_vision = rospy.ServiceProxy('/uav1/balloon_filter/start_estimation',StartEstimation)
-    desired_pose = rospy.ServiceProxy('/uav1/action',ShootingAction)
+    start_vision = rospy.ServiceProxy('/uav44/balloon_filter/start_estimation',StartEstimation)
+    desired_pose = rospy.ServiceProxy('/uav44/action',ShootingAction)
     # rospy.Subscriber("/gazebo/dynamic_model/jeff_electrician/odometry", Odometry, callback)
     # rospy.Subscriber("/uav1/odometry/odom_main", Odometry, callback_drone_pose)
-    yaw_srv = rospy.ServiceProxy("/uav1/control_manager/goto",Vec4)
+    yaw_srv = rospy.ServiceProxy("/uav44/control_manager/goto",Vec4)
     
     key = raw_input("press a key to start estimation")
     start_estimation_srv = StartEstimationRequest()
@@ -82,18 +82,18 @@ if __name__ == "__main__":
     # except:
     #     print("call planning 2 failed")
 
-    shooting_action = ShootingActionRequest()
-    shooting_action.shooting_action_type = ShootingActionRequest.FOLLOW
-    #relative position
-    shooting_action.rt_parameter.x = 0
-    shooting_action.rt_parameter.y = -5
-    shooting_action.rt_parameter.z = 2
-    try:
-        desired_pose(shooting_action)
-    except:
-        print("fail to call shooting action")
+    #shooting_action = ShootingActionRequest()
+    #shooting_action.shooting_action_type = ShootingActionRequest.FOLLOW
+    ##relative position
+    #shooting_action.rt_parameter.x = 0
+    #shooting_action.rt_parameter.y = -5
+    #shooting_action.rt_parameter.z = 2
+    #try:
+    #    desired_pose(shooting_action)
+    #except:
+    #    print("fail to call shooting action")
 
-    raw_input("next shot")
+    raw_input("next shot 7 -7 2")
 
     shooting_action = ShootingActionRequest()
     shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
@@ -106,12 +106,84 @@ if __name__ == "__main__":
     except:
         print("fail to call shooting action")
 
-    raw_input("next shot")
+    raw_input("next shot -7 7 2")
     shooting_action = ShootingActionRequest()
     shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
     #relative position
     shooting_action.rt_parameter.x = -7
     shooting_action.rt_parameter.y = 7
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot -15, 15, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = -15
+    shooting_action.rt_parameter.y = 15
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot 15, 10, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = 15
+    shooting_action.rt_parameter.y = 10
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot -15, -10, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = -15
+    shooting_action.rt_parameter.y = -10
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot 15, -10, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = 15
+    shooting_action.rt_parameter.y = -10
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot -10, -5, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = -10
+    shooting_action.rt_parameter.y = -5
+    shooting_action.rt_parameter.z = 2
+    try:
+        desired_pose(shooting_action)
+    except:
+        print("fail to call shooting action")
+
+    raw_input("next shot 10, 5, 2")
+    shooting_action = ShootingActionRequest()
+    shooting_action.shooting_action_type = ShootingActionRequest.ESTABLISH
+    #relative position
+    shooting_action.rt_parameter.x = 10
+    shooting_action.rt_parameter.y = 5
     shooting_action.rt_parameter.z = 2
     try:
         desired_pose(shooting_action)
