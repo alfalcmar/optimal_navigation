@@ -124,7 +124,7 @@ int ACADOsolver::solverFunction2D(std::map<std::string, std::array<double,TIME_H
     }
 
 
-    float radius = 3.0;
+    float radius = 5.0;
 
     while(radius*radius>(( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)*( _uavs_pose.at(_drone_id).pose.pose.position.x-_target_trajectory[0].pose.pose.position.x)+
                                         ( _uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y)*(_uavs_pose.at(_drone_id).pose.pose.position.y-_target_trajectory[0].pose.pose.position.y))){
@@ -404,7 +404,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ROS_INFO("objective function defined");
     // TODO parameters
 
-    float radius = 3.0;
+    float radius = 5.0;
     if(_obst.size()==2){ //if obst has the correct size
         ocp.subjectTo(radius*radius <=  (px_-_obst[0])*(px_-_obst[0])+(py_-_obst[1])*(py_-_obst[1]) /*+s*/);
     }

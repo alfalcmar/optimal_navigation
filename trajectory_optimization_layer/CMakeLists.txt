@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(optimal_control_interface)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-ADD_DEFINITIONS( -std=c++11 )
-add_compile_options(-std=c++11)
+ADD_DEFINITIONS( -std=c++17 )
+add_compile_options(-std=c++17)
 
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
