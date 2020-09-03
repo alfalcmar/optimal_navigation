@@ -13,6 +13,7 @@ import math
 import numpy
 from balloon_filter.srv import StartEstimationRequest
 from balloon_filter.srv import StartEstimation
+import os
 
 # target_pose = Odometry()
 # action_flag = False
@@ -41,15 +42,20 @@ if __name__ == "__main__":
     
     rospy.init_node('experiment_preparation', anonymous=True)
 
+    if 'UAV_NAME' in os.environ:
+        uav_id =os.environ['UAV_NAME']
+    else:
+        uav_id = "uav"
+
     init_planning = SetBool()
 
     planning_2 = rospy.ServiceProxy('/uav2/formation_church_planning/toggle_state', SetBool)
     planning_3 = rospy.ServiceProxy('/uav3/formation_church_planning/toggle_state', SetBool)
-    start_vision = rospy.ServiceProxy('/uav44/balloon_filter/start_estimation',StartEstimation)
-    desired_pose = rospy.ServiceProxy('/uav44/action',ShootingAction)
+    start_vision = rospy.ServiceProxy('/'+uav_id+'/balloon_filter/start_estimation',StartEstimation)
+    desired_pose = rospy.ServiceProxy('/'+uav_id+'/action',ShootingAction)
     # rospy.Subscriber("/gazebo/dynamic_model/jeff_electrician/odometry", Odometry, callback)
     # rospy.Subscriber("/uav1/odometry/odom_main", Odometry, callback_drone_pose)
-    yaw_srv = rospy.ServiceProxy("/uav44/control_manager/goto",Vec4)
+    #yaw_srv = rospy.ServiceProxy('/'+uav_name+'/control_manager/goto",Vec4)
     
     key = raw_input("press a key to start estimation")
     start_estimation_srv = StartEstimationRequest()
