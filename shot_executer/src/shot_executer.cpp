@@ -38,9 +38,7 @@ void ShotExecuter::targetPoseCallback(const nav_msgs::Odometry::ConstPtr& _msg) 
     target_pose_ = *_msg;
 }
 
-
 std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
-    //double target_vel_module = sqrt(pow(target_vel[0],2)+pow(target_vel[1],2));
     std::vector<nav_msgs::Odometry> target_trajectory;
     nav_msgs::Odometry aux;
     nav_msgs::Path path_to_publish;  //rviz
@@ -48,7 +46,7 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
 
     if(prediction_mode_ == VELOCITY_MODE){
         for(int i=0; i<time_horizon_;i++){
-            aux.pose.pose.position.x = target_pose_.pose.pose.position.x+ step_size_*i*target_pose_.twist.twist.linear.x;
+            aux.pose.pose.position.x = target_pose_.pose.pose.position.x + step_size_*i*target_pose_.twist.twist.linear.x;
             aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
             aux.pose.pose.position.z = target_pose_.pose.pose.position.z + step_size_*i*target_pose_.twist.twist.linear.z;
             aux.twist.twist = target_pose_.twist.twist;
@@ -70,7 +68,6 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
             target_pose_.pose.pose.orientation.w);
             tf::Matrix3x3 m(q);
         m.getRPY(roll, pitch, yaw);
-        double norm = sqrt(pow(target_pose_.pose.pose.position.x,2)+pow(target_pose_.pose.pose.position.y,2));
         double velx = VEL_CTE*cos(yaw);
         double vely = VEL_CTE*sin(yaw);
         double velz = 0.0;
@@ -131,14 +128,24 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
             desired_shot.desired_odometry = desired_point;
             desired_shot.type = shot_executer::DesiredShot::GOTO;
             return desired_shot;
+        
+        case shot_executer::ShootingAction::Request::ELEVATOR:
+            desired_point.pose.pose.position.x  = drone_pose_.pose.pose.position.x;//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = drone_pose_.pose.pose.position.y;
+            desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
+            // desired vel
+            desired_point.twist.twist.linear.x =0;
+            desired_point.twist.twist.linear.y =0;
+            desired_point.twist.twist.linear.z =target_trajectory.back().twist.twist.linear.z;
+            desired_shot.desired_odometry = desired_point;
+            desired_shot.type = shot_executer::DesiredShot::SHOT;
+            return desired_shot;
+
 
         case shot_executer::ShootingAction::Request::FOLLOW:
-            // desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
-            // desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
-            desired_point.pose.pose.position.z = _shooting_action.rt_parameters.z;
-            desired_point.pose.pose.position.x  = target_trajectory[0].pose.pose.position.x+_shooting_action.rt_parameters.x;
-            desired_point.pose.pose.position.y =  target_trajectory[0].pose.pose.position.y+_shooting_action.rt_parameters.y;
-            // desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
+            desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(yaw)*_shooting_action.rt_parameters.x-sin(yaw)*_shooting_action.rt_parameters.y);//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(yaw)*_shooting_action.rt_parameters.x+cos(yaw)*_shooting_action.rt_parameters.y);
+            desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
             // desired vel
             desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
             desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;

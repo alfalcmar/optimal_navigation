@@ -323,22 +323,6 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         ocp.subjectTo( 5, px_ == _x[solving_rate_/step_size+5]);
         ocp.subjectTo( 5, py_ == _y[solving_rate_/step_size+5]);
         ocp.subjectTo( 5, pz_ == _z[solving_rate_/step_size+5]);
-        ocp.subjectTo( 6, px_ == _x[solving_rate_/step_size+6]);
-        ocp.subjectTo( 6, py_ == _y[solving_rate_/step_size+6]);
-        ocp.subjectTo( 6, pz_ == _z[solving_rate_/step_size+6]);
-        ocp.subjectTo( 7, px_ == _x[solving_rate_/step_size+7]);
-        ocp.subjectTo( 7, py_ == _y[solving_rate_/step_size+7]);
-        ocp.subjectTo( 7, pz_ == _z[solving_rate_/step_size+7]);
-        ocp.subjectTo( 8, px_ == _x[solving_rate_/step_size+8]);
-        ocp.subjectTo( 8, py_ == _y[solving_rate_/step_size+8]);
-        ocp.subjectTo( 8, pz_ == _z[solving_rate_/step_size+8]);
-        ocp.subjectTo( 9, px_ == _x[solving_rate_/step_size+9]);
-        ocp.subjectTo( 9, py_ == _y[solving_rate_/step_size+9]);
-        ocp.subjectTo( 9, pz_ == _z[solving_rate_/step_size+9]);
-        ocp.subjectTo( 10, px_ == _x[solving_rate_/step_size+10]);
-        ocp.subjectTo( 10, py_ == _y[solving_rate_/step_size+10]);
-        ocp.subjectTo( 10, pz_ == _z[solving_rate_/step_size+10]);
-
     }
     // ocp.subjectTo( AT_START, vx_== _vx[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.x);
     // ocp.subjectTo( AT_START, vy_== _vy[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.y);

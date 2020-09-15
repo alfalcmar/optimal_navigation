@@ -648,7 +648,7 @@ void backendSolver::stateMachine() {
                                                             target_trajectory_, uavs_pose_, closest_point, first_time_solving_);  // ACADO
         } else if (desired_type_ == shot_executer::DesiredShot::SHOT) {
           //  csv_pose<<"shot"<<std::endl;
-          solver_success = acado_solver_pt_->solverFunction2D(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
+          solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
                                                               target_trajectory_, uavs_pose_, closest_point, first_time_solving_);  // ACADO
                                                                                                                                     // FORCES PRO FUNCTION
           // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
