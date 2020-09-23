@@ -159,7 +159,7 @@ protected:
    *   \param start time to call the solver
    *   \return number of points of the calculated trajectory that are delayed
    */
-  int checkDelay(std::chrono::system_clock::time_point start);
+  float checkRoundedTime(std::chrono::system_clock::time_point start);
   /*! \brief Utility function to erase the points that are delayed
    *   \param number_of_points that are delayed
    */
@@ -282,7 +282,7 @@ protected:
    *          velocity cte
    *          vel cte model for path guess
    */
-  void calculateInitialGuess();
+  void calculateInitialGuess(bool new_initial_guess = false);
   bool subida;
 
 

@@ -67,11 +67,6 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 
   desired_odometry_ = msg->desired_odometry;
   desired_type_     = msg->type;
-  if (abs(desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.pose.position.z) > 0.8) {
-    height_reached_ = false;
-  } else {
-    height_reached_ = true;
-  }
   // ROS_INFO("Desired pose received: x: %f y: %f z: %f",msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z]);
 }
 
@@ -244,10 +239,11 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
   for (int i = 0; i < time_horizon_; i++) {
     aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + step_size * i * target_odometry_.twist.twist.linear.x;
     aux.pose.pose.position.y = target_odometry_.pose.pose.position.y + step_size * i * target_odometry_.twist.twist.linear.y;
+    aux.pose.pose.position.z = target_odometry_.pose.pose.position.z + step_size * i * target_odometry_.twist.twist.linear.z;
     aux.twist                = target_odometry_.twist;  // velocity constant model
     target_trajectory_.push_back(aux);
-    ROS_INFO("[%s]: Target trajectory velocity model: target = [%.2f, %.2f, %.2f],", ros::this_node::getName().c_str(), aux.pose.pose.position.x,
-             aux.pose.pose.position.y, aux.pose.pose.position.z);
+    // ROS_INFO("[%s]: Target trajectory velocity model: target = [%.2f, %.2f, %.2f],", ros::this_node::getName().c_str(), aux.pose.pose.position.x,
+            // aux.pose.pose.position.y, aux.pose.pose.position.z);
   }
 }
 
@@ -457,8 +453,8 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
   ROS_INFO("Desired pose reached");
 }
 
-void backendSolver::calculateInitialGuess() {
-  if (first_time_solving_) {
+void backendSolver::calculateInitialGuess(bool new_initial_guess) {
+  if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
     float aux_norm       = sqrt(pow((desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.pose.position.x), 2) +
@@ -510,6 +506,10 @@ void backendSolver::calculateInitialGuess() {
       initial_guess_["vz"][i] = vz_[i];
     }
   }
+  for (int i = 0; i < time_horizon_; i++) {
+      initial_guess_["pitch"][i] = 0.3;
+  }
+
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {
@@ -611,10 +611,12 @@ void backendSolver::IDLEState() {
 
 //     }
 // }
-int backendSolver::checkDelay(std::chrono::system_clock::time_point start) {
+float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point start) {
   std::chrono::duration<double> diff             = std::chrono::system_clock::now() - start;
-  int                           number_of_points = diff.count() / step_size;
-  return number_of_points;
+  csv_pose<<"rate: "<<diff.count()<<"(s)"<<std::endl<<std::endl<<std::endl<<std::endl;
+  float rounded_time = round( diff.count() * 10.0 ) / 10.0;
+  csv_pose<<"rate round: "<<rounded_time<<std::endl;
+  return rounded_time;
 }
 
 
@@ -622,58 +624,76 @@ void backendSolver::stateMachine() {
   int       closest_point = 0;
   ros::Rate solver(solver_rate_);
   bool      loop_rate_violated = false;
+  std::chrono::system_clock::time_point start;
+  std::chrono::duration<double> diff;
+  float actual_cicle_time = 0.0;
+  bool change_initial_guess = true;
+  // int cont =
+  float time_initial_position = 0.0;
+  first_time_solving_ = true;
+  
+  
+  
+  
   while (ros::ok) {
-    if (solver_success == 0) {
-      std::vector<double> yaw   = predictingYaw();
-      std::vector<double> pitch = predictingPitch();
-      publishSolvedTrajectory(yaw, pitch, closest_point);
-      first_time_solving_ = false;
-    } else {
-      first_time_solving_ = true;
-    }
-    if (desired_type_ == shot_executer::DesiredShot::IDLE) {
+    solver.reset();
+    time_initial_position = checkRoundedTime(start);
+    start = std::chrono::system_clock::now();
+    if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
       IDLEState();
-      sleep(1);
-    } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) {
+    } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
+       if (solver_success == 0) {
+          std::vector<double> yaw   = predictingYaw();
+          std::vector<double> pitch = predictingPitch();
+          publishSolvedTrajectory(yaw, pitch, closest_point);
+        }
       do {
         ros::spinOnce();
         if (target_) {  // calculate the target trajectory if it exists
           targetTrajectoryVelocityCTEModel();
         }
-        calculateInitialGuess();
-        logToCsv();
-        if ((desired_type_ == shot_executer::DesiredShot::GOTO) || !height_reached_) {
-          // csv_pose<<"goto"<<std::endl;
-          solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
-                                                            target_trajectory_, uavs_pose_, closest_point, first_time_solving_);  // ACADO
-        } else if (desired_type_ == shot_executer::DesiredShot::SHOT) {
-          //  csv_pose<<"shot"<<std::endl;
-          solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
-                                                              target_trajectory_, uavs_pose_, closest_point, first_time_solving_);  // ACADO
-                                                                                                                                    // FORCES PRO FUNCTION
-          // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
-          // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
+        csv_pose<<"change initial guess: "<<change_initial_guess<<std::endl;
+        if(first_time_solving_ || change_initial_guess){
+            calculateInitialGuess(change_initial_guess);
         }
+
+        logToCsv();
+        solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
+                                                            target_trajectory_, uavs_pose_, time_initial_position, first_time_solving_);  // ACADO
+        // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
+        // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
         logToCSVCalculatedTrajectory(solver_success);
+        if(solver_success !=0){
+          change_initial_guess = true;
+        }else{
+          change_initial_guess = false;
+        }  
         publishDesiredPoint();
         publishPath();
-        /* if(solver_success!=0) first_time_solving_ = true; */
+        csv_pose<<"in"<<std::endl;
       } while (solver_success != 0);
+
+      csv_pose<<"out"<<std::endl;
     }
-    if (solver.cycleTime().toSec() > (0.2 + 1 / solver_rate_ || first_time_solving_)) {
-      csv_pose << "violated" << std::endl;
-      ros::spinOnce();
-      closest_point      = closestPose() + 3;
-      loop_rate_violated = true;
-    } else {
-      loop_rate_violated = false;
-      closest_point      = 0;
-    }
-    csv_pose << "closest point: " << closest_point << std::endl;
-    csv_pose << "time: " << solver.cycleTime().toSec() << std::endl;
     solver.sleep();
+    actual_cicle_time = solver.cycleTime().toSec();
+    csv_pose << "cycle time: " << actual_cicle_time << std::endl;
+    if(solver_success == 0){
+        if(first_time_solving_){
+          ros::spinOnce();
+          closest_point      = closestPose() + 3;
+          first_time_solving_ = false;
+        }else{
+          closest_point = 0;
+      }
+    }
   }
 }
+
+
+
+
+
 
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh, _nh) {
   ROS_INFO("Leader constructor");
