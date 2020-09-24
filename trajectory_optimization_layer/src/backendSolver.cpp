@@ -454,6 +454,7 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 }
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
+  csv_pose<<"change initial guess: "<<new_initial_guess<<std::endl;
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
@@ -509,7 +510,8 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   for (int i = 0; i < time_horizon_; i++) {
       initial_guess_["pitch"][i] = 0.3;
   }
-
+  // log the initial guess
+  logToCsv();
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {
@@ -632,9 +634,6 @@ void backendSolver::stateMachine() {
   float time_initial_position = 0.0;
   first_time_solving_ = true;
   
-  
-  
-  
   while (ros::ok) {
     solver.reset();
     time_initial_position = checkRoundedTime(start);
@@ -642,57 +641,52 @@ void backendSolver::stateMachine() {
     if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
       IDLEState();
     } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
-       if (solver_success == 0) {
-          std::vector<double> yaw   = predictingYaw();
-          std::vector<double> pitch = predictingPitch();
-          publishSolvedTrajectory(yaw, pitch, closest_point);
-        }
+       
+      // publish the last calculated trajectory if the solver successed
+      if (solver_success == 0) {
+        std::vector<double> yaw   = predictingYaw();
+        std::vector<double> pitch = predictingPitch();
+        publishSolvedTrajectory(yaw, pitch, closest_point);
+      }
       do {
         ros::spinOnce();
-        if (target_) {  // calculate the target trajectory if it exists
+        // predict the target trajectory if it exists
+        if (target_) {  
           targetTrajectoryVelocityCTEModel();
         }
-        csv_pose<<"change initial guess: "<<change_initial_guess<<std::endl;
-        if(first_time_solving_ || change_initial_guess){
+        // if it is the first time or the previous time the solver couldn't success, don't take previous trajectory as initial guess
+        if(first_time_solving_ || change_initial_guess){ 
             calculateInitialGuess(change_initial_guess);
         }
-
-        logToCsv();
+        // call the solver
         solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
                                                             target_trajectory_, uavs_pose_, time_initial_position, first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
+        
+        // log solved trajectory
         logToCSVCalculatedTrajectory(solver_success);
+
+        // if the solver didn't success, change initial guess
         if(solver_success !=0){
           change_initial_guess = true;
         }else{
           change_initial_guess = false;
         }  
-        publishDesiredPoint();
-        publishPath();
-        csv_pose<<"in"<<std::endl;
       } while (solver_success != 0);
-
-      csv_pose<<"out"<<std::endl;
     }
+  
     solver.sleep();
+    // check and log the time that the last cycle lasted
     actual_cicle_time = solver.cycleTime().toSec();
     csv_pose << "cycle time: " << actual_cicle_time << std::endl;
-    if(solver_success == 0){
-        if(first_time_solving_){
-          ros::spinOnce();
-          closest_point      = closestPose() + 3;
-          first_time_solving_ = false;
-        }else{
-          closest_point = 0;
-      }
+    
+    // when the solver is called, set first_time_solving to false
+    if(solver_success == 0 && first_time_solving_){
+      first_time_solving_ = false;
     }
   }
 }
-
-
-
-
 
 
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh, _nh) {
@@ -728,6 +722,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int closest_point) {
+  publishPath();
   publishState(true);
   mrs_msgs::Reference                   aux_point;
   formation_church_planning::Point      aux_point_for_followers;
