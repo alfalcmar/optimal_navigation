@@ -6,7 +6,7 @@
 
 
 ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
-
+    // parameters
     std::string prediction_mode = "";   
     _pnh.param<std::string>("prediction_mode",prediction_mode, "orientation"); // add pnh to the constructor
     if(prediction_mode == "velocity"){
@@ -17,13 +17,30 @@ ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
         ROS_WARN("Shot executer %d: invalid prediction mode. Orientation mode set by default");
     }
     // publisher
-    desired_pose_pub_ = _nh.advertise<shot_executer::DesiredShot>("desired_pose",10);
-    target_trajectory_pub_ = nh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
+    desired_pose_pub_ = _pnh.advertise<shot_executer::DesiredShot>("desired_pose",10);
+    target_trajectory_pub_ = _pnh.advertise<nav_msgs::Path>("target_trajectory_prediction",10);
+    desired_pose_publisher = _pnh.advertise<geometry_msgs::PointStamped>("desired_point", 1);
+
     // subscriber
     target_pose_sub_ = _pnh.subscribe("target_topic",10,&ShotExecuter::targetPoseCallback,this);
     // client
-    // service
+    // this service start a callback that keeps publishing the desired pose
     shooting_action_srv_ = _nh.advertiseService("action",&ShotExecuter::actionCallback,this);
+}
+
+
+/** \brief this function publish the desired pose in a ros point type
+ *  \param x,y,z        Desired pose
+ */
+void ShotExecuter::publishDesiredPoint(nav_msgs::Odometry desired_odometry) {
+  geometry_msgs::PointStamped desired_point;
+  desired_point.point.x         = desired_odometry.pose.pose.position.x;
+  desired_point.point.y         = desired_odometry.pose.pose.position.y;
+  desired_point.point.z         = desired_odometry.pose.pose.position.z;
+  desired_point.header.frame_id = "uav1/gps_origin";
+  desired_point.header.stamp = ros::Time::now();
+
+  desired_pose_publisher.publish(desired_point);
 }
 
 /** \brief 
@@ -46,9 +63,9 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
 
     if(prediction_mode_ == VELOCITY_MODE){
         for(int i=0; i<time_horizon_;i++){
-            aux.pose.pose.position.x = target_pose_.pose.pose.position.x + step_size_*i*target_pose_.twist.twist.linear.x;
-            aux.pose.pose.position.y = target_pose_.pose.pose.position.y + step_size_*i*target_pose_.twist.twist.linear.y;
-            aux.pose.pose.position.z = target_pose_.pose.pose.position.z + step_size_*i*target_pose_.twist.twist.linear.z;
+            aux.pose.pose.position.x = target_pose_.pose.pose.position.x+step_size_*i*target_pose_.twist.twist.linear.x;
+            aux.pose.pose.position.y = target_pose_.pose.pose.position.y+step_size_*i*target_pose_.twist.twist.linear.y;
+            aux.pose.pose.position.z = target_pose_.pose.pose.position.z+step_size_*i*target_pose_.twist.twist.linear.z;
             aux.twist.twist = target_pose_.twist.twist;
             // to visualize
             aux_path.pose.position.x = aux.pose.pose.position.x;
@@ -90,6 +107,7 @@ std::vector<nav_msgs::Odometry> ShotExecuter::targetTrajectoryPrediction(){
 }
 
 
+
 shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shooting_action _shooting_action, const std::vector<nav_msgs::Odometry> &target_trajectory){
 
     tf2::Quaternion myQuaternion;
@@ -110,7 +128,6 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         target_pose_.pose.pose.orientation.w);
     tf::Matrix3x3 m(q);
     m.getRPY(roll, pitch, yaw);
-
         switch(_shooting_action.shooting_action_type){
         case shot_executer::ShootingAction::Request::IDLE:
             desired_shot.type = shot_executer::DesiredShot::IDLE;
@@ -225,9 +242,9 @@ void ShotExecuter::actionThread(struct shooting_action shooting_action){
     ros::Rate rate(rate_pose_publisher_);  
     shooting_action_running_ = true;    
     while(!time_reached && !distance_reached && ros::ok() && !new_shooting_action_received_){
-        //TODO predict
         std::vector<nav_msgs::Odometry> target_trajectory = targetTrajectoryPrediction();
         shot_executer::DesiredShot desired_shot = calculateDesiredPoint(shooting_action,target_trajectory);
+        publishDesiredPoint(desired_shot.desired_odometry);
         // publish desired pose
         desired_shot.desired_odometry.header.frame_id = "uav"+std::to_string(drone_id_)+"/gps_origin";
         desired_pose_pub_.publish(desired_shot);

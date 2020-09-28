@@ -50,6 +50,7 @@ class ShotExecuter
         ros::Publisher target_trajectory_pub_;   /*< That publish the target trajectory prediction */
         ros::Subscriber target_pose_sub_;       /*< Subscribe to target pose */
         bool takeoff_called_succesfully_ = false;   /*< Flag for take off */
+        ros::Publisher desired_pose_publisher; /**< desired pose publisher for RVIZ visualization */
 
         // inputs
         nav_msgs::Odometry target_pose_;            /*< target pose */
@@ -119,6 +120,9 @@ class ShotExecuter
         /** \brief prototype function to call the camera topic
          */
         virtual void publishCameraCommand();
+        /** \brief publish desired point to rviz
+         */
+        void publishDesiredPoint(nav_msgs::Odometry desired_odometry);
 };
 
 /**
