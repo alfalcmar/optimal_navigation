@@ -12,24 +12,23 @@ ACADOsolver::ACADOsolver(float solving_rate){
     csv.open(mypackage+"/logs/"+"acado_log_"+std::to_string(drone_id_)+".csv");
     //my_grid_ = new Grid( t_start,t_end,N );
     //my_grid_->print();
+    solving_rate_=solving_rate;
+    solving_rate_=1;
 }
 
 int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
-    AlgebraicState pitch;
-    //Control s  ;  // slack variable
+    // AlgebraicState pitch;
+    Control s  ;  // slack variable
     // Parameter tx,ty,tz;
     
     DifferentialEquation model;
     Grid my_grid_( t_start,t_end,N );
 
 
-   
-    // pitch = (_target_trajectory[0].pose.pose.position.x*px_+_target_trajectory[0].pose.pose.position.y*py_)/
-    //         (sqrt(pow(_target_trajectory[0].pose.pose.position.x,2)+pow(_target_trajectory[0].pose.pose.position.y,2))*sqrt(pow(px_,2)+pow(py_,2)));
-    //2*atan2(pz_/(sqrt(pow((px_-tx),2) + pow((py_-ty),2)+pow(pz_,2))+sqrt(pow((px_-tx),2) + pow((py_-ty),2))));
+    float eps = 0.00001;
     // define the model
     model << dot(px_) == vx_;
     model << dot(py_) == vy_;
@@ -37,11 +36,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     model << dot(vx_) == ax_;
     model << dot(vy_) == ay_;
     model << dot(vz_) == az_;
-    model << 0 == (pz_-_target_trajectory[0].pose.pose.position.z)-pitch;
-
-    csv<<"target_position is: "<<_target_trajectory[0].pose.pose.position.z<<std::endl;
-    // model << 0 == (pz_-_target_trajectory[0].pose.pose.position.z)/
-    //         (sqrt(pow(px_-_target_trajectory[0].pose.pose.position.x,2)+pow(py_-_target_trajectory[0].pose.pose.position.y,2)))-pitch;
+    
 
     OCP ocp(my_grid_);// = new OCP( my_grid_); // possibility to set non equidistant time-horizon of the problem
     ocp.subjectTo(model);
@@ -67,13 +62,14 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ocp.subjectTo(  -1.0 <= az_ <= 1.0   );
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
-    ocp.subjectTo(  2 <= pz_ <= 20.0   );
+    ocp.subjectTo(  2 + _target_trajectory[0].pose.pose.position.z<= pz_+s); 
+    ocp.subjectTo(s>=0);
     ocp.subjectTo(  -1 <= vx_ <= 1   );
     ocp.subjectTo(  -1 <= vy_ <= 1   );
     ocp.subjectTo(  -0.5 <= vz_ <= 0.5   );
     //ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
     csv<<"first time: "<<first_time_solving<<std::endl; // check it
-
+    csv<<"time intial position: "<<time_initial_position<<std::endl;
     // ocp.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
     if(first_time_solving){
         ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
@@ -113,21 +109,15 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
 
     h_1 << px_;
     h_1 << py_;
-    // h_1 << pz_;
-    // h_1 << vx_;
-    // h_1 << vy_;
-    // h_1 << vz_;
+
 
     DMatrix S_1(2,2);
     DVector r_1(2);
 
     S_1.setIdentity();
-	S_1(0,0) = 0.2;
-	S_1(1,1) = 0.2;
-	// S_1(2,2) = 0.2;
-	// S_1(3,3) = 0.2;
-	// S_1(4,4) = 1;
-	// S_1(5,5) = 1;
+	S_1(0,0) = 0.1;
+	S_1(1,1) = 0.1;
+
 
     r_1(0) = _desired_odometry.pose.pose.position.x;
     r_1(1) = _desired_odometry.pose.pose.position.y;
@@ -136,8 +126,11 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
 
-    // ocp.minimizeLagrangeTerm(5*(( pz_-_target_trajectory[0].pose.pose.position.z)/
-    //           (sqrt(pow(px_-_target_trajectory[0].pose.pose.position.x,2)+pow(py_-_target_trajectory[0].pose.pose.position.y,2)))-0.3));
+    ocp.minimizeLagrangeTerm(pow((pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
+                                                                        pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
+                                                                        pow(py_-_target_trajectory[0].pose.pose.position.y,2)
+                                                                        +eps)-0.2
+                                ,2));
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
     Function h;
@@ -145,21 +138,22 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     h << ax_;
     h << ay_;
     h << az_;
-    h << pitch;
+    h << s;
 
     DMatrix S(4,4);
     DVector r(4);
 
     S.setIdentity();
-	S(0,0) = 0.5;
-	S(1,1) = 0.5;
+	S(0,0) = 1;
+	S(1,1) = 1;
 	S(2,2) = 1.0;
     S(3,3) = 5.0;
 
     r(0) = 0.0;
     r(1) = 0.0;
     r(2) = 0.0;
-    r(3) = 3;
+    r(3) = 0.0;
+    // r(3) = 3;
 
     ocp.minimizeLSQ( S, h, r );
 
@@ -183,12 +177,13 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ////////////////// INITIALIZATION //////////////////////////////////
     ROS_INFO("initializing");
 
-    VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);//, inter_state_init(1,my_grid_);
+    VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
     for(uint i=0; i<N; i++){
         control_init(i,0)=_initial_guess["ax"][i];
         control_init(i,1)=_initial_guess["ay"][i];
         control_init(i,2)=_initial_guess["az"][i];
+        control_init(i,3)=0.0;
         state_init(i,0)=_initial_guess["px"][i];
         state_init(i,1)=_initial_guess["py"][i];
         state_init(i,2)=_initial_guess["pz"][i];
@@ -196,6 +191,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         state_init(i,4)=_initial_guess["vy"][i];
         state_init(i,5)=_initial_guess["vz"][i];
        // control(i,3) = _initial_guess["pitch"][i];
+    //    inter_state_init(i,0) = 0.2;
     }
 
 
@@ -218,6 +214,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
 
     solver_.getDifferentialStates(output_states);
     solver_.getControls          (output_control);
+    // solver_.getAlgebraicStates(algebraic_states);
     //output_states.print();
     int success_value = value;
 
@@ -232,6 +229,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
         _ax[i]=output_control(i,0);
         _ay[i]=output_control(i,1);
         _az[i]=output_control(i,2);
+        csv<<output_control(i,3)<<std::endl;
         }
     }
 
@@ -244,7 +242,8 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ax_.clearStaticCounters();
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
-    pitch.clearStaticCounters();
+    s.clearStaticCounters();
+    // pitch.clearStaticCounters();
 
     return success_value;  
  }

@@ -44,9 +44,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh) {
     ROS_ERROR("No fly zone is not set");
   }
   // subscripions
-  desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
+  desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
   // publishers
-  desired_pose_publisher = pnh.advertise<geometry_msgs::PointStamped>("desired_point", 1);
   solved_trajectory_pub  = pnh.advertise<optimal_control_interface::Solver>("trajectory", 1);
   path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
   path_no_fly_zone       = pnh.advertise<nav_msgs::Path>("noflyzone", 1);
@@ -285,20 +284,6 @@ void backendSolver::publishPath() {
   path_rviz_pub.publish(msg);
 }
 
-
-/** \brief this function publish the desired pose in a ros point type
- *  \param x,y,z        Desired pose
- */
-void backendSolver::publishDesiredPoint() {
-  geometry_msgs::PointStamped desired_point;
-  desired_point.point.x         = desired_odometry_.pose.pose.position.x;
-  desired_point.point.y         = desired_odometry_.pose.pose.position.y;
-  desired_point.point.z         = desired_odometry_.pose.pose.position.z;
-  desired_point.header.frame_id = trajectory_frame_;
-
-  desired_pose_publisher.publish(desired_point);
-}
-
 /** \brief Construct the no fly zone approximated by a tetrahedron to visualize it on RVIZ
  *  \param  2D points
  */
@@ -336,7 +321,6 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2], doubl
 }
 
 void backendSolver::logToCSVCalculatedTrajectory(int solver_success) {
-  csv_pose << "hovering: " << hovering_ << std::endl;
   csv_pose << "first time solving: " << first_time_solving_ << std::endl;
   csv_pose << "solver_success: " << solver_success << std::endl;
   csv_pose << "Calculated trajectroy" << std::endl;
@@ -455,6 +439,7 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   csv_pose<<"change initial guess: "<<new_initial_guess<<std::endl;
+  new_initial_guess = true; //TODO: for testing
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
@@ -511,7 +496,7 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
       initial_guess_["pitch"][i] = 0.3;
   }
   // log the initial guess
-  logToCsv();
+  // logToCsv();
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {
@@ -615,39 +600,31 @@ void backendSolver::IDLEState() {
 // }
 float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point start) {
   std::chrono::duration<double> diff             = std::chrono::system_clock::now() - start;
-  csv_pose<<"rate: "<<diff.count()<<"(s)"<<std::endl<<std::endl<<std::endl<<std::endl;
   float rounded_time = round( diff.count() * 10.0 ) / 10.0;
   csv_pose<<"rate round: "<<rounded_time<<std::endl;
+  csv_pose<<"rate: "<<diff.count()<<"(s)"<<std::endl<<std::endl<<std::endl<<std::endl;
   return rounded_time;
 }
 
 
 void backendSolver::stateMachine() {
   int       closest_point = 0;
-  ros::Rate solver(solver_rate_);
+  ros::Rate solver(solver_rate_); //Hz
   bool      loop_rate_violated = false;
   std::chrono::system_clock::time_point start;
   std::chrono::duration<double> diff;
   float actual_cicle_time = 0.0;
   bool change_initial_guess = true;
   // int cont =
-  float time_initial_position = 0.0;
   first_time_solving_ = true;
   
   while (ros::ok) {
-    solver.reset();
-    time_initial_position = checkRoundedTime(start);
-    start = std::chrono::system_clock::now();
+
     if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
       IDLEState();
     } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
        
-      // publish the last calculated trajectory if the solver successed
-      if (solver_success == 0) {
-        std::vector<double> yaw   = predictingYaw();
-        std::vector<double> pitch = predictingPitch();
-        publishSolvedTrajectory(yaw, pitch, closest_point);
-      }
+
       do {
         ros::spinOnce();
         // predict the target trajectory if it exists
@@ -660,7 +637,7 @@ void backendSolver::stateMachine() {
         }
         // call the solver
         solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
-                                                            target_trajectory_, uavs_pose_, time_initial_position, first_time_solving_);  // ACADO
+                                                            target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
         
@@ -675,16 +652,31 @@ void backendSolver::stateMachine() {
         }  
       } while (solver_success != 0);
     }
-  
-    solver.sleep();
-    // check and log the time that the last cycle lasted
-    actual_cicle_time = solver.cycleTime().toSec();
+
+    // wait for the planned time
+    if(solver.sleep()){
+      actual_cicle_time = 1/solver_rate_;
+    }else{
+      actual_cicle_time = round(solver.cycleTime().toSec() * 10.0 )/ 10.0;
+    }
+    // check and log the time that the last loop lasted
     csv_pose << "cycle time: " << actual_cicle_time << std::endl;
     
-    // when the solver is called, set first_time_solving to false
-    if(solver_success == 0 && first_time_solving_){
-      first_time_solving_ = false;
+    // publish the last calculated trajectory if the solver successed
+    if (solver_success == 0) {
+      // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
+      if(actual_cicle_time>1/solver_rate_ && !first_time_solving_){
+        closest_point = (actual_cicle_time-1/solver_rate_)/step_size;
+      }else{
+        closest_point = 0;
+      }
+      // predict yaw and pitch and publish trajectory
+      std::vector<double> yaw   = predictingYaw();
+      std::vector<double> pitch = predictingPitch();
+      publishSolvedTrajectory(yaw, pitch, closest_point);
+      first_time_solving_=false;
     }
+    solver.reset();
   }
 }
 
