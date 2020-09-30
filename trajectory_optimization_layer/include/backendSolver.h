@@ -118,7 +118,6 @@ protected:
   ros::Publisher                 path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */
   ros::Publisher                 target_path_rviz_pub;   /**< Publisher for visualizing the target trajectory on RVIZ */
   ros::Publisher                 path_no_fly_zone;       /**< Publisher for visualizing the no-fly zone RVIZ */
-  ros::Publisher                 desired_pose_publisher; /**< desired pose publisher for RVIZ visualization */
   std::map<int, ros::Subscriber> drone_pose_sub;         /**< subscribers of the drones poses <drone_id, pose_subscriber> */
   std::map<int, ros::Subscriber> drone_trajectory_sub;   /**< subscribers the solved trajectory of others <drone_id, trajectory_subscriber */
   // aux flags
