@@ -62,7 +62,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ocp.subjectTo(  -1.0 <= az_ <= 1.0   );
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
-    ocp.subjectTo(  2 + _target_trajectory[0].pose.pose.position.z<= pz_+s); 
+    ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE + _target_trajectory[0].pose.pose.position.z<= pz_+s); 
     ocp.subjectTo(s>=0);
     ocp.subjectTo(  -1 <= vx_ <= 1   );
     ocp.subjectTo(  -1 <= vy_ <= 1   );
@@ -129,7 +129,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     ocp.minimizeLagrangeTerm(pow((pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
                                                                         pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
                                                                         pow(py_-_target_trajectory[0].pose.pose.position.y,2)
-                                                                        +eps)-0.2
+                                                                        +eps)-CAMERA_PITCH
                                 ,2));
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 

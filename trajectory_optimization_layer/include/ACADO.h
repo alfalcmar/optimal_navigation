@@ -47,6 +47,9 @@ class ACADOsolver{
         //////////// Solver variables /////////////
         // solver options
 
+        const float CAMERA_PITCH = 0.1;
+        const float Z_RELATIVE_TARGET_DRONE = 2;
+
         float solving_rate_; // solving rate (s)
         const float t_start = 0.0;
         const int drone_id_ = 1;
