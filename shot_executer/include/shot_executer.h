@@ -67,9 +67,11 @@ class ShotExecuter
             geometry_msgs::Vector3 rt_parameters; 
         };
         Eigen::Vector3f camera_angles_; /**< member to save the angles of the camera to point the target. It is calculate by calculateGimbalAngles*/
+        const int ROLL = 0;
         const int YAW = 1;
         const int PITCH = 2;
-
+        const float MIN_XY_VEL = 0.4;
+        double target_orientation_[3];
         int prediction_mode_ = 0; /**< to predict the direction of the target using target velocity (velocity mode = 0) or target orientation (orientation mode = 1)*/
         const int VELOCITY_MODE = 0;    /**< trajectory predicted using the target velocity */
         const int ORIENTATION_MODE = 1; /**< trajectory predicted using the target orientation */

@@ -41,28 +41,23 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     OCP ocp(my_grid_);// = new OCP( my_grid_); // possibility to set non equidistant time-horizon of the problem
     ocp.subjectTo(model);
 
-    // VariablesGrid target_x(1,my_grid_);
-    // VariablesGrid target_y(1,my_grid_);
-    // VariablesGrid target_z(1,my_grid_);
+    DVector target_x(my_grid_.getNumPoints());
+    DVector target_y(my_grid_.getNumPoints());
+    DVector target_z(my_grid_.getNumPoints());
     // // //set target trajectory
-    // for(uint i=0; i<N; i++){
-    //     target_x(i,0)=_target_trajectory[i].pose.pose.position.x;
-    //     target_y(i,0)=_target_trajectory[i].pose.pose.position.y;
-    //     target_z(i,0)=_target_trajectory[i].pose.pose.position.z;
-    // }
+    for(uint i=0; i<N; i++){
+        target_x(i)=_target_trajectory[i].pose.pose.position.x;
+        target_y(i)=_target_trajectory[i].pose.pose.position.y;
+        target_z(i)=_target_trajectory[i].pose.pose.position.z;
+    }
 
-    // ocp.subjectTo( tx==target_x);
-    // ocp.subjectTo( ty==target_y);
-    // ocp.subjectTo( tz==target_z);
-
-    // change target_trajectory by tx
 
     ocp.subjectTo( -1.0 <= ax_ <=  1.0   );  
     ocp.subjectTo(  -1.0 <= ay_ <= 1.0   );
     ocp.subjectTo(  -1.0 <= az_ <= 1.0   );
     // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
     // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
-    ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE + _target_trajectory[0].pose.pose.position.z<= pz_+s); 
+    ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE <= pz_+s-target_z); 
     ocp.subjectTo(s>=0);
     ocp.subjectTo(  -1 <= vx_ <= 1   );
     ocp.subjectTo(  -1 <= vy_ <= 1   );
@@ -125,7 +120,7 @@ int ACADOsolver::solverFunction(std::map<std::string, std::array<double,TIME_HOR
     // r_1(3) = _desired_odometry.twist.twist.linear.y;
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
-
+    //use target_x and target_y
     ocp.minimizeLagrangeTerm(pow((pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
                                                                         pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
                                                                         pow(py_-_target_trajectory[0].pose.pose.position.y,2)
