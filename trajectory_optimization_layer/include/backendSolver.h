@@ -20,12 +20,12 @@
 #include <formation_church_planning/Diagnostic.h>
 #include <formation_church_planning/Status.h>
 #include <math.h> /* sqrt */
-#include <ACADO.h>
+#include <numericalSolver.h>
 #include <shot_executer/DesiredShot.h>
 #include <optimal_control_interface/Solver.h>
 #include <thread>  // std::thread, std::this_thread::sleep_for
 #include <mrs_lib/transformer.h>
-
+#include <ros/package.h>
 
 #include <algorithm>
 #define ZERO 0.000001
@@ -67,6 +67,11 @@
 class backendSolver {
 public:
   backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh);
+    /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to
+    *visualize
+   **/
+  void stateMachine();
+
 
 protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
@@ -139,12 +144,16 @@ protected:
   std::string trajectory_frame_;
 
   bool         hovering_ = true;
-  ACADOsolver *acado_solver_pt_;
+  NumericalSolver::ACADOSolver *acado_solver_pt_;
 
   mrs_lib::Transformer transformer_;
   // FORCESPROsolver solver_;                /**< solver object */
 
   bool desired_position_reached_ = false; /**< flag to check if the last generated trajectory reach the desired point */
+
+  /** \brief This function save the trajectory calculated by the solver **/
+
+  void saveCalculatedTrajectory();
 
   /*! \brief log the solution to CSV file
    */
@@ -219,10 +228,6 @@ protected:
    **/
   bool checkConnectivity();
 
-  /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to
-    *visualize
-   **/
-  void stateMachine();
 
   /*! \brief publish the solved trajectory for others
    **/
@@ -295,7 +300,7 @@ private:
   State state_ = IDLE;
 };
 
-class backendSolverMRS : backendSolver {
+class backendSolverMRS : public backendSolver {
 public:
   backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh);
 

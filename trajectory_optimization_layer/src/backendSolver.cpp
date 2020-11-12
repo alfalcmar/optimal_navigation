@@ -52,8 +52,9 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh) {
   target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
   // acado object and thread
-  acado_solver_pt_ = new ACADOsolver(solver_rate_);
-  main_thread_     = std::thread(&backendSolver::stateMachine, this);
+  const int time_horizon = 40;
+  acado_solver_pt_ = new NumericalSolver::ACADOSolver(solver_rate_, time_horizon);
+  //main_thread_     = std::thread(&backendSolver::stateMachine, this);
 
   // log files
   std::string mypackage = ros::package::getPath("optimal_control_interface");
@@ -75,6 +76,25 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
   uavs_pose_[drone_id_] = *msg;
 
   has_poses[drone_id_] = true;
+}
+
+void backendSolver::saveCalculatedTrajectory(){
+  csv_pose<< "saved trajectory"<<std::endl;
+  for (int i=0; i<TIME_HORIZON; i++){
+      x_[i] = acado_solver_pt_->x_ptr_[i];
+      y_[i] = acado_solver_pt_->y_ptr_[i];
+      z_[i] = acado_solver_pt_->z_ptr_[i];
+      vx_[i] = acado_solver_pt_->vx_ptr_[i];
+      vy_[i] = acado_solver_pt_->vy_ptr_[i];
+      vz_[i] = acado_solver_pt_->vz_ptr_[i];
+      ax_[i] = acado_solver_pt_->ax_ptr_[i];
+      ay_[i] = acado_solver_pt_->ay_ptr_[i];
+      az_[i] = acado_solver_pt_->az_ptr_[i];
+      csv_pose << ax_[i] << ", " << ay_[i] << ", " << az_[i]
+      << ", " <<x_[i] << ", " <<  y_[i] << ", " << z_[i]
+     << ", " << vx_[i] << ", " << vy_[i] << ", "<< vz_[i] << std::endl;
+  }
+   
 }
 
 /** \brief This callback receives the solved trajectory of uavs
@@ -325,8 +345,9 @@ void backendSolver::logToCSVCalculatedTrajectory(int solver_success) {
   csv_pose << "solver_success: " << solver_success << std::endl;
   csv_pose << "Calculated trajectroy" << std::endl;
   for (int i = 0; i < time_horizon_; i++) {
-    csv_pose << ax_[i] << ", " << ay_[i] << ", " << az_[i] << ", " << x_[i] << ", " << y_[i] << ", " << z_[i] << ", " << vx_[i] << ", " << vy_[i] << ", "
-             << vz_[i] << std::endl;
+    csv_pose << acado_solver_pt_->ax_ptr_[i] << ", " << acado_solver_pt_->ay_ptr_[i] << ", " << acado_solver_pt_->az_ptr_[i]
+      << ", " << acado_solver_pt_->x_ptr_[i] << ", " << acado_solver_pt_->y_ptr_[i] << ", " << acado_solver_pt_->z_ptr_[i]
+     << ", " << acado_solver_pt_->vx_ptr_[i] << ", " << acado_solver_pt_->vy_ptr_[i] << ", "<< acado_solver_pt_->vz_ptr_[i] << std::endl;
   }
 }
 
@@ -496,7 +517,7 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
       initial_guess_["pitch"][i] = 0.3;
   }
   // log the initial guess
-  // logToCsv();
+  logToCsv();
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {
@@ -619,7 +640,7 @@ void backendSolver::stateMachine() {
   first_time_solving_ = true;
   
   while (ros::ok) {
-
+    ros::spinOnce();
     if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
       IDLEState();
     } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
@@ -632,11 +653,10 @@ void backendSolver::stateMachine() {
           targetTrajectoryVelocityCTEModel();
         }
         // if it is the first time or the previous time the solver couldn't success, don't take previous trajectory as initial guess
-        if(first_time_solving_ || change_initial_guess){ 
-            calculateInitialGuess(change_initial_guess);
-        }
+        calculateInitialGuess(first_time_solving_ || change_initial_guess);
+        
         // call the solver
-        solver_success = acado_solver_pt_->solverFunction(initial_guess_, ax_, ay_, az_, x_, y_, z_, vx_, vy_, vz_, desired_odometry_, no_fly_zone_center_,
+        solver_success = acado_solver_pt_->solverFunction(initial_guess_, desired_odometry_, no_fly_zone_center_,
                                                             target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
@@ -664,6 +684,7 @@ void backendSolver::stateMachine() {
     
     // publish the last calculated trajectory if the solver successed
     if (solver_success == 0) {
+      saveCalculatedTrajectory();
       // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
       if(actual_cicle_time>1/solver_rate_ && !first_time_solving_){
         closest_point = (actual_cicle_time-1/solver_rate_)/step_size;
@@ -707,7 +728,6 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
     ROS_INFO("Solver %d is not ready", drone_id_);
   }
   is_initialized = true;
-  // main_thread_ = std::thread(&backendSolverMRS::stateMachine,this);
 
   ROS_INFO("Solver %d is ready", drone_id_);
 }

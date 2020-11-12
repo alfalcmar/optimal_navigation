@@ -7,7 +7,7 @@ add_compile_options(-std=c++17)
 
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
-SET( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
 set(ENV{ACADO} "true")
 
@@ -73,8 +73,10 @@ include_directories(
 )
 if(DEFINED ENV{ACADO})
   include_directories(  ${ACADO_INCLUDE_DIRS})
-  add_library(ACADO_library
-  src/ACADO.cpp
+
+
+  add_library(solver_library
+  src/numericalSolver.cpp
   )
 endif()
 
@@ -99,7 +101,7 @@ add_executable(optimal_control_interface_node src/solver_node.cpp)
 
 
 if(DEFINED ENV{ACADO})
-  target_link_libraries(optimal_control_interface_node backend_solver_library ACADO_library) # FORCES_PRO_library)
+  target_link_libraries(optimal_control_interface_node backend_solver_library solver_library) # FORCES_PRO_library)
 endif()
 
 if(DEFINED ENV{FORCES})

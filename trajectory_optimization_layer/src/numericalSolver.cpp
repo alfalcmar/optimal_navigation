@@ -1,21 +1,43 @@
 #include<numericalSolver.h>    
 
-NumericalSolver::ACADOSolver::ACADOSolver(float solving_rate) : solving_rate_(solving_rate){
+NumericalSolver::Solver::Solver(const float solving_rate, const int time_horizon) : solving_rate_(solving_rate),
+                                                                        time_horizon_(time_horizon),
+                                                                        x_ptr_(new double[time_horizon]{0.0}),
+                                                                        y_ptr_(new double[time_horizon]{0.0}),
+                                                                        z_ptr_(new double[time_horizon]{0.0}),
+                                                                        vx_ptr_(new double[time_horizon]{0.0}),
+                                                                        vy_ptr_(new double[time_horizon]{0.0}),
+                                                                        vz_ptr_(new double[time_horizon]{0.0}),
+                                                                        ax_ptr_(new double[time_horizon]{0.0}),
+                                                                        ay_ptr_(new double[time_horizon]{0.0}),
+                                                                        az_ptr_(new double[time_horizon]{0.0})
+{
+
+
+
+}
+
+int NumericalSolver::Solver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+
+}
+
+NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon) : Solver(solving_rate, time_horizon){
     
 
 }
 
 
-int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,std::array<double,TIME_HORIZON> &_ax, std::array<double,TIME_HORIZON> &_ay, std::array<double,TIME_HORIZON> &_az,std::array<double,TIME_HORIZON> &_x, std::array<double,TIME_HORIZON> &_y, std::array<double,TIME_HORIZON> &_z,std::array<double,TIME_HORIZON> &_vx, std::array<double,TIME_HORIZON> &_vy, std::array<double,TIME_HORIZON> &_vz,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+
+int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess, nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
     // AlgebraicState pitch;
     Control s  ;  // slack variable
     // Parameter tx,ty,tz;
-    
+
     DifferentialEquation model;
-    Grid my_grid_( t_start,t_end,N );
+    Grid my_grid_( t_start,t_end,time_horizon_ );
 
     float eps = 0.00001;
     // define the model
@@ -34,7 +56,7 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     DVector target_y(my_grid_.getNumPoints());
     DVector target_z(my_grid_.getNumPoints());
     // // //set target trajectory
-    for(uint i=0; i<N; i++){
+    for(uint i=0; i<time_horizon_; i++){
         target_x(i)=_target_trajectory[i].pose.pose.position.x;
         target_y(i)=_target_trajectory[i].pose.pose.position.y;
         target_z(i)=_target_trajectory[i].pose.pose.position.z;
@@ -51,8 +73,8 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     ocp.subjectTo(  -1 <= vy_ <= 1   );
     ocp.subjectTo(  -0.5 <= vz_ <= 0.5   );
     //ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
-    csv<<"first time: "<<first_time_solving<<std::endl; // check it
-    csv<<"time intial position: "<<time_initial_position<<std::endl;
+    // csv<<"first time: "<<first_time_solving<<std::endl; // check it
+    // csv<<"time intial position: "<<time_initial_position<<std::endl;
     // ocp.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
     if(first_time_solving){
         ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
@@ -61,33 +83,30 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
         ocp.subjectTo( AT_START, ax_ == 0.0);
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);
-    }else{
-        ocp.subjectTo( AT_START, px_ == _x[time_initial_position/step_size]);
-        ocp.subjectTo( AT_START, py_ == _y[time_initial_position/step_size]);
-        ocp.subjectTo( AT_START, pz_ == _z[time_initial_position/step_size]);
-        ocp.subjectTo( 1, px_ == _x[time_initial_position/step_size+1]);
-        ocp.subjectTo( 1, py_ == _y[time_initial_position/step_size+1]);
-        ocp.subjectTo( 1, pz_ == _z[time_initial_position/step_size+1]);
-        ocp.subjectTo( 2, px_ == _x[time_initial_position/step_size+2]);
-        ocp.subjectTo( 2, py_ == _y[time_initial_position/step_size+2]);
-        ocp.subjectTo( 2, pz_ == _z[time_initial_position/step_size+2]);
-        ocp.subjectTo( 3, px_ == _x[time_initial_position/step_size+3]);
-        ocp.subjectTo( 3, py_ == _y[time_initial_position/step_size+3]);
-        ocp.subjectTo( 3, pz_ == _z[time_initial_position/step_size+3]);
-        ocp.subjectTo( 4, px_ == _x[time_initial_position/step_size+4]);
-        ocp.subjectTo( 4, py_ == _y[time_initial_position/step_size+4]);
-        ocp.subjectTo( 4, pz_ == _z[time_initial_position/step_size+4]);
-        ocp.subjectTo( 5, px_ == _x[time_initial_position/step_size+5]);
-        ocp.subjectTo( 5, py_ == _y[time_initial_position/step_size+5]);
-        ocp.subjectTo( 5, pz_ == _z[time_initial_position/step_size+5]);
+    }else{     
+        ocp.subjectTo( AT_START, px_ == x_ptr_[time_initial_position/step_size]);
+        ocp.subjectTo( AT_START, py_ == y_ptr_[time_initial_position/step_size]);
+        ocp.subjectTo( AT_START, pz_ == z_ptr_[time_initial_position/step_size]);
+        ocp.subjectTo( 1, px_ == x_ptr_[time_initial_position/step_size+1]);
+        ocp.subjectTo( 1, py_ == y_ptr_[time_initial_position/step_size+1]);
+        ocp.subjectTo( 1, pz_ == z_ptr_[time_initial_position/step_size+1]);
+        ocp.subjectTo( 2, px_ == x_ptr_[time_initial_position/step_size+2]);
+        ocp.subjectTo( 2, py_ == y_ptr_[time_initial_position/step_size+2]);
+        ocp.subjectTo( 2, pz_ == z_ptr_[time_initial_position/step_size+2]);
+        ocp.subjectTo( 3, px_ == x_ptr_[time_initial_position/step_size+3]);
+        ocp.subjectTo( 3, py_ == y_ptr_[time_initial_position/step_size+3]);
+        ocp.subjectTo( 3, pz_ == z_ptr_[time_initial_position/step_size+3]);
+        ocp.subjectTo( 4, px_ == x_ptr_[time_initial_position/step_size+4]);
+        ocp.subjectTo( 4, py_ == y_ptr_[time_initial_position/step_size+4]);
+        ocp.subjectTo( 4, pz_ == z_ptr_[time_initial_position/step_size+4]);
+        ocp.subjectTo( 5, px_ == x_ptr_[time_initial_position/step_size+5]);
+        ocp.subjectTo( 5, py_ == y_ptr_[time_initial_position/step_size+5]);
+        ocp.subjectTo( 5, pz_ == z_ptr_[time_initial_position/step_size+5]);
     }
-    // ocp.subjectTo( AT_START, vx_== _vx[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.x);
-    // ocp.subjectTo( AT_START, vy_== _vy[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.y);
-    // ocp.subjectTo( AT_START, vz_== _vz[number_steps]);//_uavs_pose.at(_drone_id).twist.twist.linear.z);
 
     //ocp.subjectTo( s >= 0 ); slack variable
 
-    // DEFINE LSQ function to minimize the end distance to the desired pose
+    // Define objectives
     Function h_1;
 
     h_1 << px_;
@@ -108,7 +127,7 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     // r_1(3) = _desired_odometry.twist.twist.linear.y;
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
-    //use target_x and target_y
+    //use target_x and targety_ptr
     ocp.minimizeLagrangeTerm(pow((pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
                                                                         pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
                                                                         pow(py_-_target_trajectory[0].pose.pose.position.y,2)
@@ -140,33 +159,23 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
 
     ocp.minimizeLSQ( S, h, r );
 
-    ROS_INFO("defining solver");
-    // define the solver
-    // LogRecord logRecord(LOG_AT_EACH_ITERATION);
-    // logRecord << LOG_NUM_NLP_ITERATIONS;
-    // logRecord << LOG_KKT_TOLERANCE;
-    // //logRecord << LOG_OBJECTIVE_FUNCTION;
-    // logRecord << LOG_MERIT_FUNCTION_VALUE;
-    // logRecord << LOG_LINESEARCH_STEPLENGTH;
-    // //logRecord << LOG_ALGREBRAIC_STATES;
-    // logRecord << LOG_CONTROLS;
-    // logRecord << LOG_DISTURBANCES;
-    // logRecord << LOG_INTERMEDIATE_STATES;
-    // logRecord << LOG_DIFFERENTIAL_STATES;
+    std::cout<<"Solver defined"<<std::endl;
+
 
     OptimizationAlgorithm solver_(ocp);
 
 
     ////////////////// INITIALIZATION //////////////////////////////////
-    ROS_INFO("initializing");
+
+    std::cout<<"Initializing solver"<<std::endl;
 
     VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
-    for(uint i=0; i<N; i++){
+    for(uint i=0; i<time_horizon_; i++){
         control_init(i,0)=_initial_guess["ax"][i];
         control_init(i,1)=_initial_guess["ay"][i];
         control_init(i,2)=_initial_guess["az"][i];
-        control_init(i,3)=0.0;
+        control_init(i,3)=0.0; //slack
         state_init(i,0)=_initial_guess["px"][i];
         state_init(i,1)=_initial_guess["py"][i];
         state_init(i,2)=_initial_guess["pz"][i];
@@ -189,7 +198,6 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     solver_.set( INTEGRATOR_TOLERANCE , 1e-8            );
     //solver_.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver_.set( KKT_TOLERANCE        , 1e-3            );
-    solver_.set( MAX_TIME        , 1.0            );
 
     // solver_.set( MAX_NUM_ITERATIONS        , 5  );
 
@@ -205,17 +213,18 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     int success_value = value;
 
     if(success_value == 0){
-        for(int i=0;i<N;i++){
-         _x[i]=output_states(i,0);
-         _y[i]=output_states(i,1);
-         _z[i]=output_states(i,2);
-        _vx[i]=output_states(i,3);
-        _vy[i]=output_states(i,4);
-        _vz[i]=output_states(i,5);
-        _ax[i]=output_control(i,0);
-        _ay[i]=output_control(i,1);
-        _az[i]=output_control(i,2);
-        csv<<output_control(i,3)<<std::endl;
+        for(int i=0;i<time_horizon_;i++){
+
+        x_ptr_[i]=output_states(i,0);
+        y_ptr_[i]=output_states(i,1);
+        z_ptr_[i]=output_states(i,2);
+        vx_ptr_[i]=output_states(i,3);
+        vy_ptr_[i]=output_states(i,4);
+        vz_ptr_[i]=output_states(i,5);
+        ax_ptr_[i]=output_control(i,0);
+        ay_ptr_[i]=output_control(i,1);
+        az_ptr_[i]=output_control(i,2);
+        // csv<<output_control(i,3)<<std::endl;
         }
     }
 
@@ -232,4 +241,20 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     // pitch.clearStaticCounters();
 
     return success_value;  
+ }
+
+ bool NumericalSolver::ACADOSolver::logACADOvars(){
+    // define the solver
+    // LogRecord logRecord(LOG_AT_EACH_ITERATION);
+    // logRecord << LOG_NUM_NLP_ITERATIONS;
+    // logRecord << LOG_KKT_TOLERANCE;
+    // //logRecord << LOG_OBJECTIVE_FUNCTION;
+    // logRecord << LOG_MERIT_FUNCTION_VALUE;
+    // logRecord << LOG_LINESEARCH_STEPLENGTH;
+    // //logRecord << LOG_ALGREBRAIC_STATES;
+    // logRecord << LOG_CONTROLS;
+    // logRecord << LOG_DISTURBANCES;
+    // logRecord << LOG_INTERMEDIATE_STATES;
+    // logRecord << LOG_DIFFERENTIAL_STATES;
+    return true;
  }
