@@ -62,20 +62,17 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
         target_z(i)=_target_trajectory[i].pose.pose.position.z;
     }
 
-    ocp.subjectTo( -1.0 <= ax_ <=  1.0   );  
-    ocp.subjectTo(  -1.0 <= ay_ <= 1.0   );
-    ocp.subjectTo(  -1.0 <= az_ <= 1.0   );
-    // ocp.subjectTo(  -50.0 <= px_ <= 50.0   );
-    // ocp.subjectTo(  -50.0 <= py_ <= 50.0   );
+    ocp.subjectTo(  -MAX_ACC <= ax_ <=  MAX_ACC   );  
+    ocp.subjectTo(  -MAX_ACC <= ay_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_ACC <= az_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vx_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vy_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_Z <= vz_ <= MAX_VEL_Z   );
     ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE <= pz_+s-target_z); 
     ocp.subjectTo(s>=0);
-    ocp.subjectTo(  -1 <= vx_ <= 1   );
-    ocp.subjectTo(  -1 <= vy_ <= 1   );
-    ocp.subjectTo(  -0.5 <= vz_ <= 0.5   );
-    //ocp.subjectTo( -M_PI_4 <=pitch <= M_PI_2); //pitch constraint
-    // csv<<"first time: "<<first_time_solving<<std::endl; // check it
-    // csv<<"time intial position: "<<time_initial_position<<std::endl;
-    // ocp.minimizeLagrangeTerm(ax*ax+ay*ay);  // weight this with the physical cost!!!
+
+
+
     if(first_time_solving){
         ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
         ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
@@ -84,24 +81,15 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);
     }else{     
-        ocp.subjectTo( AT_START, px_ == x_ptr_[time_initial_position/step_size]);
-        ocp.subjectTo( AT_START, py_ == y_ptr_[time_initial_position/step_size]);
-        ocp.subjectTo( AT_START, pz_ == z_ptr_[time_initial_position/step_size]);
-        ocp.subjectTo( 1, px_ == x_ptr_[time_initial_position/step_size+1]);
-        ocp.subjectTo( 1, py_ == y_ptr_[time_initial_position/step_size+1]);
-        ocp.subjectTo( 1, pz_ == z_ptr_[time_initial_position/step_size+1]);
-        ocp.subjectTo( 2, px_ == x_ptr_[time_initial_position/step_size+2]);
-        ocp.subjectTo( 2, py_ == y_ptr_[time_initial_position/step_size+2]);
-        ocp.subjectTo( 2, pz_ == z_ptr_[time_initial_position/step_size+2]);
-        ocp.subjectTo( 3, px_ == x_ptr_[time_initial_position/step_size+3]);
-        ocp.subjectTo( 3, py_ == y_ptr_[time_initial_position/step_size+3]);
-        ocp.subjectTo( 3, pz_ == z_ptr_[time_initial_position/step_size+3]);
-        ocp.subjectTo( 4, px_ == x_ptr_[time_initial_position/step_size+4]);
-        ocp.subjectTo( 4, py_ == y_ptr_[time_initial_position/step_size+4]);
-        ocp.subjectTo( 4, pz_ == z_ptr_[time_initial_position/step_size+4]);
-        ocp.subjectTo( 5, px_ == x_ptr_[time_initial_position/step_size+5]);
-        ocp.subjectTo( 5, py_ == y_ptr_[time_initial_position/step_size+5]);
-        ocp.subjectTo( 5, pz_ == z_ptr_[time_initial_position/step_size+5]);
+        ocp.subjectTo( AT_START, px_ == x_ptr_ [(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, py_ == y_ptr_ [(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, pz_ == z_ptr_ [(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, vx_ == vx_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, vy_ == vy_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, vz_ == vz_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, ax_ == ax_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, ay_ == ay_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, az_ == az_ptr_[(time_initial_position/step_size)+offset_]);
     }
 
     //ocp.subjectTo( s >= 0 ); slack variable
@@ -117,8 +105,8 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     DVector r_1(2);
 
     S_1.setIdentity();
-	S_1(0,0) = 0.1;
-	S_1(1,1) = 0.1;
+	S_1(0,0) = W_PX_N;
+	S_1(1,1) = W_PY_N;
 
 
     r_1(0) = _desired_odometry.pose.pose.position.x;
@@ -146,10 +134,10 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     DVector r(4);
 
     S.setIdentity();
-	S(0,0) = 1;
-	S(1,1) = 1;
-	S(2,2) = 1.0;
-    S(3,3) = 5.0;
+	S(0,0) = W_AX;
+	S(1,1) = W_AY;
+	S(2,2) = W_AZ;
+    S(3,3) = W_SLACK;
 
     r(0) = 0.0;
     r(1) = 0.0;
@@ -159,16 +147,9 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
 
     ocp.minimizeLSQ( S, h, r );
 
-    std::cout<<"Solver defined"<<std::endl;
-
-
-    OptimizationAlgorithm solver_(ocp);
-
+    OptimizationAlgorithm solver(ocp);
 
     ////////////////// INITIALIZATION //////////////////////////////////
-
-    std::cout<<"Initializing solver"<<std::endl;
-
     VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
     for(uint i=0; i<time_horizon_; i++){
@@ -187,46 +168,22 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     }
 
 
-    solver_.initializeDifferentialStates( state_init );
-    solver_.initializeControls          ( control_init );
-    // solver_.initializeAlgebraicStates(inter_state_init);
-    // csv<<state_init<<std::endl;
-    // csv<<control_init<<std::endl;
+    solver.initializeDifferentialStates( state_init );
+    solver.initializeControls          ( control_init );
+    // solver.initializeAlgebraicStates(inter_state_init);
 
+    //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
+    solver.set( INTEGRATOR_TOLERANCE , 1e-8            );
+    //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
+    solver.set( KKT_TOLERANCE        , 1e-3            );
 
-    //solver_.set( INTEGRATOR_TYPE      , INT_RK78        );
-    solver_.set( INTEGRATOR_TOLERANCE , 1e-8            );
-    //solver_.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
-    solver_.set( KKT_TOLERANCE        , 1e-3            );
-
-    // solver_.set( MAX_NUM_ITERATIONS        , 5  );
+    // solver.set( MAX_NUM_ITERATIONS        , 5  );
 
     // call the solver
-    returnValue value = solver_.solve();
+    solver_success_ = solver.solve();
     // get solution
-    VariablesGrid output_states,output_control;
 
-    solver_.getDifferentialStates(output_states);
-    solver_.getControls          (output_control);
-    // solver_.getAlgebraicStates(algebraic_states);
-    //output_states.print();
-    int success_value = value;
-
-    if(success_value == 0){
-        for(int i=0;i<time_horizon_;i++){
-
-        x_ptr_[i]=output_states(i,0);
-        y_ptr_[i]=output_states(i,1);
-        z_ptr_[i]=output_states(i,2);
-        vx_ptr_[i]=output_states(i,3);
-        vy_ptr_[i]=output_states(i,4);
-        vz_ptr_[i]=output_states(i,5);
-        ax_ptr_[i]=output_control(i,0);
-        ay_ptr_[i]=output_control(i,1);
-        az_ptr_[i]=output_control(i,2);
-        // csv<<output_control(i,3)<<std::endl;
-        }
-    }
+    getResults(time_initial_position, solver, first_time_solving);
 
     px_.clearStaticCounters();
     py_.clearStaticCounters();
@@ -240,7 +197,7 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     s.clearStaticCounters();
     // pitch.clearStaticCounters();
 
-    return success_value;  
+    return solver_success_;  
  }
 
  bool NumericalSolver::ACADOSolver::logACADOvars(){
@@ -256,5 +213,42 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     // logRecord << LOG_DISTURBANCES;
     // logRecord << LOG_INTERMEDIATE_STATES;
     // logRecord << LOG_DIFFERENTIAL_STATES;
+    return true;
+ }
+
+ bool NumericalSolver::ACADOSolver::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving){
+    
+    VariablesGrid output_states,output_control;
+
+    solver.getDifferentialStates(output_states);
+    solver.getControls          (output_control);
+
+    if(solver_success_ == 0){
+        for(int i=0;i<time_horizon_;i++){
+
+            if(i<offset_  && !first_time_solving){ 
+                x_ptr_[i]=x_ptr_  [(time_initial_position/step_size)+i];
+                y_ptr_[i]=y_ptr_  [(time_initial_position/step_size)+i];
+                z_ptr_[i]=z_ptr_  [(time_initial_position/step_size)+i];
+                vx_ptr_[i]=vx_ptr_[(time_initial_position/step_size)+i];
+                vy_ptr_[i]=vy_ptr_[(time_initial_position/step_size)+i];
+                vz_ptr_[i]=vz_ptr_[(time_initial_position/step_size)+i];
+                ax_ptr_[i]=ax_ptr_[(time_initial_position/step_size)+i];
+                ay_ptr_[i]=ay_ptr_[(time_initial_position/step_size)+i];
+                az_ptr_[i]=az_ptr_[(time_initial_position/step_size)+i];
+            }else{
+                x_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,0);
+                y_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,1);
+                z_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,2);
+                vx_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,3);
+                vy_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,4);
+                vz_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,5);
+                ax_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,0);
+                ay_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,1);
+                az_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,2);
+                // csv<<output_control(i,3)<<std::endl;
+            }
+        }
+    }
     return true;
  }
