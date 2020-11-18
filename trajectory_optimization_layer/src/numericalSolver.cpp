@@ -176,8 +176,8 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     solver.set( INTEGRATOR_TOLERANCE , 1e-8            );
     //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver.set( KKT_TOLERANCE        , 1e-3            );
-
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
+    solver.set( MAX_TIME        , 1.0  );
 
     // call the solver
     solver_success_ = solver.solve();
@@ -223,7 +223,7 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     solver.getDifferentialStates(output_states);
     solver.getControls          (output_control);
 
-    if(solver_success_ == 0){
+    if(solver_success_ == returnValueType::SUCCESSFUL_RETURN || solver_success_ == returnValueType::RET_MAX_TIME_REACHED){ 
         for(int i=0;i<time_horizon_;i++){
 
             if(i<offset_  && !first_time_solving){ 

@@ -630,7 +630,7 @@ float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point star
 
 void backendSolver::stateMachine() {
   int       closest_point = 0;
-  ros::Rate solver(solver_rate_); //Hz
+  ros::Rate solver_timer(solver_rate_); //Hz
   bool      loop_rate_violated = false;
   std::chrono::system_clock::time_point start;
   std::chrono::duration<double> diff;
@@ -643,6 +643,8 @@ void backendSolver::stateMachine() {
     ros::spinOnce();
     if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
       IDLEState();
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      continue;
     } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
        
 
@@ -670,34 +672,33 @@ void backendSolver::stateMachine() {
         }else{
           change_initial_guess = false;
         }  
-      } while (solver_success != 0);
+      } while (solver_success != returnValueType::SUCCESSFUL_RETURN && solver_success != returnValueType::RET_MAX_TIME_REACHED);
     }
 
     // wait for the planned time
-    if(solver.sleep()){
+    if(solver_timer.sleep()){
       actual_cicle_time = 1/solver_rate_;
     }else{
-      actual_cicle_time = round(solver.cycleTime().toSec() * 10.0 )/ 10.0;
+      actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0 )/ 10.0;
     }
     // check and log the time that the last loop lasted
     csv_pose << "cycle time: " << actual_cicle_time << std::endl;
     
     // publish the last calculated trajectory if the solver successed
-    if (solver_success == 0) {
-      saveCalculatedTrajectory();
-      // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
-      if(actual_cicle_time>1/solver_rate_ && !first_time_solving_){
-        closest_point = (actual_cicle_time-1/solver_rate_)/step_size;
-      }else{
-        closest_point = 0;
-      }
-      // predict yaw and pitch and publish trajectory
-      std::vector<double> yaw   = predictingYaw();
-      std::vector<double> pitch = predictingPitch();
-      publishSolvedTrajectory(yaw, pitch, closest_point);
-      first_time_solving_=false;
+    saveCalculatedTrajectory();
+    // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
+    if(actual_cicle_time>1/solver_rate_ && !first_time_solving_){
+      closest_point = (actual_cicle_time-1/solver_rate_)/step_size;
+    }else{
+      closest_point = 0;
     }
-    solver.reset();
+    // predict yaw and pitch and publish trajectory
+    std::vector<double> yaw   = predictingYaw();
+    std::vector<double> pitch = predictingPitch();
+    publishSolvedTrajectory(yaw, pitch, closest_point);
+    first_time_solving_=false;
+  
+    solver_timer.reset();
   }
 }
 
