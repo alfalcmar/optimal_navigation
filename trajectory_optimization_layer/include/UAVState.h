@@ -24,6 +24,7 @@ class UavState{
     Pose pose;
     Quaternion quaternion;
     Velocity velocity;
+    bool has_pose = false;
   private:
 
 };

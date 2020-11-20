@@ -45,11 +45,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   } else {
     ROS_ERROR("fail to get solver rate");
   }
-  // parameters
-  for (int i = 0; i < drones.size(); i++) {
-    has_poses[TARGET]    = false;
-    has_poses[drones[i]] = false;
-  }
+
   if (no_fly_zone_center_.size() == 2) {
     calculateNoFlyZonePoints(no_fly_zone_center_[0], no_fly_zone_center_[1], NO_FLY_ZONE_RADIUS);
   } else {
@@ -98,7 +94,7 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
   uavs_pose_[drone_id_].velocity.y = msg->pose.pose.position.y;
   uavs_pose_[drone_id_].velocity.z = msg->pose.pose.position.z;
 
-  has_poses[drone_id_] = true;
+  uavs_pose_[drone_id_].has_pose = true;
 }
 
 void backendSolver::saveCalculatedTrajectory(){
@@ -136,7 +132,7 @@ void backendSolver::uavTrajectoryCallback(const optimal_control_interface::Solve
 /** \brief callback for the pose of uavs
  */
 void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id) {
-  has_poses[id] = true;
+  uavs_pose_[id].has_pose = true;
   if (!trajectory_solved_received[id]) {
     for (int i = 0; i < time_horizon_; i++) {
       geometry_msgs::PoseStamped pose_aux;
@@ -178,13 +174,13 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_ms
     target_odometry_.twist.twist.linear.x = response_vel.value().vector.x;
     target_odometry_.twist.twist.linear.y = response_vel.value().vector.y;
     target_odometry_.twist.twist.linear.z = response_vel.value().vector.z;
-    has_poses[TARGET]                     = true;
+    target_has_pose                     = true;
   }
   /* target_odometry_ = *_msg; */
 }
 
 void backendSolverMRS::publishTargetOdometry() {
-  if (!has_poses[TARGET]) {
+  if (!target_has_pose) {
     return;
   }
   nav_msgs::Odometry msg = target_odometry_;
@@ -434,26 +430,17 @@ nav_msgs::Path backendSolver::targetPathVisualization() {
 bool backendSolver::checkConnectivity() {
   // check the connectivity with drones and target
   size_t cont = 0;
-  for (size_t i = 0; i < drones.size(); i++) {  // check drones pose
-    if (has_poses[drones[i]] == true) {
-      cont++;
-    }
+
+  for(auto it = uavs_pose_.begin();it!=uavs_pose_.end();it++){
+    if(it->second.has_pose) cont++;
   }
-  if (target_) {              // if target included
-    if (has_poses[TARGET]) {  // check target pose
-      cont++;
-    }
-    if (cont == drones.size() + 1) {  //+1 because the target
-      return true;
-    } else {
-      return false;
-    }
-  } else {
-    if (cont == drones.size()) {
-      return true;
-    } else {
-      return false;
-    }
+  if(target_){
+    if(target_has_pose) cont++; 
+    return (cont == drones.size()+1);
+  }
+  else
+  {
+    return (cont == drones.size());     
   }
 }
 
@@ -878,7 +865,7 @@ backendSolverUAL::backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) 
 /** \brief Callback for the target pose
  */
 void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg) {
-  has_poses[TARGET]          = true;
+  target_has_pose          = true;
   target_odometry_.pose.pose = msg->pose.pose;
 }
 

@@ -130,7 +130,7 @@ protected:
   std::map<int, ros::Subscriber> drone_pose_sub;         /**< subscribers of the drones poses <drone_id, pose_subscriber> */
   std::map<int, ros::Subscriber> drone_trajectory_sub;   /**< subscribers the solved trajectory of others <drone_id, trajectory_subscriber */
   // aux flags
-  std::map<int, bool> has_poses; /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
+  // std::map<int, bool> has_poses; /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
   std::map<int, bool> trajectory_solved_received; /**<  flags to receive the solved trajectories for others <drone_id, received> */
   bool                is_initialized    = false;  /**< object inizialized */
   bool                activated_        = false;  /**< planning activated */
@@ -139,7 +139,7 @@ protected:
   // timers and threads
   ros::Timer  diagnostic_timer_; /**< timer to publish diagnostic topic */
 
-  const int TARGET = 0; /**< has_poses[TARGET] */
+  bool target_has_pose = false; /**< has_poses[TARGET] */
 
   std::ofstream csv_pose;   /**< object to log the trajectory */
   std::ofstream csv_record; /**< object to log parameters */
