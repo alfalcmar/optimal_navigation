@@ -1,7 +1,19 @@
 #include <backendSolver.h>
 #include <iostream>
 
-backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh) {
+
+
+backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int time_horizon) : time_horizon_(time_horizon),
+                                                                                                x_(new double[time_horizon]{0.0}),
+                                                                                                y_(new double[time_horizon]{0.0}),
+                                                                                                z_(new double[time_horizon]{0.0}),
+                                                                                                vx_(new double[time_horizon]{0.0}),
+                                                                                                vy_(new double[time_horizon]{0.0}),
+                                                                                                vz_(new double[time_horizon]{0.0}),
+                                                                                                ax_(new double[time_horizon]{0.0}),
+                                                                                                ay_(new double[time_horizon]{0.0}),
+                                                                                                az_(new double[time_horizon]{0.0})
+  {
   ROS_INFO("backend solver constructor");
 
   // drones param
@@ -43,6 +55,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh) {
   } else {
     ROS_ERROR("No fly zone is not set");
   }
+
+  
   // subscripions
   desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
   // publishers
@@ -52,7 +66,6 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh) {
   target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
   // acado object and thread
-  const int time_horizon = 40;
   acado_solver_pt_ = new NumericalSolver::ACADOSolver(solver_rate_, time_horizon);
   //main_thread_     = std::thread(&backendSolver::stateMachine, this);
 
@@ -73,7 +86,17 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 /** \brief uav odometry callback (mrs system)
  */
 void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
-  uavs_pose_[drone_id_] = *msg;
+  uavs_pose_[drone_id_].pose.x = msg->pose.pose.position.x;
+  uavs_pose_[drone_id_].pose.y = msg->pose.pose.position.y;
+  uavs_pose_[drone_id_].pose.z = msg->pose.pose.position.z;
+
+  uavs_pose_[drone_id_].quaternion.x = msg->pose.pose.orientation.x;
+  uavs_pose_[drone_id_].quaternion.y = msg->pose.pose.orientation.y;
+  uavs_pose_[drone_id_].quaternion.z = msg->pose.pose.orientation.z;
+
+  uavs_pose_[drone_id_].velocity.x = msg->pose.pose.position.x;
+  uavs_pose_[drone_id_].velocity.y = msg->pose.pose.position.y;
+  uavs_pose_[drone_id_].velocity.z = msg->pose.pose.position.z;
 
   has_poses[drone_id_] = true;
 }
@@ -123,7 +146,13 @@ void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &
       uavs_trajectory[id].positions.push_back(pose_aux);
     }
   }
-  uavs_pose_[id].pose.pose = msg->pose;
+  uavs_pose_[id].pose.x = msg->pose.position.x;
+  uavs_pose_[id].pose.y = msg->pose.position.y;
+  uavs_pose_[id].pose.z = msg->pose.position.z;
+  
+  uavs_pose_[id].quaternion.x = msg->pose.orientation.x;
+  uavs_pose_[id].quaternion.y = msg->pose.orientation.y;
+  uavs_pose_[id].quaternion.z = msg->pose.orientation.z;
 }
 
 
@@ -245,7 +274,7 @@ void backendSolver::pruebaDroneSubida() {
   double aux = 0.0;
   double vel = 0.5;
   for (int i = 0; i < time_horizon_; i++) {
-    double aux = uavs_pose_[drone_id_].pose.pose.position.z + step_size * i * vel;
+    double aux = uavs_pose_[drone_id_].pose.z + step_size * i * vel;
     z_[i]      = aux;
   }
 }
@@ -361,16 +390,16 @@ void backendSolver::logToCsv() {
   csv_pose << "target vel: " << target_odometry_.twist.twist.linear.x << ", " << target_odometry_.twist.twist.linear.y << ", "
            << target_odometry_.twist.twist.linear.z << std::endl;
   csv_pose << "Time horizon" << time_horizon_ << std::endl;
-  csv_pose << "My pose: " << uavs_pose_[drone_id_].pose.pose.position.x << ", " << uavs_pose_[drone_id_].pose.pose.position.y << ", "
-           << uavs_pose_[drone_id_].pose.pose.position.z << std::endl;
-  csv_pose << "My vel: " << uavs_pose_[drone_id_].twist.twist.linear.x << ", " << uavs_pose_[drone_id_].twist.twist.linear.y << ", "
-           << uavs_pose_[drone_id_].twist.twist.linear.z << std::endl;
+  csv_pose << "My pose: " << uavs_pose_[drone_id_].pose.x << ", " << uavs_pose_[drone_id_].pose.y << ", "
+           << uavs_pose_[drone_id_].pose.z << std::endl;
+  csv_pose << "My vel: " << uavs_pose_[drone_id_].velocity.x << ", " << uavs_pose_[drone_id_].velocity.y << ", "
+           << uavs_pose_[drone_id_].velocity.z << std::endl;
   csv_pose << "My accel: " << 0.0 << ", " << 0.0 << ", " << 0.0 << std::endl;
   // logging inter-uavs pose
   if (multi_) {
-    csv_pose << "Drone 2: " << uavs_pose_[2].pose.pose.position.x << ", " << uavs_pose_[2].pose.pose.position.y << ", " << uavs_pose_[2].pose.pose.position.z
+    csv_pose << "Drone 2: " << uavs_pose_[2].pose.x << ", " << uavs_pose_[2].pose.y << ", " << uavs_pose_[2].pose.z
              << ", " << std::endl;
-    csv_pose << "Drone 3: " << uavs_pose_[3].pose.pose.position.x << ", " << uavs_pose_[3].pose.pose.position.y << ", " << uavs_pose_[3].pose.pose.position.z
+    csv_pose << "Drone 3: " << uavs_pose_[3].pose.x << ", " << uavs_pose_[3].pose.y << ", " << uavs_pose_[3].pose.z
              << ", " << std::endl;
   }
   csv_pose << "initial guess: " << std::endl;
@@ -444,8 +473,8 @@ int backendSolver::closestPose() {
   float nearest_distance = INFINITY;
   float point_distance   = 0;
   for (int i = 0; i < time_horizon_; i++) {
-    point_distance = sqrt(pow((x_[i] - uavs_pose_[drone_id_].pose.pose.position.x), 2) + pow((y_[i] - uavs_pose_[drone_id_].pose.pose.position.y), 2) +
-                          pow((z_[i] - uavs_pose_[drone_id_].pose.pose.position.z), 2));
+    point_distance = sqrt(pow((x_[i] - uavs_pose_[drone_id_].pose.x), 2) + pow((y_[i] - uavs_pose_[drone_id_].pose.y), 2) +
+                          pow((z_[i] - uavs_pose_[drone_id_].pose.z), 2));
     if (point_distance < nearest_distance) {
       nearest_distance = point_distance;
       nearest_point    = i;
@@ -464,20 +493,20 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
-    float aux_norm       = sqrt(pow((desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.pose.position.x), 2) +
-                          pow((desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.pose.position.y), 2) +
-                          pow((desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.pose.position.z), 2));
-    float scalar_dir_x   = (desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.pose.position.x) / aux_norm;
-    float scalar_dir_y   = (desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.pose.position.y) / aux_norm;
-    float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.pose.position.z) / aux_norm;
+    float aux_norm       = sqrt(pow((desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.x), 2) +
+                          pow((desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.y), 2) +
+                          pow((desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.z), 2));
+    float scalar_dir_x   = (desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.x) / aux_norm;
+    float scalar_dir_y   = (desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.y) / aux_norm;
+    float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.z) / aux_norm;
     float vel_module_cte = max_vel / 2;  // vel cte guess for the initial
     // accelerations
     initial_guess_["ax"][0] = ZERO;
     initial_guess_["ay"][0] = ZERO;
     initial_guess_["az"][0] = ZERO;
-    initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.pose.position.x;
-    initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.pose.position.y;
-    initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.pose.position.z;
+    initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.x;
+    initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.y;
+    initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.z;
     initial_guess_["vx"][0] = scalar_dir_x * vel_module_cte;
     initial_guess_["vy"][0] = scalar_dir_y * vel_module_cte;
     initial_guess_["vz"][0] = scalar_dir_z * vel_module_cte;
@@ -579,15 +608,15 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
 
 void backendSolver::staticLoop() {
   for (int i = 0; i < time_horizon_; i++) {  // maintain the position
-    x_[i] = uavs_pose_[drone_id_].pose.pose.position.x;
-    y_[i] = uavs_pose_[drone_id_].pose.pose.position.y;
+    x_[i] = uavs_pose_[drone_id_].pose.x;
+    y_[i] = uavs_pose_[drone_id_].pose.y;
   }
   // TODO think about what to do with that
   if (subida) {
     pruebaDroneSubida();
   } else {
     for (int i = 0; i < time_horizon_; i++) {
-      z_[i] = uavs_pose_[drone_id_].pose.pose.position.z;
+      z_[i] = uavs_pose_[drone_id_].pose.z;
     }
   }
 
@@ -703,7 +732,7 @@ void backendSolver::stateMachine() {
 }
 
 
-backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh) : backendSolver::backendSolver(_pnh, _nh) {
+backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
   ROS_INFO("Leader constructor");
   /* std::string target_topic; */
   /* _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic

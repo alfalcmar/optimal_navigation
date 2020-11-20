@@ -77,6 +77,7 @@ if(DEFINED ENV{ACADO})
 
   add_library(solver_library
   src/numericalSolver.cpp
+  src/UAVState.cpp
   )
 endif()
 

@@ -27,10 +27,12 @@
 #include <mrs_lib/transformer.h>
 #include <ros/package.h>
 #include <chrono>
+#include <UAVState.h>
 
 #include <algorithm>
 #define ZERO 0.000001
-#define TIME_HORIZON 40
+
+
 /** this node is a backend to use optimization solvers with ROS for UAVs,
  * In this case, this use the FORCES_PRO librarly, a library created to use the FORCES PRO framework
  * to interface with the rest of the nodes.
@@ -67,7 +69,7 @@
 
 class backendSolver {
 public:
-  backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh);
+  backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, int time_horizon);
     /*! \brief If the planning is active: clean the state variables, call solver function, predict yaw and pitch, publish solved trajectories, publish data to
     *visualize
    **/
@@ -76,15 +78,17 @@ public:
 
 protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
-  std::array<double, TIME_HORIZON>  x_;
-  std::array<double, TIME_HORIZON>  y_;
-  std::array<double, TIME_HORIZON>  z_;
-  std::array<double, TIME_HORIZON>  vx_;
-  std::array<double, TIME_HORIZON>  vy_;
-  std::array<double, TIME_HORIZON>  vz_;
-  std::array<double, TIME_HORIZON>  ax_;
-  std::array<double, TIME_HORIZON>  ay_;
-  std::array<double, TIME_HORIZON>  az_;
+  const int time_horizon_ = 40;
+  std::unique_ptr<double[]> x_;  
+  std::unique_ptr<double[]> y_;
+  std::unique_ptr<double[]> z_;
+  std::unique_ptr<double[]> vx_;
+  std::unique_ptr<double[]> vy_;
+  std::unique_ptr<double[]> vz_;
+  std::unique_ptr<double[]> ax_;
+  std::unique_ptr<double[]> ay_;
+  std::unique_ptr<double[]> az_;
+
   std::vector<float>                no_fly_zone_center_;
   const float                       NO_FLY_ZONE_RADIUS = 4;
   std::vector<std::array<float, 2>> no_fly_zone_points_;
@@ -92,7 +96,7 @@ protected:
   const float                       diagnostic_timer_rate_ = 0.5; /**< rate of the diagnostic timer for MRS system (s) */
   // robots
   int                                              drone_id_;
-  std::map<int, nav_msgs::Odometry>                uavs_pose_;      /**< Last uavs odometry <drone_id,odometry> */
+  std::map<int, UavState>                uavs_pose_;      /**< Last uavs odometry <drone_id,odometry> */
   std::map<int, optimal_control_interface::Solver> uavs_trajectory; /**< Last trajectory solved by others <drone_id,odometry*/
   // target
   nav_msgs::Odometry              target_odometry_;   /**< Last target odometry */
@@ -104,7 +108,6 @@ protected:
   nav_msgs::Odometry desired_odometry_;        /**< Desired pose [x y z yaw] */
   int                desired_type_ = shot_executer::DesiredShot::IDLE;
   // solver
-  int          time_horizon_       = TIME_HORIZON;
   float        solver_rate_        = 0.5; /**< Rate to call the solver (Hz) */  // NOT USED
   int          solver_success      = -1;                                        /**< the solver has solved successfully */
   bool         multi_              = false;                                     /**< true if multi uav formation is activated */
@@ -135,7 +138,6 @@ protected:
   bool                planning_done_    = false;  /**< planning finished */
   // timers and threads
   ros::Timer  diagnostic_timer_; /**< timer to publish diagnostic topic */
-  std::thread main_thread_;      /**< Main thread that calls the solver*/
 
   const int TARGET = 0; /**< has_poses[TARGET] */
 
@@ -303,7 +305,7 @@ private:
 
 class backendSolverMRS : public backendSolver {
 public:
-  backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh);
+  backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon);
 
 private:
   ros::Subscriber uav_odometry_sub; /**< Subscriber to UAV's odometry*/

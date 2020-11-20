@@ -17,7 +17,7 @@ NumericalSolver::Solver::Solver(const float solving_rate, const int time_horizon
 
 }
 
-int NumericalSolver::Solver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::Solver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess,nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
 
 }
 
@@ -28,7 +28,7 @@ NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int ti
 
 
 
-int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess, nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,nav_msgs::Odometry> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess, nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
@@ -74,9 +74,9 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
 
 
     if(first_time_solving){
-        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.pose.position.x);
-        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.pose.position.y);
-        ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).pose.pose.position.z);
+        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.x);
+        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.y);
+        ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).pose.z);
         ocp.subjectTo( AT_START, ax_ == 0.0);
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);

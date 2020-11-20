@@ -6,7 +6,8 @@ int main(int _argc, char **_argv)
     ros::init(_argc, _argv,"solver");
     ros::NodeHandle pnh = ros::NodeHandle("~");
     ros::NodeHandle nh;
-    backendSolverMRS backendSolver(pnh,nh);
+    const int time_horizon = 40;
+    backendSolverMRS backendSolver(pnh,nh,time_horizon);
     backendSolver.stateMachine();
     return 0;
 }
