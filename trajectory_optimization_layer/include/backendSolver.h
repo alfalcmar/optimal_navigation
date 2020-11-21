@@ -22,7 +22,7 @@
 #include <formation_church_planning/Diagnostic.h>
 #include <formation_church_planning/Status.h>
 #include <math.h> /* sqrt */
-#include <numericalSolver.h>
+#include <solver_acado.h>
 #include <shot_executer/DesiredShot.h>
 #include <optimal_control_interface/Solver.h>
 #include <thread>  // std::thread, std::this_thread::sleep_for
@@ -284,54 +284,4 @@ protected:
   void calculateInitialGuess(bool new_initial_guess = false);
 };
 
-class backendSolverMRS : public backendSolver {
-public:
-  backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon);
-
-private:
-  ros::Subscriber uav_odometry_sub; /**< Subscriber to UAV's odometry*/
-  ros::Publisher  diagnostics_pub;
-  ros::Publisher  solved_trajectory_MRS_pub;
-  ros::Publisher  target_odometry_pub;
-  ros::Publisher  mrs_trajectory_tracker_pub;
-  ros::Publisher  mrs_status_pub;
-  /*! \brief Callback function to the target topic. This function save the pose reveived for the first in has_poses[0] and upload target_pose_ member
-   *  \param
-   * */
-  void targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_msg);
-  /*! \brief Service callback to activate the planning
-   *   \param req req.data = true -> activate planning, req.data = false -> deactivate planning
-   *   \param res res.message = "message"
-   *   \return planning_activated
-   **/
-  bool activationServiceCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
-  void publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points = 0);
-  void diagTimer(const ros::TimerEvent &event);
-
-  void publishTargetOdometry();
-  void publishState(const bool state);
-};
-
-
-#ifdef UAL
-class backendSolverUAL : backendSolver {
-public:
-  backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh); /**< UAL backend constructor*/
-private:
-  ros::Subscriber              uav_state_sub; /**< Subscriber to UAL's state*/
-  ros::Subscriber              sub_velocity;  /**< Subscriber to UAL's velocity*/
-  uav_abstraction_layer::State ual_state_;    /**< ual state */
-
-  /*!  \brief callback that save the ual velocity
-   *   \param msg
-   */
-  void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg); /**< Callback for UAL's state topic */
-  void ualStateCallback(const uav_abstraction_layer::State::ConstPtr &msg);   /**< Callback for UAL's velocity topic*/
-  /*!  \brief target pose topic callback. This function save the first time received and the msg into target_pose_
-   *   \param msg topic msg
-   */
-  void targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg);
-};
-#endif
 #endif

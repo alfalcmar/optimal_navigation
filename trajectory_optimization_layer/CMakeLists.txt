@@ -76,10 +76,12 @@ if(DEFINED ENV{ACADO})
 
 
   add_library(solver_library
-  src/numericalSolver.cpp
+  src/solver.cpp
+  src/solver_acado.cpp
   src/UAVState.cpp
   src/logger.cpp
   src/backendSolver.cpp
+  src/backendSolverMRS.cpp
   )
 endif()
 

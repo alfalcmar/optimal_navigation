@@ -1,6 +1,5 @@
 #include<logger.h>
 #include<backendSolver.h>
-#include <numericalSolver.h>
 
 
 SolverUtils::Logger::Logger(backendSolver* class_to_log): class_to_log_ptr_(class_to_log){
