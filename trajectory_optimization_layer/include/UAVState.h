@@ -2,6 +2,7 @@
 #ifndef UAVSTATE_H_
 #define UAVSTATE_H_
 
+#include <math.h>       /* cos */
 struct Quaternion{
     double x = 0.0;
     double y = 0.0;
@@ -26,6 +27,7 @@ class UavState{
     Velocity velocity;
     bool has_pose = false;
   private:
+   Quaternion toQuaternion(const double pitch, const double roll, const double yaw);
 
 };
 

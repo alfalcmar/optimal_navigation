@@ -162,10 +162,6 @@ protected:
 
   void saveCalculatedTrajectory();
 
-  /*! \brief log the solution to CSV file
-   */
-  void logToCSVCalculatedTrajectory(int solver_success);
-
   /*! \brief search the closest point of the trajectory
    *   \return closest point of the trajectory
    */
@@ -258,10 +254,6 @@ protected:
    *   \return nav_msg to visualize
    **/
   nav_msgs::Path targetPathVisualization();
-  /*! \brief   This function log the solved trajectory into a csv file
-   *   \param xyz 3D trajectory
-   **/
-  void logToCsv();
 
   /*! \brief Publish a rectangle that represents a no fly zone in order to visualize on rviz
    *   \param point_1 2D vertice
@@ -269,10 +261,6 @@ protected:
    *
    **/
   void publishNoFlyZone(double point_1[2], double point_2[2], double point_3[2], double point_4[2]);
-  void pruebaDroneSubida();
-  /** \brief loop to command only yaw when the drone is not planning. to point the camera to the target
-   */
-  void staticLoop();
   /*! \brief loop to be inizialized but doing nothing
    */
   void IDLEState();
@@ -294,17 +282,6 @@ protected:
    *          vel cte model for path guess
    */
   void calculateInitialGuess(bool new_initial_guess = false);
-  bool subida;
-
-
-private:
-  enum State
-  {
-    DYNAMIC,
-    STATIC,
-    IDLE
-  };
-  State state_ = IDLE;
 };
 
 class backendSolverMRS : public backendSolver {

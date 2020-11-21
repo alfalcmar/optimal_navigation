@@ -62,10 +62,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   path_no_fly_zone       = pnh.advertise<nav_msgs::Path>("noflyzone", 1);
   target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
-  // acado object and thread
-  // solver_pt_ = new NumericalSolver::ACADOSolver(solver_rate_, time_horizon);
+  // acado object
   solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon);
-  //main_thread_     = std::thread(&backendSolver::stateMachine, this);
 
   // log files
   logger = new SolverUtils::Logger(this);
@@ -98,7 +96,7 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
 }
 
 void backendSolver::saveCalculatedTrajectory(){
-  for (int i=0; i<TIME_HORIZON; i++){
+  for (int i=0; i<time_horizon_; i++){
       x_[i] = solver_pt_->x_ptr_[i];
       y_[i] = solver_pt_->y_ptr_[i];
       z_[i] = solver_pt_->z_ptr_[i];
@@ -260,16 +258,6 @@ std::vector<double> backendSolver::predictingYaw() {
   return yaw;
 }
 
-void backendSolver::pruebaDroneSubida() {
-
-  double aux = 0.0;
-  double vel = 0.5;
-  for (int i = 0; i < time_horizon_; i++) {
-    double aux = uavs_pose_[drone_id_].pose.z + step_size * i * vel;
-    z_[i]      = aux;
-  }
-}
-
 void backendSolver::targetTrajectoryVelocityCTEModel() {
 
   target_trajectory_.clear();
@@ -286,22 +274,7 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
   }
 }
 
-geometry_msgs::Quaternion backendSolver::toQuaternion(const double pitch, const double roll, const double yaw) {
-  geometry_msgs::Quaternion q;
-  // Abbreviations for the various angular functions
-  double cy = cos(yaw * 0.5);
-  double sy = sin(yaw * 0.5);
-  double cr = cos(roll * 0.5);
-  double sr = sin(roll * 0.5);
-  double cp = cos(pitch * 0.5);
-  double sp = sin(pitch * 0.5);
 
-  q.w = cy * cr * cp + sy * sr * sp;
-  q.x = cy * sr * cp - sy * cr * sp;
-  q.y = cy * cr * sp + sy * sr * cp;
-  q.z = sy * cr * cp - cy * sr * sp;
-  return q;
-}
 
 /**  \brief Construct a nav_msgs_path and publish to visualize through rviz
  *   \param wps_x, wps_y, wps_z     last calculated path
@@ -543,27 +516,6 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
   /* } */
 }
 
-void backendSolver::staticLoop() {
-  for (int i = 0; i < time_horizon_; i++) {  // maintain the position
-    x_[i] = uavs_pose_[drone_id_].pose.x;
-    y_[i] = uavs_pose_[drone_id_].pose.y;
-  }
-  // TODO think about what to do with that
-  if (subida) {
-    pruebaDroneSubida();
-  } else {
-    for (int i = 0; i < time_horizon_; i++) {
-      z_[i] = uavs_pose_[drone_id_].pose.z;
-    }
-  }
-
-  targetTrajectoryVelocityCTEModel();
-  std::vector<double> yaw   = predictingYaw();
-  std::vector<double> pitch = predictingPitch();
-
-
-  publishSolvedTrajectory(yaw, pitch);
-}
 
 void backendSolver::IDLEState() {
   ROS_INFO("Solver %d: IDLE state", drone_id_);
