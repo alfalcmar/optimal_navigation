@@ -1,5 +1,6 @@
 #include <backendSolver.h>
 #include <iostream>
+#include <utils.h>
 
 
 
@@ -62,13 +63,12 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
   // acado object and thread
-  acado_solver_pt_ = new NumericalSolver::ACADOSolver(solver_rate_, time_horizon);
+  // solver_pt_ = new NumericalSolver::ACADOSolver(solver_rate_, time_horizon);
+  solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon);
   //main_thread_     = std::thread(&backendSolver::stateMachine, this);
 
   // log files
-  std::string mypackage = ros::package::getPath("optimal_control_interface");
-  csv_pose.open(mypackage + "/logs/" + "trajectories_" + std::to_string(drone_id_) + ".csv");
-  csv_pose << std::fixed << std::setprecision(5);
+  logger = new SolverUtils::Logger(this);
 }
 
 
@@ -98,22 +98,17 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
 }
 
 void backendSolver::saveCalculatedTrajectory(){
-  csv_pose<< "saved trajectory"<<std::endl;
   for (int i=0; i<TIME_HORIZON; i++){
-      x_[i] = acado_solver_pt_->x_ptr_[i];
-      y_[i] = acado_solver_pt_->y_ptr_[i];
-      z_[i] = acado_solver_pt_->z_ptr_[i];
-      vx_[i] = acado_solver_pt_->vx_ptr_[i];
-      vy_[i] = acado_solver_pt_->vy_ptr_[i];
-      vz_[i] = acado_solver_pt_->vz_ptr_[i];
-      ax_[i] = acado_solver_pt_->ax_ptr_[i];
-      ay_[i] = acado_solver_pt_->ay_ptr_[i];
-      az_[i] = acado_solver_pt_->az_ptr_[i];
-      csv_pose << ax_[i] << ", " << ay_[i] << ", " << az_[i]
-      << ", " <<x_[i] << ", " <<  y_[i] << ", " << z_[i]
-     << ", " << vx_[i] << ", " << vy_[i] << ", "<< vz_[i] << std::endl;
+      x_[i] = solver_pt_->x_ptr_[i];
+      y_[i] = solver_pt_->y_ptr_[i];
+      z_[i] = solver_pt_->z_ptr_[i];
+      vx_[i] = solver_pt_->vx_ptr_[i];
+      vy_[i] = solver_pt_->vy_ptr_[i];
+      vz_[i] = solver_pt_->vz_ptr_[i];
+      ax_[i] = solver_pt_->ax_ptr_[i];
+      ay_[i] = solver_pt_->ay_ptr_[i];
+      az_[i] = solver_pt_->az_ptr_[i];
   }
-   
 }
 
 /** \brief This callback receives the solved trajectory of uavs
@@ -365,51 +360,8 @@ void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2], doubl
   path_no_fly_zone.publish(msg);
 }
 
-void backendSolver::logToCSVCalculatedTrajectory(int solver_success) {
-  csv_pose << "first time solving: " << first_time_solving_ << std::endl;
-  csv_pose << "solver_success: " << solver_success << std::endl;
-  csv_pose << "Calculated trajectroy" << std::endl;
-  for (int i = 0; i < time_horizon_; i++) {
-    csv_pose << acado_solver_pt_->ax_ptr_[i] << ", " << acado_solver_pt_->ay_ptr_[i] << ", " << acado_solver_pt_->az_ptr_[i]
-      << ", " << acado_solver_pt_->x_ptr_[i] << ", " << acado_solver_pt_->y_ptr_[i] << ", " << acado_solver_pt_->z_ptr_[i]
-     << ", " << acado_solver_pt_->vx_ptr_[i] << ", " << acado_solver_pt_->vy_ptr_[i] << ", "<< acado_solver_pt_->vz_ptr_[i] << std::endl;
-  }
-}
 
-void backendSolver::logToCsv() {
-  // logging all results
-  csv_pose << "shot type " << desired_type_ << std::endl;
-  csv_pose << "Desired pose: " << desired_odometry_.pose.pose.position.x << ", " << desired_odometry_.pose.pose.position.y << ", "
-           << desired_odometry_.pose.pose.position.z << std::endl;
-  csv_pose << "target pose: " << target_odometry_.pose.pose.position.x << ", " << target_odometry_.pose.pose.position.y << ", "
-           << target_odometry_.pose.pose.position.z << std::endl;
-  csv_pose << "target vel: " << target_odometry_.twist.twist.linear.x << ", " << target_odometry_.twist.twist.linear.y << ", "
-           << target_odometry_.twist.twist.linear.z << std::endl;
-  csv_pose << "Time horizon" << time_horizon_ << std::endl;
-  csv_pose << "My pose: " << uavs_pose_[drone_id_].pose.x << ", " << uavs_pose_[drone_id_].pose.y << ", "
-           << uavs_pose_[drone_id_].pose.z << std::endl;
-  csv_pose << "My vel: " << uavs_pose_[drone_id_].velocity.x << ", " << uavs_pose_[drone_id_].velocity.y << ", "
-           << uavs_pose_[drone_id_].velocity.z << std::endl;
-  csv_pose << "My accel: " << 0.0 << ", " << 0.0 << ", " << 0.0 << std::endl;
-  // logging inter-uavs pose
-  if (multi_) {
-    csv_pose << "Drone 2: " << uavs_pose_[2].pose.x << ", " << uavs_pose_[2].pose.y << ", " << uavs_pose_[2].pose.z
-             << ", " << std::endl;
-    csv_pose << "Drone 3: " << uavs_pose_[3].pose.x << ", " << uavs_pose_[3].pose.y << ", " << uavs_pose_[3].pose.z
-             << ", " << std::endl;
-  }
-  csv_pose << "initial guess: " << std::endl;
-  for (int i = 0; i < time_horizon_; i++) {
-    csv_pose << initial_guess_["ax"][i] << ", " << initial_guess_["ay"][i] << ", " << initial_guess_["az"][i] << ", " << initial_guess_["px"][i] << ", "
-             << initial_guess_["py"][i] << ", " << initial_guess_["pz"][i] << ", " << initial_guess_["vx"][i] << ", " << initial_guess_["vy"][i] << ", "
-             << initial_guess_["vz"][i] << std::endl;
-  }
-  // csv_pose<<"Calculated trajectroy"<<std::endl;
-  //  for(int i=0; i<x_.size(); i++){
-  //     csv_pose <<ax_[i] << ", " << ay_[i] << ", " << az_[i]<< ", "<<x_[i] << ", " << y_[i] << ", " << z_[i]<< ", "<< vx_[i]<< ", " <<vy_[i]<< ", "
-  //     <<vz_[i]<<std::endl;
-  // }
-}
+
 
 nav_msgs::Path backendSolver::targetPathVisualization() {
   nav_msgs::Path                          msg;
@@ -475,7 +427,6 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 }
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
-  csv_pose<<"change initial guess: "<<new_initial_guess<<std::endl;
   new_initial_guess = true; //TODO: for testing
   if (new_initial_guess) {
     std::array<float, 2> aux;
@@ -509,7 +460,6 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
       initial_guess_["pz"][i] = initial_guess_["pz"][i - 1] + step_size * initial_guess_["vz"][i - 1];
       // no fly zone
       if (pow(initial_guess_["px"][i] - no_fly_zone_center_[0], 2) + pow(initial_guess_["py"][i] - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
-        csv_pose << "expanding pose " << i << std::endl;
         aux                     = expandPose(initial_guess_["px"][i], initial_guess_["py"][i]);
         initial_guess_["px"][i] = aux[0];
         initial_guess_["py"][i] = aux[1];
@@ -533,7 +483,7 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
       initial_guess_["pitch"][i] = 0.3;
   }
   // log the initial guess
-  logToCsv();
+  logger->logging();
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {
@@ -638,8 +588,6 @@ void backendSolver::IDLEState() {
 float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point start) {
   std::chrono::duration<double> diff             = std::chrono::system_clock::now() - start;
   float rounded_time = round( diff.count() * 10.0 ) / 10.0;
-  csv_pose<<"rate round: "<<rounded_time<<std::endl;
-  csv_pose<<"rate: "<<diff.count()<<"(s)"<<std::endl<<std::endl<<std::endl<<std::endl;
   return rounded_time;
 }
 
@@ -674,13 +622,13 @@ void backendSolver::stateMachine() {
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
         
         // call the solver
-        solver_success = acado_solver_pt_->solverFunction(initial_guess_, desired_odometry_, no_fly_zone_center_,
+        solver_success = solver_pt_->solverFunction(initial_guess_, desired_odometry_, no_fly_zone_center_,
                                                             target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
         
         // log solved trajectory
-        logToCSVCalculatedTrajectory(solver_success);
+        logger->loggingCalculatedTrajectory(solver_success);
 
         // if the solver didn't success, change initial guess
         if(solver_success !=0){
@@ -698,7 +646,7 @@ void backendSolver::stateMachine() {
       actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0 )/ 10.0;
     }
     // check and log the time that the last loop lasted
-    csv_pose << "cycle time: " << actual_cicle_time << std::endl;
+    // csv_pose << "cycle time: " << actual_cicle_time << std::endl;
     
     // publish the last calculated trajectory if the solver successed
     saveCalculatedTrajectory();
@@ -783,7 +731,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     traj_to_command.points.push_back(aux_point);
   }
   for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
-    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), traj_to_followers.points[k].x, traj_to_followers.points[k].y,
+    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x, traj_to_followers.points[k].y,
              traj_to_followers.points[k].z);
   }
   traj_to_command.header.stamp = ros::Time::now();

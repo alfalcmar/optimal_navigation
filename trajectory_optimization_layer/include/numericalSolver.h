@@ -1,3 +1,6 @@
+#ifndef NUMERICALSOLVER_H_
+#define NUMERICALSOLVER_H_
+
 #include <vector>
 #include <acado_optimal_control.hpp>
 #include <acado/acado_gnuplot.hpp>
@@ -29,7 +32,6 @@ protected:
     std::vector<int> priority;      /*! drone priority to avoid others*/
     const double step_size = 0.2; // seg
     const int n_states_variables = 9;
-    int time_horizon_;
     const int offset_= 5; /**! start solving from the fith point of the trajectory */
     int solver_success_ = false;
     const float MAX_ACC = 1.0;
@@ -44,6 +46,7 @@ protected:
 
 
 public:
+    const int time_horizon_;
     std::unique_ptr<double[]> x_ptr_;  
     std::unique_ptr<double[]> y_ptr_;
     std::unique_ptr<double[]> z_ptr_;
@@ -53,6 +56,7 @@ public:
     std::unique_ptr<double[]> ax_ptr_;
     std::unique_ptr<double[]> ay_ptr_;
     std::unique_ptr<double[]> az_ptr_;
+
 
 
     Solver(const float solving_rate, const int time_horizon);
@@ -87,3 +91,5 @@ public:
 // };
 
 }
+
+#endif

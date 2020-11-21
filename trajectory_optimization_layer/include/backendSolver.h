@@ -1,3 +1,5 @@
+#ifndef BACKENDSOLVER_H
+#define BACKENDSOLVER_H
 #ifdef FORCES
 #include "FORCESNLPsolver.h"
 #include <FORCES_PRO.h>
@@ -66,7 +68,9 @@
  *     target_pose
  *     target_trajectory[]
  * **/
-
+namespace SolverUtils{ //forward declarationX
+class Logger;
+}
 class backendSolver {
 public:
   backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, int time_horizon);
@@ -78,7 +82,7 @@ public:
 
 protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
-  const int time_horizon_ = 40;
+  const int time_horizon_;
   std::unique_ptr<double[]> x_;  
   std::unique_ptr<double[]> y_;
   std::unique_ptr<double[]> z_;
@@ -141,13 +145,13 @@ protected:
 
   bool target_has_pose = false; /**< has_poses[TARGET] */
 
-  std::ofstream csv_pose;   /**< object to log the trajectory */
-  std::ofstream csv_record; /**< object to log parameters */
+  friend SolverUtils::Logger;
+  SolverUtils::Logger* logger;
 
   std::string trajectory_frame_;
 
   bool         hovering_ = true;
-  NumericalSolver::ACADOSolver *acado_solver_pt_;
+  std::unique_ptr<NumericalSolver::ACADOSolver> solver_pt_;
 
   mrs_lib::Transformer transformer_;
   // FORCESPROsolver solver_;                /**< solver object */
@@ -352,4 +356,5 @@ private:
    */
   void targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg);
 };
+#endif
 #endif
