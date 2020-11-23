@@ -13,8 +13,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
                                                                                                 vz_(new double[time_horizon]{0.0}),
                                                                                                 ax_(new double[time_horizon]{0.0}),
                                                                                                 ay_(new double[time_horizon]{0.0}),
-                                                                                                az_(new double[time_horizon]{0.0})
-  {
+                                                                                                az_(new double[time_horizon]{0.0}),
+                                                                                                initial_guess_(time_horizon) {
   ROS_INFO("backend solver constructor");
 
   // drones param
@@ -63,7 +63,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
   // acado object
-  solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon);
+  solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon, initial_guess_);
 
   // log files
   logger = new SolverUtils::Logger(this);
@@ -355,49 +355,49 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
     float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.z) / aux_norm;
     float vel_module_cte = max_vel / 2;  // vel cte guess for the initial
     // accelerations
-    initial_guess_["ax"][0] = ZERO;
-    initial_guess_["ay"][0] = ZERO;
-    initial_guess_["az"][0] = ZERO;
-    initial_guess_["px"][0] = uavs_pose_[drone_id_].pose.x;
-    initial_guess_["py"][0] = uavs_pose_[drone_id_].pose.y;
-    initial_guess_["pz"][0] = uavs_pose_[drone_id_].pose.z;
-    initial_guess_["vx"][0] = scalar_dir_x * vel_module_cte;
-    initial_guess_["vy"][0] = scalar_dir_y * vel_module_cte;
-    initial_guess_["vz"][0] = scalar_dir_z * vel_module_cte;
+    initial_guess_.ax[0] = ZERO;
+    initial_guess_.ay[0] = ZERO;
+    initial_guess_.az[0] = ZERO;
+    initial_guess_.x[0] = uavs_pose_[drone_id_].pose.x;
+    initial_guess_.y[0] = uavs_pose_[drone_id_].pose.y;
+    initial_guess_.z[0] = uavs_pose_[drone_id_].pose.z;
+    initial_guess_.vx[0] = scalar_dir_x * vel_module_cte;
+    initial_guess_.vy[0] = scalar_dir_y * vel_module_cte;
+    initial_guess_.vz[0] = scalar_dir_z * vel_module_cte;
     for (int i = 1; i < time_horizon_; i++) {
-      initial_guess_["ax"][i] = ZERO;
-      initial_guess_["ay"][i] = ZERO;
-      initial_guess_["az"][i] = ZERO;
-      initial_guess_["vx"][i] = scalar_dir_x * vel_module_cte;
-      initial_guess_["vy"][i] = scalar_dir_y * vel_module_cte;
-      initial_guess_["vz"][i] = scalar_dir_z * vel_module_cte;
-      initial_guess_["px"][i] = initial_guess_["px"][i - 1] + step_size * initial_guess_["vx"][i - 1];
-      initial_guess_["py"][i] = initial_guess_["py"][i - 1] + step_size * initial_guess_["vy"][i - 1];
-      initial_guess_["pz"][i] = initial_guess_["pz"][i - 1] + step_size * initial_guess_["vz"][i - 1];
+      initial_guess_.ax[i] = ZERO;
+      initial_guess_.ay[i] = ZERO;
+      initial_guess_.az[i] = ZERO;
+      initial_guess_.vx[i] = scalar_dir_x * vel_module_cte;
+      initial_guess_.vy[i] = scalar_dir_y * vel_module_cte;
+      initial_guess_.vz[i] = scalar_dir_z * vel_module_cte;
+      initial_guess_.x[i] = initial_guess_.x[i - 1] + step_size * initial_guess_.vx[i - 1];
+      initial_guess_.y[i] = initial_guess_.y[i - 1] + step_size * initial_guess_.vy[i - 1];
+      initial_guess_.z[i] = initial_guess_.z[i - 1] + step_size * initial_guess_.vz[i - 1];
       // no fly zone
-      if (pow(initial_guess_["px"][i] - no_fly_zone_center_[0], 2) + pow(initial_guess_["py"][i] - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
-        aux                     = expandPose(initial_guess_["px"][i], initial_guess_["py"][i]);
-        initial_guess_["px"][i] = aux[0];
-        initial_guess_["py"][i] = aux[1];
+      if (pow(initial_guess_.x[i] - no_fly_zone_center_[0], 2) + pow(initial_guess_.y[i] - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
+        aux                     = expandPose(initial_guess_.x[i], initial_guess_.y[i]);
+        initial_guess_.x[i] = aux[0];
+        initial_guess_.y[i] = aux[1];
       }
     }
   } else {
     // previous one
     for (int i = 0; i < time_horizon_; i++) {
-      initial_guess_["ax"][i] = ax_[i];
-      initial_guess_["ay"][i] = ay_[i];
-      initial_guess_["az"][i] = az_[i];
-      initial_guess_["px"][i] = x_[i];
-      initial_guess_["py"][i] = y_[i];
-      initial_guess_["pz"][i] = z_[i];
-      initial_guess_["vx"][i] = vx_[i];
-      initial_guess_["vy"][i] = vy_[i];
-      initial_guess_["vz"][i] = vz_[i];
+      initial_guess_.ax[i] = ax_[i];
+      initial_guess_.ay[i] = ay_[i];
+      initial_guess_.az[i] = az_[i];
+      initial_guess_.x[i] = x_[i];
+      initial_guess_.y[i] = y_[i];
+      initial_guess_.z[i] = z_[i];
+      initial_guess_.vx[i] = vx_[i];
+      initial_guess_.vy[i] = vy_[i];
+      initial_guess_.vz[i] = vz_[i];
     }
   }
-  for (int i = 0; i < time_horizon_; i++) {
-      initial_guess_["pitch"][i] = 0.3;
-  }
+  // for (int i = 0; i < time_horizon_; i++) {
+  //     initial_guess_["pitch"][i] = 0.3;
+  // }
   // log the initial guess
   logger->logging();
 }
@@ -475,8 +475,7 @@ void backendSolver::stateMachine() {
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
         
         // call the solver
-        solver_success = solver_pt_->solverFunction(initial_guess_, desired_odometry_, no_fly_zone_center_,
-                                                            target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
+        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
         

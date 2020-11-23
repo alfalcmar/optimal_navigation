@@ -14,8 +14,6 @@ SolverUtils::Logger::Logger(backendSolver* class_to_log): class_to_log_ptr_(clas
     // file open
     file_.open(mypackage+ + "/logs/"+ string_time+"_drone"+std::to_string(class_to_log_ptr_->drone_id_));
     // file_ << std::fixed << std::setprecision(5);
-
-
 }
 
 SolverUtils::Logger::~Logger(){
@@ -42,10 +40,10 @@ void SolverUtils::Logger::logging() {
   }
   file_ << "initial guess: " << std::endl;
 
-  for (int i = 0; i <class_to_log_ptr_->initial_guess_.begin()->second.size() ; i++) {
-    file_ << class_to_log_ptr_->initial_guess_["ax"][i] << ", " << class_to_log_ptr_->initial_guess_["ay"][i] << ", " << class_to_log_ptr_->initial_guess_["az"][i] << ", " << class_to_log_ptr_->initial_guess_["px"][i] << ", "
-             << class_to_log_ptr_->initial_guess_["py"][i] << ", " << class_to_log_ptr_->initial_guess_["pz"][i] << ", " << class_to_log_ptr_->initial_guess_["vx"][i] << ", " << class_to_log_ptr_->initial_guess_["vy"][i] << ", "
-             << class_to_log_ptr_->initial_guess_["vz"][i] << std::endl;
+  for (int i = 0; i <class_to_log_ptr_->time_horizon_ ; i++) {
+    file_ << class_to_log_ptr_->initial_guess_.ax[i] << ", " << class_to_log_ptr_->initial_guess_.ay[i] << ", " << class_to_log_ptr_->initial_guess_.az[i] << ", " << class_to_log_ptr_->initial_guess_.x[i] << ", "
+             << class_to_log_ptr_->initial_guess_.y[i] << ", " << class_to_log_ptr_->initial_guess_.z[i] << ", " << class_to_log_ptr_->initial_guess_.vx[i] << ", " << class_to_log_ptr_->initial_guess_.vy[i] << ", "
+             << class_to_log_ptr_->initial_guess_.vz[i] << std::endl;
   }
 }
 

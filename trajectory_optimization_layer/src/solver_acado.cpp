@@ -1,13 +1,13 @@
 #include<solver_acado.h>
 
-NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon) : Solver(solving_rate, time_horizon){
+NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const InitialGuess &initial_guess) : Solver(solving_rate, time_horizon, initial_guess){
     
 
 }
 
 
 
-int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::array<double,TIME_HORIZON>> &_initial_guess, nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
@@ -132,16 +132,16 @@ int NumericalSolver::ACADOSolver::solverFunction(std::map<std::string, std::arra
     VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
     for(uint i=0; i<time_horizon_; i++){
-        control_init(i,0)=_initial_guess["ax"][i];
-        control_init(i,1)=_initial_guess["ay"][i];
-        control_init(i,2)=_initial_guess["az"][i];
+        control_init(i,0)= initial_guess_.ax[i];
+        control_init(i,1)= initial_guess_.ay[i];
+        control_init(i,2)= initial_guess_.az[i];
         control_init(i,3)=0.0; //slack
-        state_init(i,0)=_initial_guess["px"][i];
-        state_init(i,1)=_initial_guess["py"][i];
-        state_init(i,2)=_initial_guess["pz"][i];
-        state_init(i,3)=_initial_guess["vx"][i];
-        state_init(i,4)=_initial_guess["vy"][i];
-        state_init(i,5)=_initial_guess["vz"][i];
+        state_init(i,0)= initial_guess_.x[i];
+        state_init(i,1)= initial_guess_.y[i];
+        state_init(i,2)= initial_guess_.z[i];
+        state_init(i,3)= initial_guess_.vx[i];
+        state_init(i,4)= initial_guess_.vy[i];
+        state_init(i,5)= initial_guess_.vz[i];
        // control(i,3) = _initial_guess["pitch"][i];
     //    inter_state_init(i,0) = 0.2;
     }

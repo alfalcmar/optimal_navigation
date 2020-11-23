@@ -83,6 +83,7 @@ public:
 protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
   const int time_horizon_;
+
   std::unique_ptr<double[]> x_;  
   std::unique_ptr<double[]> y_;
   std::unique_ptr<double[]> z_;
@@ -92,6 +93,8 @@ protected:
   std::unique_ptr<double[]> ax_;
   std::unique_ptr<double[]> ay_;
   std::unique_ptr<double[]> az_;
+
+  InitialGuess initial_guess_;
 
   std::vector<float>                no_fly_zone_center_;
   const float                       NO_FLY_ZONE_RADIUS = 4;
@@ -119,8 +122,6 @@ protected:
   const double step_size           = 0.2;                                       /**< step size (seg) */
   bool         first_time_solving_ = true;
   bool         height_reached_     = false; /**< utility flag to set true when the height of the shot is reached */
-
-  std::map<std::string, std::array<double, TIME_HORIZON>> initial_guess_; /** intiial_guess_(px, step) */
 
   std::vector<int> drones;
   // services and topics
