@@ -42,13 +42,11 @@ protected:
     const float W_AZ = 1;
     const float W_SLACK = 5;
     
+    InitialGuess initial_guess_;
+    const int time_horizon_;
 
 
 public:
-    const int time_horizon_;
-
-    InitialGuess initial_guess_;
-    
     std::unique_ptr<double[]> x_ptr_;  
     std::unique_ptr<double[]> y_ptr_;
     std::unique_ptr<double[]> z_ptr_;
@@ -61,7 +59,6 @@ public:
 
     Solver(const float solving_rate, const int time_horizon, const InitialGuess initial_guess);
     virtual int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
-
 };
 
 }

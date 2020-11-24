@@ -7,10 +7,6 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
-#ifdef UAL
-#include <uav_abstraction_layer/TakeOff.h>
-#include <uav_abstraction_layer/GoToWaypoint.h>
-#endif
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/TrajectoryReference.h>

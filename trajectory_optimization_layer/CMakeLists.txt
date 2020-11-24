@@ -51,7 +51,7 @@ geometry_msgs
 
 catkin_package(
  INCLUDE_DIRS include
-  LIBRARIES backend_solver_library
+  LIBRARIES 
   CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
   #DEPENDS ACADO
 )
@@ -62,7 +62,7 @@ catkin_package(
 
 include_directories(
   include
-  LIBRARIES backend_solver_library
+  LIBRARIES 
   lib
   solver
   solver/FORCESNLPsolver/lib
@@ -75,21 +75,15 @@ if(DEFINED ENV{ACADO})
   include_directories(  ${ACADO_INCLUDE_DIRS})
 
 
-  add_library(solver_library
+add_library(solver_library
   src/solver.cpp
   src/solver_acado.cpp
   src/UAVState.cpp
   src/logger.cpp
   src/backendSolver.cpp
-  src/backendSolverMRS.cpp
-  )
+)
 endif()
 
-
-## Declare a C++ library
-add_library(backend_solver_library
-  src/backendSolver.cpp
-)
 
 if(DEFINED ENV{FORCES})
   set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
@@ -101,22 +95,21 @@ if(DEFINED ENV{FORCES})
   )
 endif()
 
-
-add_executable(optimal_control_interface_node src/solver_node.cpp)
-
+add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverMRS.cpp src/backendSolverUAL.cpp)
 
 if(DEFINED ENV{ACADO})
-  target_link_libraries(optimal_control_interface_node backend_solver_library solver_library) # FORCES_PRO_library)
+  target_link_libraries(optimal_control_interface_node solver_library) # FORCES_PRO_library)
 endif()
+
+
 
 if(DEFINED ENV{FORCES})
     add_definitions(-FORCES)
-    target_link_libraries(optimal_control_interface_node backend_solver_library FORCES_PRO_library)
+    target_link_libraries(optimal_control_interface_node FORCES_PRO_library)
 endif()
 
 target_link_libraries(optimal_control_interface_node 
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES} ${ACADO_SHARED_LIBRARIES}) 
-
 
 
 add_dependencies(optimal_control_interface_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
