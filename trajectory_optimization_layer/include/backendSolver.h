@@ -6,7 +6,6 @@
 #endif
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/TrajectoryReference.h>
@@ -118,9 +117,6 @@ protected:
   ros::Subscriber                desired_pose_sub;       /**< Subscriber to Shot executer's desired pose*/
   ros::Publisher                 solved_trajectory_pub;  /**< Publisher for the solve trajectroy for others */
   ros::ServiceServer             service_for_activation; /**< service to activate the planning */
-  ros::Publisher                 path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */
-  ros::Publisher                 target_path_rviz_pub;   /**< Publisher for visualizing the target trajectory on RVIZ */
-  ros::Publisher                 path_no_fly_zone;       /**< Publisher for visualizing the no-fly zone RVIZ */
   std::map<int, ros::Subscriber> drone_pose_sub;         /**< subscribers of the drones poses <drone_id, pose_subscriber> */
   std::map<int, ros::Subscriber> drone_trajectory_sub;   /**< subscribers the solved trajectory of others <drone_id, trajectory_subscriber */
   // aux flags
@@ -232,25 +228,7 @@ protected:
    *  \return                 it will return true if the calculated trajectory reach the desired position
    */
   bool desiredPoseReached(const std::vector<double> desired_pos, const std::vector<double> last_traj_pos);
-  ///////////////////////// UTILITY FUNCTION FOR VISUALIZATION AND LOGGING ////////////////////////////
-  /*! \brief Publish solved path to visualize on RVIZ
-   *   \param wps solved path
-   **/
-  void publishPath();
-  /*! \brief Publish desired pose to visualize on RVIZ
-   **/
-  void publishDesiredPoint();
-  /*! \brief Utility function to create a msg that allows us to visualize the target path prediction on RVIZ
-   *   \return nav_msg to visualize
-   **/
-  nav_msgs::Path targetPathVisualization();
-
-  /*! \brief Publish a rectangle that represents a no fly zone in order to visualize on rviz
-   *   \param point_1 2D vertice
-   *   \param point_2 2D vertice
-   *
-   **/
-  void publishNoFlyZone(double point_1[2], double point_2[2], double point_3[2], double point_4[2]);
+    
   /*! \brief loop to be inizialized but doing nothing
    */
   void IDLEState();

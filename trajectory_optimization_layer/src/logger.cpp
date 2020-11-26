@@ -2,7 +2,7 @@
 #include<backendSolver.h>
 
 
-SolverUtils::Logger::Logger(backendSolver* class_to_log): class_to_log_ptr_(class_to_log){
+SolverUtils::Logger::Logger(backendSolver* class_to_log, ros::NodeHandle pnh): class_to_log_ptr_(class_to_log){
 
     // current time to string
     std::time_t t = std::time(nullptr);
@@ -14,6 +14,11 @@ SolverUtils::Logger::Logger(backendSolver* class_to_log): class_to_log_ptr_(clas
     // file open
     file_.open(mypackage+ + "/logs/"+ string_time+"_drone"+std::to_string(class_to_log_ptr_->drone_id_));
     // file_ << std::fixed << std::setprecision(5);
+
+    path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
+    path_no_fly_zone       = pnh.advertise<nav_msgs::Path>("noflyzone", 1);
+    target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
+
 }
 
 SolverUtils::Logger::~Logger(){
@@ -21,7 +26,6 @@ SolverUtils::Logger::~Logger(){
     file_.close();
 
 }
-
 
 void SolverUtils::Logger::logging() {
   // logging all results
@@ -56,4 +60,77 @@ void SolverUtils::Logger::loggingCalculatedTrajectory(const int solver_success) 
       << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.y << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.z
      << ", " << class_to_log_ptr_->solver_pt_->solution_[i].velocity.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].velocity.y << ", "<< class_to_log_ptr_->solver_pt_->solution_[i].velocity.z<< std::endl;
   }
+}
+
+/**  \brief Construct a nav_msgs_path and publish to visualize through rviz
+ *   \param wps_x, wps_y, wps_z     last calculated path
+ */
+
+void SolverUtils::Logger::publishPath() {
+  nav_msgs::Path                          msg;
+  std::vector<geometry_msgs::PoseStamped> poses(class_to_log_ptr_->time_horizon_);
+  msg.header.frame_id = class_to_log_ptr_->trajectory_frame_;
+  for (int i = 0; i < class_to_log_ptr_->time_horizon_; i++) {
+    poses.at(i).pose.position.x    =class_to_log_ptr_->solution_[i].pose.x;
+    poses.at(i).pose.position.y    =class_to_log_ptr_->solution_[i].pose.y;
+    poses.at(i).pose.position.z    =class_to_log_ptr_->solution_[i].pose.z;
+    poses.at(i).pose.orientation.x = 0;
+    poses.at(i).pose.orientation.y = 0;
+    poses.at(i).pose.orientation.z = 0;
+    poses.at(i).pose.orientation.w = 1;
+  }
+  msg.poses = poses;
+  path_rviz_pub.publish(msg);
+}
+
+/** \brief Construct the no fly zone approximated by a tetrahedron to visualize it on RVIZ
+ *  \param  2D points
+ */
+void SolverUtils::Logger::publishNoFlyZone(double point_1[2], double point_2[2], double point_3[2], double point_4[2]) {
+  nav_msgs::Path msg;
+  msg.header.frame_id = class_to_log_ptr_->trajectory_frame_;
+
+  std::vector<geometry_msgs::PoseStamped> poses;
+  geometry_msgs::PoseStamped              pose;
+
+  pose.pose.position.x = point_1[0];
+  pose.pose.position.y = point_1[1];
+  poses.push_back(pose);
+
+  pose.pose.position.x = point_2[0];
+  pose.pose.position.y = point_2[1];
+  poses.push_back(pose);
+
+  pose.pose.position.x = point_3[0];
+  pose.pose.position.y = point_3[1];
+  poses.push_back(pose);
+
+  pose.pose.position.x = point_4[0];
+  pose.pose.position.y = point_4[1];
+  poses.push_back(pose);
+
+  pose.pose.position.x = point_1[0];
+  pose.pose.position.y = point_1[1];
+
+
+  poses.push_back(pose);
+
+  msg.poses = poses;
+  path_no_fly_zone.publish(msg);
+}
+
+nav_msgs::Path SolverUtils::Logger::targetPathVisualization() {
+  nav_msgs::Path                          msg;
+  std::vector<geometry_msgs::PoseStamped> poses(class_to_log_ptr_->target_trajectory_.size());
+  msg.header.frame_id = class_to_log_ptr_->trajectory_frame_;
+  for (size_t i = 0; i < class_to_log_ptr_->target_trajectory_.size(); i++) {
+    poses.at(i).pose.position.x    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.x;
+    poses.at(i).pose.position.y    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.y;
+    poses.at(i).pose.position.z    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.z;
+    poses.at(i).pose.orientation.x = 0;
+    poses.at(i).pose.orientation.y = 0;
+    poses.at(i).pose.orientation.z = 0;
+    poses.at(i).pose.orientation.w = 1;
+  }
+  return msg;
 }

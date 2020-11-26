@@ -50,15 +50,12 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
   // publishers
   solved_trajectory_pub  = pnh.advertise<optimal_control_interface::Solver>("trajectory", 1);
-  path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
-  path_no_fly_zone       = pnh.advertise<nav_msgs::Path>("noflyzone", 1);
-  target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
   // acado object
   solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon, initial_guess_);
 
   // log files
-  logger = new SolverUtils::Logger(this);
+  logger = new SolverUtils::Logger(this,pnh);
 }
 
 
@@ -126,26 +123,6 @@ void backendSolver::publishSolvedTrajectory(const std::vector<double> &yaw, cons
   ROS_INFO("virtual definition of publish solved trajectory");
 }
 
-void backendSolver::publishTrajectory() {
-
-  optimal_control_interface::Solver traj;
-  geometry_msgs::PoseStamped        pos;
-  geometry_msgs::Twist              vel;
-
-  for (int i = 0; i < time_horizon_; i++) {
-    // trajectory to visualize
-    pos.pose.position.x = solution_[i].pose.x;
-    pos.pose.position.y = solution_[i].pose.y;
-    pos.pose.position.z = solution_[i].pose.z;
-    traj.positions.push_back(pos);
-    vel.linear.x =solution_[i].velocity.x;
-    vel.linear.y =solution_[i].velocity.y;
-    vel.linear.z =solution_[i].velocity.z;
-    traj.velocities.push_back(vel);
-  }
-  solved_trajectory_pub.publish(traj);
-}
-
 
 bool backendSolver::desiredPoseReached(const std::vector<double> desired_pos, const std::vector<double> last_traj_pos) {
   Eigen::Vector3f desired_pose = Eigen::Vector3f(desired_pos[0], desired_pos[1], desired_pos[2]);
@@ -210,84 +187,6 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
   }
 }
 
-
-
-/**  \brief Construct a nav_msgs_path and publish to visualize through rviz
- *   \param wps_x, wps_y, wps_z     last calculated path
- */
-
-void backendSolver::publishPath() {
-  nav_msgs::Path                          msg;
-  std::vector<geometry_msgs::PoseStamped> poses(time_horizon_);
-  msg.header.frame_id = trajectory_frame_;
-  for (int i = 0; i < time_horizon_; i++) {
-    poses.at(i).pose.position.x    =solution_[i].pose.x;
-    poses.at(i).pose.position.y    =solution_[i].pose.y;
-    poses.at(i).pose.position.z    =solution_[i].pose.z;
-    poses.at(i).pose.orientation.x = 0;
-    poses.at(i).pose.orientation.y = 0;
-    poses.at(i).pose.orientation.z = 0;
-    poses.at(i).pose.orientation.w = 1;
-  }
-  msg.poses = poses;
-  path_rviz_pub.publish(msg);
-}
-
-/** \brief Construct the no fly zone approximated by a tetrahedron to visualize it on RVIZ
- *  \param  2D points
- */
-void backendSolver::publishNoFlyZone(double point_1[2], double point_2[2], double point_3[2], double point_4[2]) {
-  nav_msgs::Path msg;
-  msg.header.frame_id = trajectory_frame_;
-
-  std::vector<geometry_msgs::PoseStamped> poses;
-  geometry_msgs::PoseStamped              pose;
-
-  pose.pose.position.x = point_1[0];
-  pose.pose.position.y = point_1[1];
-  poses.push_back(pose);
-
-  pose.pose.position.x = point_2[0];
-  pose.pose.position.y = point_2[1];
-  poses.push_back(pose);
-
-  pose.pose.position.x = point_3[0];
-  pose.pose.position.y = point_3[1];
-  poses.push_back(pose);
-
-  pose.pose.position.x = point_4[0];
-  pose.pose.position.y = point_4[1];
-  poses.push_back(pose);
-
-  pose.pose.position.x = point_1[0];
-  pose.pose.position.y = point_1[1];
-
-
-  poses.push_back(pose);
-
-  msg.poses = poses;
-  path_no_fly_zone.publish(msg);
-}
-
-
-
-
-nav_msgs::Path backendSolver::targetPathVisualization() {
-  nav_msgs::Path                          msg;
-  std::vector<geometry_msgs::PoseStamped> poses(target_trajectory_.size());
-  msg.header.frame_id = trajectory_frame_;
-  for (size_t i = 0; i < target_trajectory_.size(); i++) {
-    poses.at(i).pose.position.x    = target_trajectory_[i].pose.pose.position.x;
-    poses.at(i).pose.position.y    = target_trajectory_[i].pose.pose.position.y;
-    poses.at(i).pose.position.z    = target_trajectory_[i].pose.pose.position.z;
-    poses.at(i).pose.orientation.x = 0;
-    poses.at(i).pose.orientation.y = 0;
-    poses.at(i).pose.orientation.z = 0;
-    poses.at(i).pose.orientation.w = 1;
-  }
-  return msg;
-}
-
 bool backendSolver::checkConnectivity() {
   // check the connectivity with drones and target
   size_t cont = 0;
@@ -304,6 +203,27 @@ bool backendSolver::checkConnectivity() {
     return (cont == drones.size());     
   }
 }
+
+void backendSolver::publishTrajectory() {
+
+  optimal_control_interface::Solver traj;
+  geometry_msgs::PoseStamped        pos;
+  geometry_msgs::Twist              vel;
+
+  for (int i = 0; i < time_horizon_; i++) {
+    // trajectory to visualize
+    pos.pose.position.x = solution_[i].pose.x;
+    pos.pose.position.y = solution_[i].pose.y;
+    pos.pose.position.z = solution_[i].pose.z;
+    traj.positions.push_back(pos);
+    vel.linear.x =solution_[i].velocity.x;
+    vel.linear.y =solution_[i].velocity.y;
+    vel.linear.z =solution_[i].velocity.z;
+    traj.velocities.push_back(vel);
+  }
+  solved_trajectory_pub.publish(traj);
+}
+
 
 void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius) {
   no_fly_zone_points_.clear();
@@ -505,6 +425,8 @@ void backendSolver::stateMachine() {
     std::vector<double> yaw   = predictingYaw();
     std::vector<double> pitch = predictingPitch();
     publishSolvedTrajectory(yaw, pitch, closest_point);
+    logger->publishPath(); // publish to visualize
+
     first_time_solving_=false;
   
     solver_timer.reset();

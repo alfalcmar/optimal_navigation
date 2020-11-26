@@ -32,7 +32,6 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
 
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int closest_point) {
-  publishPath();
   publishState(true);
   mrs_msgs::Reference                   aux_point;
   formation_church_planning::Point      aux_point_for_followers;
