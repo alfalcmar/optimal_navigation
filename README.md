@@ -13,6 +13,8 @@ cmake ..
 make
 sudo make install
 
+catkin build
+
 ```
 ## How to command a shot ##
 
