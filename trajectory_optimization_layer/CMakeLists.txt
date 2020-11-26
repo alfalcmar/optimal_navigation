@@ -22,16 +22,14 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   shot_executer
   roslib
+  mrs_msgs
+  formation_church_planning
 )
 
 #MRS packages
 option(MRS_INTERFACE "MRS interface activated" ON)
 if( MRS_INTERFACE )
-ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
-find_package(
-  mrs_msgs
-  formation_church_planning
-)
+  ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
 endif()
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
@@ -106,7 +104,11 @@ if(DEFINED ENV{FORCES})
   )
 endif()
 
-add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverUAL.cpp)
+if( MRS_INTERFACE )
+  add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverMRS.cpp)
+else()
+  add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverUAL.cpp)
+endif()
 
 if(DEFINED ENV{ACADO})
   target_link_libraries(optimal_control_interface_node solver_library) # FORCES_PRO_library)
