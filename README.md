@@ -4,7 +4,14 @@
 ## How do I get set up? ##
 
 ```
-git clone https://github.com/alfalcmar/oc_interface.git
+git clone https://github.com/alfalcmar/optimal_navigation.git
+
+cd acado
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
 
 ```
 ## How to command a shot ##
