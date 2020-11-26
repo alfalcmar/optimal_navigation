@@ -1,10 +1,19 @@
 #include<backendSolver.h>
+#include <formation_church_planning/Trajectory.h>
+#include <formation_church_planning/Point.h>
+#include <formation_church_planning/Diagnostic.h>
+#include <formation_church_planning/Status.h>
+#include <mrs_msgs/TrajectoryReference.h>
+#include <mrs_msgs/Reference.h>
+#include <mrs_lib/transformer.h>
 
 class backendSolverMRS : public backendSolver {
 public:
   backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon);
 
 private:
+  mrs_lib::Transformer transformer_;
+
   ros::Subscriber uav_odometry_sub; /**< Subscriber to UAV's odometry*/
   ros::Publisher  diagnostics_pub;
   ros::Publisher  solved_trajectory_MRS_pub;

@@ -8,20 +8,13 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
-#include <mrs_msgs/TrajectoryReference.h>
-#include <mrs_msgs/Reference.h>
 #include <std_srvs/SetBool.h>
 #include <tf/tf.h>
-#include <formation_church_planning/Trajectory.h>
-#include <formation_church_planning/Point.h>
-#include <formation_church_planning/Diagnostic.h>
-#include <formation_church_planning/Status.h>
 #include <math.h> /* sqrt */
 #include <solver_acado.h>
 #include <shot_executer/DesiredShot.h>
 #include <optimal_control_interface/Solver.h>
 #include <thread>  // std::thread, std::this_thread::sleep_for
-#include <mrs_lib/transformer.h>
 #include <ros/package.h>
 #include <chrono>
 #include <UAVState.h>
@@ -138,8 +131,6 @@ protected:
 
   bool         hovering_ = true;
   std::unique_ptr<NumericalSolver::ACADOSolver> solver_pt_;
-
-  mrs_lib::Transformer transformer_;
   // FORCESPROsolver solver_;                /**< solver object */
 
   bool desired_position_reached_ = false; /**< flag to check if the last generated trajectory reach the desired point */

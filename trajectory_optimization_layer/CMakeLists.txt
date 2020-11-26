@@ -20,10 +20,19 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   #uav_abstraction_layer
   nav_msgs
+  shot_executer
+  roslib
+)
+
+#MRS packages
+option(MRS_INTERFACE "MRS interface activated" ON)
+if( MRS_INTERFACE )
+ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
+find_package(
   mrs_msgs
   formation_church_planning
-  shot_executer
 )
+endif()
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
 
@@ -52,7 +61,8 @@ geometry_msgs
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES 
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib
+
   #DEPENDS ACADO
 )
 
@@ -62,7 +72,8 @@ catkin_package(
 
 include_directories(
   include
-  LIBRARIES 
+  LIBRARIES
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
   lib
   solver
   solver/FORCESNLPsolver/lib
@@ -95,7 +106,7 @@ if(DEFINED ENV{FORCES})
   )
 endif()
 
-add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverMRS.cpp src/backendSolverUAL.cpp)
+add_executable(optimal_control_interface_node src/solver_node.cpp src/backendSolverUAL.cpp)
 
 if(DEFINED ENV{ACADO})
   target_link_libraries(optimal_control_interface_node solver_library) # FORCES_PRO_library)

@@ -2,7 +2,7 @@
 #define BACKENDSOLVERUAL_H
 #include<backendSolver.h>
 
-class backendSolverUAL : backendSolver {
+class backendSolverUAL : public backendSolver {
 public:
   backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon);
 private:
