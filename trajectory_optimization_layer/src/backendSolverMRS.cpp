@@ -47,14 +47,14 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
   for (int i = closest_point; i < time_horizon_; i++) {
 
     // trajectory to command
-    aux_point.position.x = x_[i];
-    aux_point.position.y = y_[i];
-    aux_point.position.z = z_[i];
+    aux_point.position.x = solution_[i].pose.x;
+    aux_point.position.y = solution_[i].pose.y;
+    aux_point.position.z = solution_[i].pose.z;
     aux_point.heading    = yaw[i];
     // trajectory to followers
-    aux_point_for_followers.x     = x_[i];
-    aux_point_for_followers.y     = y_[i];
-    aux_point_for_followers.z     = z_[i];
+    aux_point_for_followers.x     = solution_[i].pose.x;
+    aux_point_for_followers.y     = solution_[i].pose.y;
+    aux_point_for_followers.z     = solution_[i].pose.z;
     aux_point_for_followers.yaw   = yaw[i];
     aux_point_for_followers.pitch = pitch[i];
     aux_point_for_followers.phi   = 0.0;
@@ -114,17 +114,17 @@ void backendSolverMRS::publishState(const bool state) {
 /** \brief uav odometry callback (mrs system)
  */
 void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
-  uavs_pose_[drone_id_].pose.x = msg->pose.pose.position.x;
-  uavs_pose_[drone_id_].pose.y = msg->pose.pose.position.y;
-  uavs_pose_[drone_id_].pose.z = msg->pose.pose.position.z;
+  uavs_pose_[drone_id_].state.pose.x = msg->pose.pose.position.x;
+  uavs_pose_[drone_id_].state.pose.y = msg->pose.pose.position.y;
+  uavs_pose_[drone_id_].state.pose.z = msg->pose.pose.position.z;
 
-  uavs_pose_[drone_id_].quaternion.x = msg->pose.pose.orientation.x;
-  uavs_pose_[drone_id_].quaternion.y = msg->pose.pose.orientation.y;
-  uavs_pose_[drone_id_].quaternion.z = msg->pose.pose.orientation.z;
+  uavs_pose_[drone_id_].state.quaternion.x = msg->pose.pose.orientation.x;
+  uavs_pose_[drone_id_].state.quaternion.y = msg->pose.pose.orientation.y;
+  uavs_pose_[drone_id_].state.quaternion.z = msg->pose.pose.orientation.z;
 
-  uavs_pose_[drone_id_].velocity.x = msg->pose.pose.position.x;
-  uavs_pose_[drone_id_].velocity.y = msg->pose.pose.position.y;
-  uavs_pose_[drone_id_].velocity.z = msg->pose.pose.position.z;
+  uavs_pose_[drone_id_].state.velocity.x = msg->twist.twist.linear.x;
+  uavs_pose_[drone_id_].state.velocity.y = msg->twist.twist.linear.y;
+  uavs_pose_[drone_id_].state.velocity.z = msg->twist.twist.linear.z;
 
   uavs_pose_[drone_id_].has_pose = true;
 }

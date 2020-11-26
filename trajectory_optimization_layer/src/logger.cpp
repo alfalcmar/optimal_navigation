@@ -35,15 +35,15 @@ void SolverUtils::Logger::logging() {
   file_ << "My accel: " << 0.0 << ", " << 0.0 << ", " << 0.0 << std::endl;
   // logging inter-uavss pose
   for(auto it = class_to_log_ptr_->uavs_pose_.begin(); it!=class_to_log_ptr_->uavs_pose_.end();++it){
-    file_ << "Drone pose "<<it->first<<": " << it->second.pose.x << ", " << it->second.pose.y << ", " << it->second.pose.z<< ", " << std::endl;
-    file_ << "Drone vel "<<it->first<<": " << it->second.velocity.x << ", " << it->second.velocity.y << ", " << it->second.velocity.z<< ", " << std::endl;
+    file_ << "Drone pose "<<it->first<<": " << it->second.state.pose.x << ", " << it->second.state.pose.y << ", " << it->second.state.pose.z<< ", " << std::endl;
+    file_ << "Drone vel "<<it->first<<": " << it->second.state.velocity.x << ", " << it->second.state.velocity.y << ", " << it->second.state.velocity.z<< ", " << std::endl;
   }
   file_ << "initial guess: " << std::endl;
 
   for (int i = 0; i <class_to_log_ptr_->time_horizon_ ; i++) {
-    file_ << class_to_log_ptr_->initial_guess_.ax[i] << ", " << class_to_log_ptr_->initial_guess_.ay[i] << ", " << class_to_log_ptr_->initial_guess_.az[i] << ", " << class_to_log_ptr_->initial_guess_.x[i] << ", "
-             << class_to_log_ptr_->initial_guess_.y[i] << ", " << class_to_log_ptr_->initial_guess_.z[i] << ", " << class_to_log_ptr_->initial_guess_.vx[i] << ", " << class_to_log_ptr_->initial_guess_.vy[i] << ", "
-             << class_to_log_ptr_->initial_guess_.vz[i] << std::endl;
+    file_ << class_to_log_ptr_->initial_guess_[i].acc.x << ", " << class_to_log_ptr_->initial_guess_[i].acc.y << ", " << class_to_log_ptr_->initial_guess_[i].acc.z << ", " << class_to_log_ptr_->initial_guess_[i].pose.x<< ", "
+             << class_to_log_ptr_->initial_guess_[i].pose.y << ", " << class_to_log_ptr_->initial_guess_[i].pose.z << ", " << class_to_log_ptr_->initial_guess_[i].velocity.x << ", " << class_to_log_ptr_->initial_guess_[i].velocity.y << ", "
+             << class_to_log_ptr_->initial_guess_[i].velocity.z<< std::endl;
   }
 }
 
@@ -52,8 +52,8 @@ void SolverUtils::Logger::loggingCalculatedTrajectory(const int solver_success) 
   file_ << "solver_success: " << solver_success << std::endl;
   file_ << "Calculated trajectroy" << std::endl;
   for (int i = 0; i < class_to_log_ptr_->time_horizon_; i++) {
-    file_ << class_to_log_ptr_->solver_pt_->ax_ptr_[i] << ", " << class_to_log_ptr_->solver_pt_->ay_ptr_[i] << ", " << class_to_log_ptr_->solver_pt_->az_ptr_[i]
-      << ", " << class_to_log_ptr_->solver_pt_->x_ptr_[i] << ", " << class_to_log_ptr_->solver_pt_->y_ptr_[i] << ", " << class_to_log_ptr_->solver_pt_->z_ptr_[i]
-     << ", " << class_to_log_ptr_->solver_pt_->vx_ptr_[i] << ", " << class_to_log_ptr_->solver_pt_->vy_ptr_[i] << ", "<< class_to_log_ptr_->solver_pt_->vz_ptr_[i] << std::endl;
+    file_ << class_to_log_ptr_->solver_pt_->solution_[i].acc.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].acc.y << ", " << class_to_log_ptr_->solver_pt_->solution_[i].acc.z
+      << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.y << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.z
+     << ", " << class_to_log_ptr_->solver_pt_->solution_[i].velocity.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].velocity.y << ", "<< class_to_log_ptr_->solver_pt_->solution_[i].velocity.z<< std::endl;
   }
 }

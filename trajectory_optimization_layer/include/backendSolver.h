@@ -80,17 +80,10 @@ protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
   const int time_horizon_;
 
-  std::unique_ptr<double[]> x_;  
-  std::unique_ptr<double[]> y_;
-  std::unique_ptr<double[]> z_;
-  std::unique_ptr<double[]> vx_;
-  std::unique_ptr<double[]> vy_;
-  std::unique_ptr<double[]> vz_;
-  std::unique_ptr<double[]> ax_;
-  std::unique_ptr<double[]> ay_;
-  std::unique_ptr<double[]> az_;
+  std::unique_ptr<State[]> solution_;  
+  
 
-  InitialGuess initial_guess_;
+  std::shared_ptr<State[]> initial_guess_;
 
   std::vector<float>                no_fly_zone_center_;
   const float                       NO_FLY_ZONE_RADIUS = 4;

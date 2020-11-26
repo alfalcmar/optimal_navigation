@@ -1,3 +1,6 @@
+#ifndef SOLVERACADO_H
+#define SOLVERACADO_H
+
 #include<solver.h>
 
 namespace NumericalSolver{
@@ -9,7 +12,7 @@ private:
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
 
 public:
-    ACADOSolver(const float solving_rate, const int time_horizon, const InitialGuess &intial_guess);
+    ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &intial_guess);
 
     /** \brief This function fill the solver inputs and call it
     *  \param x y z vx vy vz       These are the variables where the calculated path will place
@@ -23,3 +26,5 @@ public:
 };
 
 }
+
+#endif

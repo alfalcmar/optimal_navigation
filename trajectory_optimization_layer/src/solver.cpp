@@ -1,16 +1,8 @@
 #include<solver.h>    
 
-NumericalSolver::Solver::Solver(const float solving_rate, const int time_horizon, const InitialGuess initial_guess) : solving_rate_(solving_rate),
+NumericalSolver::Solver::Solver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> initial_guess) : solving_rate_(solving_rate),
                                                                         time_horizon_(time_horizon),
-                                                                        x_ptr_(new double[time_horizon]{0.0}),
-                                                                        y_ptr_(new double[time_horizon]{0.0}),
-                                                                        z_ptr_(new double[time_horizon]{0.0}),
-                                                                        vx_ptr_(new double[time_horizon]{0.0}),
-                                                                        vy_ptr_(new double[time_horizon]{0.0}),
-                                                                        vz_ptr_(new double[time_horizon]{0.0}),
-                                                                        ax_ptr_(new double[time_horizon]{0.0}),
-                                                                        ay_ptr_(new double[time_horizon]{0.0}),
-                                                                        az_ptr_(new double[time_horizon]{0.0}),
+                                                                        solution_(new State[time_horizon]),                                                                
                                                                         initial_guess_(initial_guess)
 {
 

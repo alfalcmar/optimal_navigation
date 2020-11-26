@@ -3,9 +3,9 @@
 
 void backendSolverUAL::ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
-  uavs_pose_[drone_id_].velocity.x = msg->twist.linear.x;
-  uavs_pose_[drone_id_].velocity.y = msg->twist.linear.y;
-  uavs_pose_[drone_id_].velocity.z = msg->twist.linear.z;
+  uavs_pose_[drone_id_].state.velocity.x = msg->twist.linear.x;
+  uavs_pose_[drone_id_].state.velocity.y = msg->twist.linear.y;
+  uavs_pose_[drone_id_].state.velocity.z = msg->twist.linear.z;
 }
 
 backendSolverUAL::backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {

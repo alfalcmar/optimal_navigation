@@ -1,6 +1,6 @@
 #include<solver_acado.h>
 
-NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const InitialGuess &initial_guess) : Solver(solving_rate, time_horizon, initial_guess){
+NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess) : Solver(solving_rate, time_horizon, initial_guess){
     
 
 }
@@ -53,22 +53,22 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
 
     if(first_time_solving){
-        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).pose.x);
-        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).pose.y);
-        ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).pose.z);
+        ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).state.pose.x);
+        ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).state.pose.y);
+        ocp.subjectTo( AT_START, pz_ == _uavs_pose.at(_drone_id).state.pose.z);
         ocp.subjectTo( AT_START, ax_ == 0.0);
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);
     }else{     
-        ocp.subjectTo( AT_START, px_ == x_ptr_ [(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, py_ == y_ptr_ [(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, pz_ == z_ptr_ [(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, vx_ == vx_ptr_[(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, vy_ == vy_ptr_[(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, vz_ == vz_ptr_[(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, ax_ == ax_ptr_[(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, ay_ == ay_ptr_[(time_initial_position/step_size)+offset_]);
-        ocp.subjectTo( AT_START, az_ == az_ptr_[(time_initial_position/step_size)+offset_]);
+        ocp.subjectTo( AT_START, px_ == solution_[(time_initial_position/step_size)+offset_].pose.x);
+        ocp.subjectTo( AT_START, py_ == solution_[(time_initial_position/step_size)+offset_].pose.y);
+        ocp.subjectTo( AT_START, pz_ == solution_[(time_initial_position/step_size)+offset_].pose.z);
+        ocp.subjectTo( AT_START, vx_ == solution_[(time_initial_position/step_size)+offset_].velocity.x);
+        ocp.subjectTo( AT_START, vy_ == solution_[(time_initial_position/step_size)+offset_].velocity.y);
+        ocp.subjectTo( AT_START, vz_ == solution_[(time_initial_position/step_size)+offset_].velocity.z);
+        ocp.subjectTo( AT_START, ax_ == solution_[(time_initial_position/step_size)+offset_].acc.x);
+        ocp.subjectTo( AT_START, ay_ == solution_[(time_initial_position/step_size)+offset_].acc.y);
+        ocp.subjectTo( AT_START, az_ == solution_[(time_initial_position/step_size)+offset_].acc.z);
     }
 
     //ocp.subjectTo( s >= 0 ); slack variable
@@ -132,20 +132,19 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
     for(uint i=0; i<time_horizon_; i++){
-        control_init(i,0)= initial_guess_.ax[i];
-        control_init(i,1)= initial_guess_.ay[i];
-        control_init(i,2)= initial_guess_.az[i];
+        control_init(i,0)= initial_guess_[i].acc.x;
+        control_init(i,1)= initial_guess_[i].acc.y;
+        control_init(i,2)= initial_guess_[i].acc.z;
         control_init(i,3)=0.0; //slack
-        state_init(i,0)= initial_guess_.x[i];
-        state_init(i,1)= initial_guess_.y[i];
-        state_init(i,2)= initial_guess_.z[i];
-        state_init(i,3)= initial_guess_.vx[i];
-        state_init(i,4)= initial_guess_.vy[i];
-        state_init(i,5)= initial_guess_.vz[i];
+        state_init(i,0)= initial_guess_[i].pose.x;
+        state_init(i,1)= initial_guess_[i].pose.y;
+        state_init(i,2)= initial_guess_[i].pose.z;
+        state_init(i,3)= initial_guess_[i].velocity.x;
+        state_init(i,4)= initial_guess_[i].velocity.y;
+        state_init(i,5)= initial_guess_[i].velocity.z;
        // control(i,3) = _initial_guess["pitch"][i];
     //    inter_state_init(i,0) = 0.2;
     }
-
 
     solver.initializeDifferentialStates( state_init );
     solver.initializeControls          ( control_init );
@@ -206,25 +205,25 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
         for(int i=0;i<time_horizon_;i++){
 
             if(i<offset_  && !first_time_solving){ 
-                x_ptr_[i]=x_ptr_  [(time_initial_position/step_size)+i];
-                y_ptr_[i]=y_ptr_  [(time_initial_position/step_size)+i];
-                z_ptr_[i]=z_ptr_  [(time_initial_position/step_size)+i];
-                vx_ptr_[i]=vx_ptr_[(time_initial_position/step_size)+i];
-                vy_ptr_[i]=vy_ptr_[(time_initial_position/step_size)+i];
-                vz_ptr_[i]=vz_ptr_[(time_initial_position/step_size)+i];
-                ax_ptr_[i]=ax_ptr_[(time_initial_position/step_size)+i];
-                ay_ptr_[i]=ay_ptr_[(time_initial_position/step_size)+i];
-                az_ptr_[i]=az_ptr_[(time_initial_position/step_size)+i];
+                solution_[i].pose.x=       solution_  [(time_initial_position/step_size)+i].pose.x;
+                solution_[i].pose.y=       solution_  [(time_initial_position/step_size)+i].pose.y;
+                solution_[i].pose.z=       solution_  [(time_initial_position/step_size)+i].pose.z;
+                solution_[i].velocity.x=   solution_[(time_initial_position/step_size)+i].velocity.x;
+                solution_[i].velocity.y=   solution_[(time_initial_position/step_size)+i].velocity.y;
+                solution_[i].velocity.z=   solution_[(time_initial_position/step_size)+i].velocity.z;
+                solution_[i].acc.x=      solution_[(time_initial_position/step_size)+i].acc.x;
+                solution_[i].acc.y=      solution_[(time_initial_position/step_size)+i].acc.y;
+                solution_[i].acc.z=      solution_[(time_initial_position/step_size)+i].acc.z;
             }else{
-                x_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,0);
-                y_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,1);
-                z_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,2);
-                vx_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,3);
-                vy_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,4);
-                vz_ptr_[i]=output_states(i-offset_*(int)!first_time_solving,5);
-                ax_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,0);
-                ay_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,1);
-                az_ptr_[i]=output_control(i-offset_*(int)!first_time_solving,2);
+                solution_[i].pose.x=output_states(i-offset_*(int)!first_time_solving,0);
+                solution_[i].pose.y=output_states(i-offset_*(int)!first_time_solving,1);
+                solution_[i].pose.z=output_states(i-offset_*(int)!first_time_solving,2);
+                solution_[i].velocity.x=output_states(i-offset_*(int)!first_time_solving,3);
+                solution_[i].velocity.y=output_states(i-offset_*(int)!first_time_solving,4);
+                solution_[i].velocity.z=output_states(i-offset_*(int)!first_time_solving,5);
+                solution_[i].acc.x=output_control(i-offset_*(int)!first_time_solving,0);
+                solution_[i].acc.y=output_control(i-offset_*(int)!first_time_solving,1);
+                solution_[i].acc.z=output_control(i-offset_*(int)!first_time_solving,2);
                 // csv<<output_control(i,3)<<std::endl;
             }
         }

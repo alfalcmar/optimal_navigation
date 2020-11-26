@@ -5,16 +5,8 @@
 
 
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int time_horizon) : time_horizon_(time_horizon),
-                                                                                                x_(new double[time_horizon]{0.0}),
-                                                                                                y_(new double[time_horizon]{0.0}),
-                                                                                                z_(new double[time_horizon]{0.0}),
-                                                                                                vx_(new double[time_horizon]{0.0}),
-                                                                                                vy_(new double[time_horizon]{0.0}),
-                                                                                                vz_(new double[time_horizon]{0.0}),
-                                                                                                ax_(new double[time_horizon]{0.0}),
-                                                                                                ay_(new double[time_horizon]{0.0}),
-                                                                                                az_(new double[time_horizon]{0.0}),
-                                                                                                initial_guess_(time_horizon) {
+                                                                                                solution_(new State[time_horizon]),
+                                                                                                initial_guess_(new State[time_horizon]) {
   ROS_INFO("backend solver constructor");
 
   // drones param
@@ -81,15 +73,15 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 
 void backendSolver::saveCalculatedTrajectory(){
   for (int i=0; i<time_horizon_; i++){
-      x_[i] = solver_pt_->x_ptr_[i];
-      y_[i] = solver_pt_->y_ptr_[i];
-      z_[i] = solver_pt_->z_ptr_[i];
-      vx_[i] = solver_pt_->vx_ptr_[i];
-      vy_[i] = solver_pt_->vy_ptr_[i];
-      vz_[i] = solver_pt_->vz_ptr_[i];
-      ax_[i] = solver_pt_->ax_ptr_[i];
-      ay_[i] = solver_pt_->ay_ptr_[i];
-      az_[i] = solver_pt_->az_ptr_[i];
+      solution_[i].pose.x = solver_pt_->solution_[i].pose.x;
+      solution_[i].pose.y = solver_pt_->solution_[i].pose.y;
+      solution_[i].pose.z = solver_pt_->solution_[i].pose.z;
+      solution_[i].velocity.x = solver_pt_->solution_[i].velocity.x;
+      solution_[i].velocity.y = solver_pt_->solution_[i].velocity.y;
+      solution_[i].velocity.z = solver_pt_->solution_[i].velocity.z;
+      solution_[i].acc.x = solver_pt_->solution_[i].acc.x;
+      solution_[i].acc.y = solver_pt_->solution_[i].acc.y;
+      solution_[i].acc.z = solver_pt_->solution_[i].acc.z;
   }
 }
 
@@ -119,13 +111,14 @@ void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &
       uavs_trajectory[id].positions.push_back(pose_aux);
     }
   }
-  uavs_pose_[id].pose.x = msg->pose.position.x;
-  uavs_pose_[id].pose.y = msg->pose.position.y;
-  uavs_pose_[id].pose.z = msg->pose.position.z;
+  uavs_pose_[id].state.pose.x = msg->pose.position.x;
+  uavs_pose_[id].state.pose.y = msg->pose.position.y;
+  uavs_pose_[id].state.pose.z = msg->pose.position.z;
   
-  uavs_pose_[id].quaternion.x = msg->pose.orientation.x;
-  uavs_pose_[id].quaternion.y = msg->pose.orientation.y;
-  uavs_pose_[id].quaternion.z = msg->pose.orientation.z;
+  uavs_pose_[id].state.quaternion.x = msg->pose.orientation.x;
+  uavs_pose_[id].state.quaternion.y = msg->pose.orientation.y;
+  uavs_pose_[id].state.quaternion.z = msg->pose.orientation.z;
+  uavs_pose_[id].state.quaternion.w = msg->pose.orientation.w;
 }
 
 
@@ -141,13 +134,13 @@ void backendSolver::publishTrajectory() {
 
   for (int i = 0; i < time_horizon_; i++) {
     // trajectory to visualize
-    pos.pose.position.x = x_[i];
-    pos.pose.position.y = y_[i];
-    pos.pose.position.z = z_[i];
+    pos.pose.position.x = solution_[i].pose.x;
+    pos.pose.position.y = solution_[i].pose.y;
+    pos.pose.position.z = solution_[i].pose.z;
     traj.positions.push_back(pos);
-    vel.linear.x = vx_[i];
-    vel.linear.y = vy_[i];
-    vel.linear.z = vz_[i];
+    vel.linear.x =solution_[i].velocity.x;
+    vel.linear.y =solution_[i].velocity.y;
+    vel.linear.z =solution_[i].velocity.z;
     traj.velocities.push_back(vel);
   }
   solved_trajectory_pub.publish(traj);
@@ -172,7 +165,7 @@ std::vector<double> backendSolver::predictingPitch() {
   Eigen::Vector3f q_camera_target;
   for (int i = 0; i < time_horizon_; i++) {
     target_pose_aux = Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, 0);
-    drone_pose_aux  = Eigen::Vector3f(x_[i], y_[i], z_[i]);
+    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x,solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = drone_pose_aux - target_pose_aux;
     float aux_sqrt  = sqrt(pow(q_camera_target[0], 2.0) + pow(q_camera_target[1], 2.0));
     pitch.push_back(1.57 - atan2(aux_sqrt, q_camera_target[2]));
@@ -191,7 +184,7 @@ std::vector<double> backendSolver::predictingYaw() {
   for (int i = 0; i < time_horizon_; i++) {
     target_pose_aux =
         Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, target_trajectory_[i].pose.pose.position.z);
-    drone_pose_aux  = Eigen::Vector3f(x_[i], y_[i], z_[i]);
+    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x,solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = target_pose_aux - drone_pose_aux;
     yaw.push_back(atan2(q_camera_target[1], q_camera_target[0]));
     ROS_INFO("[%s]: Estimated target trajectory target = [%.2f, %.2f, %.2f], drone = [%.2f, %.2f, %.2f], yaw = %.2f", ros::this_node::getName().c_str(),
@@ -228,9 +221,9 @@ void backendSolver::publishPath() {
   std::vector<geometry_msgs::PoseStamped> poses(time_horizon_);
   msg.header.frame_id = trajectory_frame_;
   for (int i = 0; i < time_horizon_; i++) {
-    poses.at(i).pose.position.x    = x_[i];
-    poses.at(i).pose.position.y    = y_[i];
-    poses.at(i).pose.position.z    = z_[i];
+    poses.at(i).pose.position.x    =solution_[i].pose.x;
+    poses.at(i).pose.position.y    =solution_[i].pose.y;
+    poses.at(i).pose.position.z    =solution_[i].pose.z;
     poses.at(i).pose.orientation.x = 0;
     poses.at(i).pose.orientation.y = 0;
     poses.at(i).pose.orientation.z = 0;
@@ -328,8 +321,8 @@ int backendSolver::closestPose() {
   float nearest_distance = INFINITY;
   float point_distance   = 0;
   for (int i = 0; i < time_horizon_; i++) {
-    point_distance = sqrt(pow((x_[i] - uavs_pose_[drone_id_].pose.x), 2) + pow((y_[i] - uavs_pose_[drone_id_].pose.y), 2) +
-                          pow((z_[i] - uavs_pose_[drone_id_].pose.z), 2));
+    point_distance = sqrt(pow((solution_[i].pose.x - uavs_pose_[drone_id_].state.pose.x), 2) + pow((solution_[i].pose.y - uavs_pose_[drone_id_].state.pose.y), 2) +
+                          pow((solution_[i].pose.z - uavs_pose_[drone_id_].state.pose.z), 2));
     if (point_distance < nearest_distance) {
       nearest_distance = point_distance;
       nearest_point    = i;
@@ -347,52 +340,52 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
-    float aux_norm       = sqrt(pow((desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.x), 2) +
-                          pow((desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.y), 2) +
-                          pow((desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.z), 2));
-    float scalar_dir_x   = (desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].pose.x) / aux_norm;
-    float scalar_dir_y   = (desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].pose.y) / aux_norm;
-    float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].pose.z) / aux_norm;
+    float aux_norm       = sqrt(pow((desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].state.pose.x), 2) +
+                          pow((desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].state.pose.y), 2) +
+                          pow((desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].state.pose.z), 2));
+    float scalar_dir_x   = (desired_odometry_.pose.pose.position.x - uavs_pose_[drone_id_].state.pose.x) / aux_norm;
+    float scalar_dir_y   = (desired_odometry_.pose.pose.position.y - uavs_pose_[drone_id_].state.pose.y) / aux_norm;
+    float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].state.pose.z) / aux_norm;
     float vel_module_cte = max_vel / 2;  // vel cte guess for the initial
     // accelerations
-    initial_guess_.ax[0] = ZERO;
-    initial_guess_.ay[0] = ZERO;
-    initial_guess_.az[0] = ZERO;
-    initial_guess_.x[0] = uavs_pose_[drone_id_].pose.x;
-    initial_guess_.y[0] = uavs_pose_[drone_id_].pose.y;
-    initial_guess_.z[0] = uavs_pose_[drone_id_].pose.z;
-    initial_guess_.vx[0] = scalar_dir_x * vel_module_cte;
-    initial_guess_.vy[0] = scalar_dir_y * vel_module_cte;
-    initial_guess_.vz[0] = scalar_dir_z * vel_module_cte;
+    initial_guess_[0].acc.x = ZERO;
+    initial_guess_[0].acc.y = ZERO;
+    initial_guess_[0].acc.z = ZERO;
+    initial_guess_[0].pose.x = uavs_pose_[drone_id_].state.pose.x;
+    initial_guess_[0].pose.y = uavs_pose_[drone_id_].state.pose.y;
+    initial_guess_[0].pose.z = uavs_pose_[drone_id_].state.pose.z;
+    initial_guess_[0].velocity.x = scalar_dir_x * vel_module_cte;
+    initial_guess_[0].velocity.y = scalar_dir_y * vel_module_cte;
+    initial_guess_[0].velocity.z = scalar_dir_z * vel_module_cte;
     for (int i = 1; i < time_horizon_; i++) {
-      initial_guess_.ax[i] = ZERO;
-      initial_guess_.ay[i] = ZERO;
-      initial_guess_.az[i] = ZERO;
-      initial_guess_.vx[i] = scalar_dir_x * vel_module_cte;
-      initial_guess_.vy[i] = scalar_dir_y * vel_module_cte;
-      initial_guess_.vz[i] = scalar_dir_z * vel_module_cte;
-      initial_guess_.x[i] = initial_guess_.x[i - 1] + step_size * initial_guess_.vx[i - 1];
-      initial_guess_.y[i] = initial_guess_.y[i - 1] + step_size * initial_guess_.vy[i - 1];
-      initial_guess_.z[i] = initial_guess_.z[i - 1] + step_size * initial_guess_.vz[i - 1];
+      initial_guess_[i].acc.x = ZERO;
+      initial_guess_[i].acc.y = ZERO;
+      initial_guess_[i].acc.z = ZERO;
+      initial_guess_[i].velocity.x = scalar_dir_x * vel_module_cte;
+      initial_guess_[i].velocity.y = scalar_dir_y * vel_module_cte;
+      initial_guess_[i].velocity.z = scalar_dir_z * vel_module_cte;
+      initial_guess_[i].pose.x = initial_guess_[i - 1].pose.x + step_size * initial_guess_[i - 1].velocity.x;
+      initial_guess_[i].pose.y = initial_guess_[i - 1].pose.y + step_size * initial_guess_[i - 1].velocity.y;
+      initial_guess_[i].pose.z = initial_guess_[i - 1].pose.z + step_size * initial_guess_[i - 1].velocity.z;
       // no fly zone
-      if (pow(initial_guess_.x[i] - no_fly_zone_center_[0], 2) + pow(initial_guess_.y[i] - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
-        aux                     = expandPose(initial_guess_.x[i], initial_guess_.y[i]);
-        initial_guess_.x[i] = aux[0];
-        initial_guess_.y[i] = aux[1];
+      if (pow(initial_guess_[i].pose.x - no_fly_zone_center_[0], 2) + pow(initial_guess_[i].pose.y - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
+        aux                     = expandPose(initial_guess_[i].pose.x, initial_guess_[i].pose.y);
+        initial_guess_[i].pose.x = aux[0];
+        initial_guess_[i].pose.y = aux[1];
       }
     }
   } else {
     // previous one
     for (int i = 0; i < time_horizon_; i++) {
-      initial_guess_.ax[i] = ax_[i];
-      initial_guess_.ay[i] = ay_[i];
-      initial_guess_.az[i] = az_[i];
-      initial_guess_.x[i] = x_[i];
-      initial_guess_.y[i] = y_[i];
-      initial_guess_.z[i] = z_[i];
-      initial_guess_.vx[i] = vx_[i];
-      initial_guess_.vy[i] = vy_[i];
-      initial_guess_.vz[i] = vz_[i];
+      initial_guess_[i].acc.x =solution_[i].acc.x;
+      initial_guess_[i].acc.y =solution_[i].acc.y;
+      initial_guess_[i].acc.z =solution_[i].acc.z;
+      initial_guess_[i].pose.x =solution_[i].pose.x;
+      initial_guess_[i].pose.y =solution_[i].pose.y;
+      initial_guess_[i].pose.z = solution_[i].pose.z;
+      initial_guess_[i].velocity.x =solution_[i].velocity.x;
+      initial_guess_[i].velocity.y =solution_[i].velocity.y;
+      initial_guess_[i].velocity.z =solution_[i].velocity.z;
     }
   }
   // for (int i = 0; i < time_horizon_; i++) {

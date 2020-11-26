@@ -1,3 +1,6 @@
+#ifndef LOGGER_H
+#define LOGGER_H
+
 #include<fstream>
 #include <nav_msgs/Odometry.h>
 #include <UAVState.h>
@@ -26,3 +29,5 @@ public:
 };
 
 }
+
+#endif

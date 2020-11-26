@@ -1,3 +1,5 @@
+#ifndef BACKENDSOLVERUAL_H
+#define BACKENDSOLVERUAL_H
 #include<backendSolver.h>
 
 class backendSolverUAL : backendSolver {
@@ -16,3 +18,5 @@ private:
    */
   void targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr &msg);
 };
+
+#endif
