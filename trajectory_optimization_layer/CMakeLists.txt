@@ -22,14 +22,14 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   shot_executer
   roslib
-  mrs_msgs
-  formation_church_planning
 )
 
 #MRS packages
 option(MRS_INTERFACE "MRS interface activated" ON)
 if( MRS_INTERFACE )
   ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
+  find_package(formation_church_planning REQUIRED
+              mrs_msgs REQUIRED)
 endif()
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)

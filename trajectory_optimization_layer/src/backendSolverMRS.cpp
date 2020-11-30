@@ -20,11 +20,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
   transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav44");
-  while (!checkConnectivity()) {
-    ros::spinOnce();
-    rate.sleep();
-    ROS_INFO("Solver %d is not ready", drone_id_);
-  }
+
   is_initialized = true;
 
   ROS_INFO("Solver %d is ready", drone_id_);
@@ -120,6 +116,7 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
   uavs_pose_[drone_id_].state.quaternion.x = msg->pose.pose.orientation.x;
   uavs_pose_[drone_id_].state.quaternion.y = msg->pose.pose.orientation.y;
   uavs_pose_[drone_id_].state.quaternion.z = msg->pose.pose.orientation.z;
+  uavs_pose_[drone_id_].state.quaternion.w = msg->pose.pose.orientation.w;
 
   uavs_pose_[drone_id_].state.velocity.x = msg->twist.twist.linear.x;
   uavs_pose_[drone_id_].state.velocity.y = msg->twist.twist.linear.y;

@@ -56,6 +56,13 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   // log files
   logger = new SolverUtils::Logger(this,pnh);
+
+  std::cout<<ANSI_COLOR_YELLOW<<"Drone "<<drone_id_<<": connecting..."<<std::endl;
+  while (!checkConnectivity()) {
+    ros::spinOnce();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  std::cout<<ANSI_COLOR_GREEN<<"Drone "<<drone_id_<<": connected..."<<std::endl;
 }
 
 
@@ -195,7 +202,7 @@ bool backendSolver::checkConnectivity() {
     if(it->second.has_pose) cont++;
   }
   if(target_){
-    if(target_has_pose) cont++; 
+    if(target_has_pose) cont++;
     return (cont == drones.size()+1);
   }
   else
