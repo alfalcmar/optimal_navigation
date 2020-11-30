@@ -1,3 +1,6 @@
+#ifndef SHOT_EXECUTER_H
+#define SHOT_EXECUTER_H
+
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 #include <actionlib/server/simple_action_server.h>
 #include <nav_msgs/Odometry.h>
@@ -5,11 +8,6 @@
 #include <thread>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#ifdef UAL
-#include <uav_abstraction_layer/TakeOff.h>
-#include <uav_abstraction_layer/GoToWaypoint.h>
-#include <uav_abstraction_layer/Land.h>
-#endif
 #include <shot_executer/ShootingAction.h>
 #include <geometry_msgs/Vector3.h>
 #include <mavros_msgs/CommandBool.h>
@@ -127,47 +125,6 @@ class ShotExecuter
         void publishDesiredPoint(nav_msgs::Odometry desired_odometry);
 };
 
-/**
- * Class that interfaces with MRS system
- * Input: inputs inherited from the base class
- * Output: outputs inherited from the base class plus publishing the pitch command needed to point the camera to the target
- */
-class ShotExecuterMRS : public ShotExecuter{
-    public:
-        ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
-    private:
-        ros::ServiceClient motors_client_;
-        ros::ServiceClient arming_client_;
-        ros::ServiceClient offboard_client_;
-        ros::ServiceClient takeoff_client_;
-        ros::Publisher camera_pub_;
-        ros::Subscriber uav_odometry_sub;
-        bool robot_armed_ = false;
-        bool robot_in_offboard_mode_ = false;
-        bool callTakeOff();
-        bool all_motors_on_ = false;
-        void uavCallback(const nav_msgs::Odometry::ConstPtr &msg);
-        /*! \brief function that publishes the needed pitch to point the camera to the target
-         */
-        void publishCameraCommand();
-};
-#ifdef UAL
-class ShotExecuterUAL : public ShotExecuter{
-    public:
-        ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
-    private:
-        ros::ServiceClient take_off_srv_;
-        ros::ServiceClient go_to_waypoint_client_;
-        ros::ServiceClient land_client_;
-        /** \brief Taking off the drone
-        *  \param _height   take off's height
-        *  \return success
-        **/
-        bool takeOff(const double _height);
-
-
-};
-
 #endif
 #ifdef MULTIDRONE
 class ShotExecuterMultidrone : public ShotExecuter{
@@ -181,3 +138,4 @@ class ShotExecuterMultidrone : public ShotExecuter{
         void actionThread(const multidrone_msgs::DroneAction goal);
 };
 #endif
+

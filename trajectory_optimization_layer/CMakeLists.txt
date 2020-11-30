@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(optimal_control_interface)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -11,6 +11,10 @@ set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
 set(ENV{ACADO} "true")
 
+
+set(MRS_INTERFACE ON)
+
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -22,14 +26,18 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   shot_executer
   roslib
+  
 )
 
 #MRS packages
-option(MRS_INTERFACE "MRS interface activated" ON)
-if( MRS_INTERFACE )
+
+
+if( MRS_INTERFACE)
   ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
-  find_package(formation_church_planning REQUIRED
-              mrs_msgs REQUIRED)
+  find_package(catkin REQUIRED COMPONENTS
+              formation_church_planning REQUIRED
+              mrs_msgs REQUIRED
+              shot_executer)
 endif()
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
@@ -128,3 +136,4 @@ ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES} ${AC
 add_dependencies(optimal_control_interface_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
+unset(MRS_INTERFACE) 

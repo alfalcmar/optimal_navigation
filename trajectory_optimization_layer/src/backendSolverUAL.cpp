@@ -1,19 +1,25 @@
 #include<backendSolverUAL.h>
 
-
-void backendSolverUAL::ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg) {
-
-  uavs_pose_[drone_id_].state.velocity.x = msg->twist.linear.x;
-  uavs_pose_[drone_id_].state.velocity.y = msg->twist.linear.y;
-  uavs_pose_[drone_id_].state.velocity.z = msg->twist.linear.z;
-}
-
 backendSolverUAL::backendSolverUAL(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
   // UAV state subscription
   uav_state_sub_ = _pnh.subscribe<geometry_msgs::PoseStamped>("/drone_"+std::to_string(drone_id_)+"/ual/pose", 1, &backendSolverUAL::uavPoseCallback,this);       
   sub_velocity_  = _nh.subscribe<geometry_msgs::TwistStamped>("/drone_"+std::to_string(drone_id_)+"/ual/velocity", 1, &backendSolverUAL::ownVelocityCallback, this);
   // target subscription
   target_pose_sub_ = _pnh.subscribe<nav_msgs::Odometry>("target_topic", 1, &backendSolverUAL::targetPoseCallbackGRVC, this);
+  std::cout<<ANSI_COLOR_YELLOW<<"Drone "<<drone_id_<<": connecting to others and target..."<<std::endl;
+  while (!checkConnectivity()) {
+    ros::spinOnce();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  std::cout<<ANSI_COLOR_GREEN<<"Drone "<<drone_id_<<": connected"<<std::endl;
+
+}
+
+void backendSolverUAL::ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg) {
+
+  uavs_pose_[drone_id_].state.velocity.x = msg->twist.linear.x;
+  uavs_pose_[drone_id_].state.velocity.y = msg->twist.linear.y;
+  uavs_pose_[drone_id_].state.velocity.z = msg->twist.linear.z;
 }
 
 /** \brief Callback for the target pose

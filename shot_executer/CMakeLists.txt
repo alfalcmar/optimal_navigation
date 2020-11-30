@@ -65,7 +65,7 @@ add_library(shot_executer_library
 
 
 
-add_executable(shot_executer_node src/shot_executer_node.cpp)
+add_executable(shot_executer_node src/shot_executer_node.cpp src/shot_executer_MRS.cpp)
 
 target_link_libraries(shot_executer_node shot_executer_library
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES})

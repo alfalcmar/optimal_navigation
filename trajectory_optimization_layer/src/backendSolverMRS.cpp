@@ -23,7 +23,13 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
 
   is_initialized = true;
 
-  ROS_INFO("Solver %d is ready", drone_id_);
+  std::cout<<ANSI_COLOR_YELLOW<<"Drone "<<drone_id_<<": connecting to others and target..."<<std::endl;
+  while (!checkConnectivity()) {
+    ros::spinOnce();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  std::cout<<ANSI_COLOR_GREEN<<"Drone "<<drone_id_<<": connected"<<std::endl;
+
 }
 
 
