@@ -1,0 +1,33 @@
+name: ual_optimal_planning
+root: ./
+
+windows:
+  - roscore:
+      layout: even-vertical
+      panes:
+        - roscore
+  - gazebo:
+      layout: even-vertical
+      panes:
+        - sleep 2; roslaunch aerialcore_simulation one_drone_ual.launch
+  - shot executer:
+      layout: even-vertical
+      panes:
+        - sleep 6; roslaunch shot_executer shot_executer_grvc.launch
+  - mission:
+      layout: even-vertical
+      panes:
+        - sleep 12; python ual_script.py
+  - visualization:  
+      layout: even-vertical
+      panes:
+        - sleep 8; roslaunch optimal_control_interface rviz_ual.launch
+  - solver:
+      layout: even-vertical
+      panes:
+        - sleep 8; roslaunch optimal_control_interface optimal_planning_ual.launch
+  - free terminal:
+      panes:
+      layout: even-vertical
+
+        

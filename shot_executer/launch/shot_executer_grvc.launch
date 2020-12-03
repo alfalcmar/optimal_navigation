@@ -1,0 +1,8 @@
+<launch>
+
+<node pkg="shot_executer" name="shot_executer_node" type="shot_executer_node" output="screen" ns="drone_1">
+    <!-- <param name = "target_topic" value = "/gazebo/dynamic_model/jeff_electrician/odometry"/>  $(arg uav_name)/balloon_filter/chosen_out-->
+    <remap from="~target_topic" to="/target_fake" />
+    <param name="mrs_interface" value="false"/>
+</node>
+</launch>

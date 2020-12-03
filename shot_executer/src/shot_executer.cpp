@@ -5,7 +5,7 @@
 #endif
 
 
-ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh){
+ShotExecuter::ShotExecuter(ros::NodeHandle &_nh,ros::NodeHandle &_pnh, std::string frame) : frame_(frame){
 
     // publisher
     desired_pose_pub_ = _pnh.advertise<shot_executer::DesiredShot>("desired_pose",10);
@@ -28,7 +28,7 @@ void ShotExecuter::publishDesiredPoint(nav_msgs::Odometry desired_odometry) {
   desired_point.point.x         = desired_odometry.pose.pose.position.x;
   desired_point.point.y         = desired_odometry.pose.pose.position.y;
   desired_point.point.z         = desired_odometry.pose.pose.position.z;
-  desired_point.header.frame_id = "uav1/gps_origin";
+  desired_point.header.frame_id = frame_;
   desired_point.header.stamp = ros::Time::now();
 
   desired_pose_publisher.publish(desired_point);
@@ -241,26 +241,6 @@ void ShotExecuter::calculateGimbalAngles(){
 }
 
 
-#ifdef UAL
-ShotExecuterUAL::ShotExecuterUAL(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh){
-
-    go_to_waypoint_client_ = _nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("ual/go_to_waypoint");
-    take_off_srv_ = _nh.serviceClient<uav_abstraction_layer::TakeOff>("ual/take_off");
-    land_client_ = _nh.serviceClient<uav_abstraction_layer::Land>("ual/take_off");
-}
-
-
-bool ShotExecuterUAL::takeOff(const double _height){
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = _height;
-    if(!take_off_srv_.call(srv)){
-        return false;
-    }else{
-        return true;
-    }
-}
-#endif
 
 
 #ifdef MULTIDRONE

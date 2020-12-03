@@ -30,6 +30,7 @@ void backendSolverUAL::targetPoseCallbackGRVC(const nav_msgs::Odometry::ConstPtr
 }
 
 void backendSolverUAL::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg){
+  uavs_pose_[drone_id_].has_pose = true;
   uavs_pose_[drone_id_].state.pose.x = msg->pose.position.x;
   uavs_pose_[drone_id_].state.pose.y = msg->pose.position.y;
   uavs_pose_[drone_id_].state.pose.z = msg->pose.position.z;

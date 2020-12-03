@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(shot_executer)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
-
-
+add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -65,7 +63,7 @@ add_library(shot_executer_library
 
 
 
-add_executable(shot_executer_node src/shot_executer_node.cpp src/shot_executer_MRS.cpp)
+add_executable(shot_executer_node src/shot_executer_node.cpp src/shot_executer_UAL.cpp src/shot_executer_MRS.cpp)
 
 target_link_libraries(shot_executer_node shot_executer_library
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES})

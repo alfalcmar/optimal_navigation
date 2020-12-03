@@ -37,11 +37,10 @@ class ShotExecuter
         /** \brief Generic constructor of the class. This constructor reads generic parameters and subscribes to topics.
          *  \param _nh public nodehandle
          */
-        ShotExecuter(ros::NodeHandle &_nh, ros::NodeHandle &_pnh);
+        ShotExecuter(ros::NodeHandle &_nh, ros::NodeHandle &_pnh, std::string frame);
     protected:
 
         //ROS (publishers, subscribers)
-        ros::NodeHandle nh;   /*< Nodehandle */
         std::string target_topic_;  /*< Target topic */
         ros::ServiceServer shooting_action_srv_; /*< Server to choose the action */
         ros::Publisher desired_pose_pub_;        /*< That publish the desired pose */
@@ -49,8 +48,7 @@ class ShotExecuter
         ros::Subscriber target_pose_sub_;       /*< Subscribe to target pose */
         bool takeoff_called_succesfully_ = false;   /*< Flag for take off */
         ros::Publisher desired_pose_publisher; /**< desired pose publisher for RVIZ visualization */
-
-        // inputs
+        const std::string frame_;
         nav_msgs::Odometry target_pose_;            /*< target pose */
         nav_msgs::Odometry drone_pose_;             /*< drone pose*/
 

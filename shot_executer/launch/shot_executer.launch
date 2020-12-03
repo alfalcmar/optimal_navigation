@@ -3,5 +3,6 @@
 <node pkg="shot_executer" name="shot_executer_node" type="shot_executer_node" output="screen" ns="$(arg uav_name)">
     <!-- <param name = "target_topic" value = "/gazebo/dynamic_model/jeff_electrician/odometry"/>  $(arg uav_name)/balloon_filter/chosen_out-->
     <remap from="~target_topic" to="balloon_filter/chosen_out" />
+    <param name="mrs_interface" value="true"/>
 </node>
 </launch>

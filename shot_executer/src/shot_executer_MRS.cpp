@@ -1,5 +1,5 @@
 #include<shot_executer_MRS.h>
-ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh){
+ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : ShotExecuter::ShotExecuter(_nh,_pnh, "uav1/gps_origin"){
      /* initialize service for arming */
     std::string service_name;
     service_name = "/uav"+std::to_string(drone_id_)+"/mavros/cmd/arming";
@@ -17,11 +17,9 @@ ShotExecuterMRS::ShotExecuterMRS(ros::NodeHandle &_nh, ros::NodeHandle &_pnh) : 
     std::string topic_name = "/uav" + std::to_string(drone_id_) + "/servo_camera/set_pitch";
     camera_pub_ = _nh.advertise<std_msgs::Float32>(topic_name,10);
 
-
-    uav_odometry_sub = nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &ShotExecuterMRS::uavCallback, this);
+    uav_odometry_sub = _nh.subscribe<nav_msgs::Odometry>("odometry/odom_main",1, &ShotExecuterMRS::uavCallback, this);
 
     //callTakeOff();
-
     camera_thread_ = std::thread(&ShotExecuterMRS::cameraThread,this);
 }
 
