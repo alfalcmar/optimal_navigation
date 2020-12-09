@@ -195,7 +195,7 @@ int main(int _argc, char **_argv)
 
     ros::init(_argc, _argv, "trajectory_follower_node");
     ros::NodeHandle nh;
-    ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::Solver>("solver", 1, trajectoryCallback);
+    ros::Subscriber trajectory_sub = nh.subscribe<optimal_control_interface::Solver>("solver/trajectory", 1, trajectoryCallback);
     ros::Subscriber ual_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("ual/pose", 1, ualPoseCallback);
     ros::Subscriber ual_vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("ual/velocity", 1, ualVelCallback);
     ros::Publisher velocity_ual_pub = nh.advertise<geometry_msgs::TwistStamped>("ual/set_velocity",1);

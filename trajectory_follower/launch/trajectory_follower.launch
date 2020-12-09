@@ -1,0 +1,4 @@
+<launch>
+<node pkg = "trajectory_follower" name = "trajectory_follower_node" type = "trajectory_follower_node" output="screen" ns="drone_1" >
+</node>
+</launch>

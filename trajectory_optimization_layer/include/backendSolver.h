@@ -177,11 +177,6 @@ protected:
   void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id);
 
   //////////////// UTILITY FUNCTION ////////////////////////////////
-  /** \brief This function publish the calculated trajectory to be read by other drones
-   *  \param x y z vx vy vz    last calculated trajectory
-   *          void publishTrajectory(const std::vector<double> &yaw,const std::vector<double> &pitch);
-   */
-  void publishTrajectory();
   /*! \brief This function calculates the pitch of the camera over the N steps through calculated trajectroy and target trajectory
    *   \return Predicted pitch
    **/

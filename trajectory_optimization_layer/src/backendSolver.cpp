@@ -204,26 +204,6 @@ bool backendSolver::checkConnectivity() {
   }
 }
 
-void backendSolver::publishTrajectory() {
-
-  optimal_control_interface::Solver traj;
-  geometry_msgs::PoseStamped        pos;
-  geometry_msgs::Twist              vel;
-
-  for (int i = 0; i < time_horizon_; i++) {
-    // trajectory to visualize
-    pos.pose.position.x = solution_[i].pose.x;
-    pos.pose.position.y = solution_[i].pose.y;
-    pos.pose.position.z = solution_[i].pose.z;
-    traj.positions.push_back(pos);
-    vel.linear.x =solution_[i].velocity.x;
-    vel.linear.y =solution_[i].velocity.y;
-    vel.linear.z =solution_[i].velocity.z;
-    traj.velocities.push_back(vel);
-  }
-  solved_trajectory_pub.publish(traj);
-}
-
 
 void backendSolver::calculateNoFlyZonePoints(const float x_center, const float y_center, const float radius) {
   no_fly_zone_points_.clear();

@@ -21,6 +21,9 @@ private:
   *   \param msg  last pose received from UAV abstraction layer
   */
   void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+  
+  void publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points = 0);
+
 
 };
 

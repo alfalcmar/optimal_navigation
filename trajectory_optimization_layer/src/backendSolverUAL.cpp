@@ -41,3 +41,22 @@ void backendSolverUAL::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPt
   uavs_pose_[drone_id_].state.quaternion.w = msg->pose.orientation.w; 
 }
 
+void backendSolverUAL::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points /*0 default */) {
+
+  optimal_control_interface::Solver traj;
+  geometry_msgs::PoseStamped        pos;
+  geometry_msgs::Twist              vel;
+
+  for (int i = 0; i < time_horizon_; i++) {
+    // trajectory to visualize
+    pos.pose.position.x = solution_[i].pose.x;
+    pos.pose.position.y = solution_[i].pose.y;
+    pos.pose.position.z = solution_[i].pose.z;
+    traj.positions.push_back(pos);
+    vel.linear.x =solution_[i].velocity.x;
+    vel.linear.y =solution_[i].velocity.y;
+    vel.linear.z =solution_[i].velocity.z;
+    traj.velocities.push_back(vel);
+  }
+  solved_trajectory_pub.publish(traj);
+}

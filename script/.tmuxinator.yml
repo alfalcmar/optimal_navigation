@@ -17,7 +17,7 @@ windows:
   - mission:
       layout: even-vertical
       panes:
-        - sleep 12; python ual_script.py
+        - sleep 20; python ual_script.py
   - visualization:  
       layout: even-vertical
       panes:
@@ -26,6 +26,10 @@ windows:
       layout: even-vertical
       panes:
         - sleep 8; roslaunch optimal_control_interface optimal_planning_ual.launch
+  - trajectory_follower:
+      layout: even-vertical
+      panes:
+        - sleep 8; roslaunch trajectory_follower trajectory_follower.launch
   - free terminal:
       panes:
       layout: even-vertical
