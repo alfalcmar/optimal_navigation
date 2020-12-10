@@ -9,7 +9,7 @@ class ACADOSolver : public Solver{
 
 private:
     bool logACADOvars();
-    bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
+    virtual bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
 
 public:
     ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &intial_guess);
@@ -21,7 +21,7 @@ public:
     *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
     *  \TODO m                     manage priorities by drones (ID)
     */
-    int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
+    virtual int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
 
 };
 
