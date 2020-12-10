@@ -7,13 +7,13 @@ SolverDurable::SolverDurable(const float solving_rate, const int time_horizon, c
   std::cout<<"constructor solver durable "<<std::endl;   
 }
 
-int SolverDurable::minDistance(){
+int SolverDurable::minDistance(const UavState &_uavs_pose){
   int   nearest_point    = 0;
   float nearest_distance = INFINITY;
   float point_distance   = 0;
   for (int i = 0; i < time_horizon_; i++) {
-    point_distance = sqrt(pow((solution_[i].pose.x - uavs_pose_[drone_id_].state.pose.x), 2) + pow((solution_[i].pose.y - uavs_pose_[drone_id_].state.pose.y), 2) +
-                          pow((solution_[i].pose.z - uavs_pose_[drone_id_].state.pose.z), 2));
+    point_distance = sqrt(pow((solution_[i].pose.x - _uavs_pose.state.pose.x), 2) + pow((solution_[i].pose.y - _uavs_pose.state.pose.y), 2) +
+                          pow((solution_[i].pose.z - _uavs_pose.state.pose.z), 2));
     if (point_distance < nearest_distance) {
       nearest_distance = point_distance;
       nearest_point    = i;
@@ -65,6 +65,7 @@ int SolverDurable::solverFunction( nav_msgs::Odometry &_desired_odometry, const 
     ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE <= pz_+s-target_z); 
     ocp.subjectTo(s>=0);
 
+    int closest_point = minDistance(_uavs_pose[_drone_id]);
 
 
     if(first_time_solving){
@@ -75,8 +76,6 @@ int SolverDurable::solverFunction( nav_msgs::Odometry &_desired_odometry, const 
         ocp.subjectTo( AT_START, ay_ == 0.0);
         ocp.subjectTo( AT_START, az_ == 0.0);
     }else{     
-        
-        int closest_point = minDistance();
         ocp.subjectTo( AT_START, px_ == solution_[(closest_point)+offset_].pose.x);
         ocp.subjectTo( AT_START, py_ == solution_[(closest_point)+offset_].pose.y);
         ocp.subjectTo( AT_START, pz_ == solution_[(closest_point)+offset_].pose.z);
@@ -178,7 +177,7 @@ int SolverDurable::solverFunction( nav_msgs::Odometry &_desired_odometry, const 
     solver_success_ = solver.solve();
     // get solution
 
-    getResults(time_initial_position, solver, first_time_solving);
+    getResults(time_initial_position, solver, first_time_solving, closest_point);
 
     px_.clearStaticCounters();
     py_.clearStaticCounters();
@@ -196,7 +195,7 @@ int SolverDurable::solverFunction( nav_msgs::Odometry &_desired_odometry, const 
  }
 
 
- bool SolverDurable::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving){
+ bool SolverDurable::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving, const int _closest_point){
     
     VariablesGrid output_states,output_control;
 
@@ -207,15 +206,15 @@ int SolverDurable::solverFunction( nav_msgs::Odometry &_desired_odometry, const 
         for(int i=0;i<time_horizon_;i++){
 
             if(i<offset_  && !first_time_solving){ 
-                solution_[i].pose.x=       solution_  [(time_initial_position/step_size)+i].pose.x;
-                solution_[i].pose.y=       solution_  [(time_initial_position/step_size)+i].pose.y;
-                solution_[i].pose.z=       solution_  [(time_initial_position/step_size)+i].pose.z;
-                solution_[i].velocity.x=   solution_[(time_initial_position/step_size)+i].velocity.x;
-                solution_[i].velocity.y=   solution_[(time_initial_position/step_size)+i].velocity.y;
-                solution_[i].velocity.z=   solution_[(time_initial_position/step_size)+i].velocity.z;
-                solution_[i].acc.x=      solution_[(time_initial_position/step_size)+i].acc.x;
-                solution_[i].acc.y=      solution_[(time_initial_position/step_size)+i].acc.y;
-                solution_[i].acc.z=      solution_[(time_initial_position/step_size)+i].acc.z;
+                solution_[i].pose.x=       solution_  [_closest_point+i].pose.x;
+                solution_[i].pose.y=       solution_  [_closest_point+i].pose.y;
+                solution_[i].pose.z=       solution_  [_closest_point+i].pose.z;
+                solution_[i].velocity.x=   solution_[_closest_point+i].velocity.x;
+                solution_[i].velocity.y=   solution_[_closest_point+i].velocity.y;
+                solution_[i].velocity.z=   solution_[_closest_point+i].velocity.z;
+                solution_[i].acc.x=      solution_[_closest_point+i].acc.x;
+                solution_[i].acc.y=      solution_[_closest_point+i].acc.y;
+                solution_[i].acc.z=      solution_[_closest_point+i].acc.z;
             }else{
                 solution_[i].pose.x=output_states(i-offset_*(int)!first_time_solving,0);
                 solution_[i].pose.y=output_states(i-offset_*(int)!first_time_solving,1);
