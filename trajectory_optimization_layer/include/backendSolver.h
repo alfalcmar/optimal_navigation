@@ -11,7 +11,7 @@
 #include <std_srvs/SetBool.h>
 #include <tf/tf.h>
 #include <math.h> /* sqrt */
-#include <solver_acado.h>
+#include <solver_acado_durable.h>
 #include <shot_executer/DesiredShot.h>
 #include <optimal_control_interface/Solver.h>
 #include <thread>  // std::thread, std::this_thread::sleep_for

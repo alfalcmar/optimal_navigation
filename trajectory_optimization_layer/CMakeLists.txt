@@ -12,7 +12,7 @@ set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 set(ENV{ACADO} "true")
 
 
-set(MRS_INTERFACE ON)
+#set(MRS_INTERFACE ON)
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -98,6 +98,7 @@ add_library(solver_library
   src/UAVState.cpp
   src/logger.cpp
   src/backendSolver.cpp
+  src/solver_acado_durable
 )
 endif()
 
