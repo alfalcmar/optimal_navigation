@@ -1,7 +1,6 @@
-function out = formulation(ps_drone, pe_drone, t_start, t_end, time_horizon_, px_windmill, py_windmill, r_windmill, v_initial, a_initial)
+function out = formulation(ps_drone, pe_drone, t_start, t_end, time_horizon_, px_windmill, py_windmill, r_windmill, v_initial, a_initial, z_windmill_inspect)
 
 % ---------------------------- ACADO'S CODE ----------------------------
-%
 
 % Always start with "BEGIN_ACADO". 
 BEGIN_ACADO;
@@ -20,8 +19,8 @@ acadoSet('problemname', 'one_drone_simple_trajectory');
 
 % Max drone's velocity and acceleration
 MAX_ACC     = 1.0;
-MAX_VEL_XY  = 2.0;
-MAX_VEL_Z   = 0.8;
+MAX_VEL_XY  = 2.5;
+MAX_VEL_Z   = 1.5;
 
 CAMERA_PITCH = 0.1;
 
@@ -72,7 +71,7 @@ ocp.subjectTo(  -MAX_VEL_XY <= vx_ <= MAX_VEL_XY   );
 ocp.subjectTo(  -MAX_VEL_XY <= vy_ <= MAX_VEL_XY   );
 ocp.subjectTo(  -MAX_VEL_Z  <= vz_ <= MAX_VEL_Z   );
 ocp.subjectTo(  -MAX_VEL_Z  <= vz_ <= MAX_VEL_Z   );
-ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE <= pz_ + s - pe_drone(3)  );
+ocp.subjectTo(  Z_RELATIVE_TARGET_DRONE <= pz_ + s - z_windmill_inspect  );
 ocp.subjectTo(  s >= 0  );
 
 % Initial state
@@ -105,7 +104,7 @@ r_1 (1:2) = pe_drone(1:2);
 %                             (py_ - pe_drone(2))^2 + eps) - ...
 %                             CAMERA_PITCH)^2 )
 % To make the drone stare at the windmill (any height)
-ocp.minimizeLagrangeTerm( ( (pz_ - pe_drone(3))/ ...
+ocp.minimizeLagrangeTerm( ( (pz_ - z_windmill_inspect)/ ...
                      ( sqrt((px_ - px_windmill)^2 + ...
                             (py_ - py_windmill)^2 + eps)) - ...
                             CAMERA_PITCH)^2 )
@@ -121,7 +120,7 @@ S = eye(4, 4);
 S(1,1) = 1; %W_AX;
 S(2,2) = 1; %W_AY;
 S(3,3) = 1; %W_AZ;
-S(4,4) = 10; %W_s;
+S(4,4) = 5; %W_s;
 
 % At the final point, use the theoretical acceleration to reach that point
 r = [0, 0, 0, 0];

@@ -1,11 +1,12 @@
 %% Main script
 
 clear all
+close all
 clc
 
-% 5 5 5 5 8 6 7 22 18 4 7 23.5 6 3.5 4.5 9 15 50 18
-% 4 5 5 5 22 18 6 9 24.5 7 3 9 9 20 50 22
-% 3 5 5 5 25 20 7 12 35 9 20 50 22
+% 5 5 5 8 6 22 18 7 23.5 3.5 4.5 20 50 28
+% 4 5 5 22 18 9 24.5 3 9 20 50 22
+% 3 5 5 25 20 12 35 25 100 41
 
 % It's necessary to include the paths of ACADO
 run("addpaths.m");
@@ -13,12 +14,15 @@ run("addpaths.m");
 % Need to know in case we try to reach a point inside the no-fly zone
 px_windmill = 12.0;
 py_windmill = 16.0;
+z_windmill_inspect = 5.0;
 r_windmill  = 6.0;
 
 % Macros:
 MIN_POINTS =  2;
 MAX_POINTS = 20;
 
+% Initial z position of the drone:
+z_start_drone = 3;
 
 % Initializing variables
 user_points     = 0;
@@ -50,7 +54,8 @@ xlabel('X axis [m]'); ylabel('Y axis [m]');
 for i = 1 : user_points
     points(i,1) = input(['Point ' num2str(i)  ' X: ']);
     points(i,2) = input(['Point ' num2str(i)  ' Y: ']);
-    points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
+%     points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
+    points(i,3) = z_windmill_inspect;
 
     if ( ( (points(i,1) - px_windmill)^2 + (points(i,2) - py_windmill)^2 ) <= r_windmill^2 )
         
@@ -61,7 +66,8 @@ for i = 1 : user_points
             
             points(i,1) = input(['Point ' num2str(i)  ' X: ']);
             points(i,2) = input(['Point ' num2str(i)  ' Y: ']);
-            points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
+%             points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
+            points(i,3) = z_windmill_inspect;
         end
     end
     n_points = i;
@@ -127,7 +133,13 @@ for i = 1 : (user_points - 1)
     a_initial = [CONTROLS(steps*(i-1) + 1, 2),  CONTROLS(steps*(i-1) + 1, 3),   CONTROLS(steps*(i-1) + 1, 4)];
     
     % To know the path point to point (without receding horizon)
-    out = formulation(points(i,:), points(i+1,:), sim_time, (sim_time + time_interval), steps, px_windmill, py_windmill, r_windmill,  v_initial, a_initial);
+    if i == 1
+        points(i,3) = z_start_drone;
+    else
+        points(i,3) = STATES(steps*(i-1) + 1, 4);
+    end
+    
+    out = formulation(points(i,:), points(i+1,:), sim_time, (sim_time + time_interval), steps, px_windmill, py_windmill, r_windmill, v_initial, a_initial, z_windmill_inspect);
     
     % Refresh the sim_time
     sim_time = sim_time + time_interval;
@@ -200,7 +212,7 @@ for i = 1 : ceil(total_steps/steps_rec_hor2)
         end
     end
     
-    out_RH = formulation_RH(p_initial, p_final, sim_time, (sim_time + step2step_time*steps_rec_hor), steps_rec_hor, px_windmill, py_windmill, r_windmill, v_initial, a_initial, a_final);
+    out_RH = formulation_RH(p_initial, p_final, sim_time, (sim_time + step2step_time*steps_rec_hor), steps_rec_hor, px_windmill, py_windmill, r_windmill, v_initial, a_initial, a_final, z_windmill_inspect);
     
     % Refresh the sim_time
     sim_time = sim_time + step2step_time*steps_rec_hor2;

@@ -19,10 +19,11 @@ legend('Drone trajectory (without RH)', 'Drone trajectory (with RH)', 'Desired p
 subplot(3,1,3)
 plot(STATES(:,1), STATES(:,4), 'LineWidth', 1.2); grid on; hold on;
 plot(STATES_RH(:,1), STATES_RH(:,4), 'y','LineWidth', 1.5);
-plot([0 : time_interval : time_interval*(n_points-1)], points(:,3), '*r', 'LineWidth', 1.2); hold off;
+% plot([0 : time_interval : time_interval*(n_points-1)], points(:,3), '*r', 'LineWidth', 1.2); hold off;
 title('Z Position');
 xlabel('Time [s]'); ylabel('Z Position [m]');
-legend('Drone trajectory (without RH)', 'Drone trajectory (with RH)', 'Desired points', 'Location', 'Best');
+% legend('Drone trajectory (without RH)', 'Drone trajectory (with RH)', 'Desired points', 'Location', 'Best');
+legend('Drone trajectory (without RH)', 'Drone trajectory (with RH)', 'Location', 'Best');
 
 
 
