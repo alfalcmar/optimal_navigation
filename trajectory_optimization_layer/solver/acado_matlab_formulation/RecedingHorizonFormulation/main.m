@@ -4,102 +4,11 @@ clear all
 close all
 clc
 
-% 5 5 5 8 6 22 18 7 23.5 3.5 4.5 20 50 28
-% 4 5 5 22 18 9 24.5 3 9 20 50 22
-% 3 5 5 25 20 12 35 25 100 41
-
 % It's necessary to include the paths of ACADO
 run("addpaths.m");
 
-% Need to know in case we try to reach a point inside the no-fly zone
-px_windmill = 12.0;
-py_windmill = 16.0;
-z_windmill_inspect = 5.0;
-r_windmill  = 6.0;
-
-% Macros:
-MIN_POINTS =  2;
-MAX_POINTS = 20;
-
-% Initial z position of the drone:
-z_start_drone = 3;
-
-% Initializing variables
-user_points     = 0;
-time_interval   = 0;
-steps           = 0;
-steps_rec_hor   = 0;
-
-display('Consider the first point as the initial one and the final point as the final one!');
-display('Its important to know that there is a ');
-display (['no-fly zone is on (x,y) = (', num2str(px_windmill), ', ', num2str(py_windmill), '), with radius = ', num2str(r_windmill), ' meters!']);
-% user_points = input('Choose the number of points you want to go through (min 2, max 20): ');
-
-while user_points < MIN_POINTS
-    user_points = input(['Choose the number of points you want to go through (min ' num2str(MIN_POINTS) ', max ' num2str(MAX_POINTS) '): ']);
-end
-
-if user_points > MAX_POINTS
-    user_points = MAX_POINTS;
-end
-
-points = zeros(user_points, 3);
-
-% It is useful to plot the circle in order to input the desired points:
-figure (1);
-plot_circle(px_windmill, py_windmill, r_windmill);
-xlabel('X axis [m]'); ylabel('Y axis [m]');
-
-% Choose the points
-for i = 1 : user_points
-    points(i,1) = input(['Point ' num2str(i)  ' X: ']);
-    points(i,2) = input(['Point ' num2str(i)  ' Y: ']);
-%     points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
-    points(i,3) = z_windmill_inspect;
-
-    if ( ( (points(i,1) - px_windmill)^2 + (points(i,2) - py_windmill)^2 ) <= r_windmill^2 )
-        
-        while ( ( (points(i,1) - px_windmill)^2 + (points(i,2) - py_windmill)^2 ) <= r_windmill^2 )
-            display ('You are trying to pass over the no-fly zone!');
-            display (['Remember, the no-fly zone is on (x,y) = (', num2str(px_windmill), ', ', num2str(py_windmill), '), with radius = ', num2str(r_windmill), ' meters!']);
-            display (' ');
-            
-            points(i,1) = input(['Point ' num2str(i)  ' X: ']);
-            points(i,2) = input(['Point ' num2str(i)  ' Y: ']);
-%             points(i,3) = input(['Point ' num2str(i)  ' Z: ']);
-            points(i,3) = z_windmill_inspect;
-        end
-    end
-    n_points = i;
-end
-
-% Close the plot
-close 1;
-
-
-display(' ');
-
-while time_interval <= 0
-    time_interval   = input('Desired time interval between the points (seconds): ');
-end
-
-while steps <= 0
-    steps           = round(input('Number of steps between the points: '));
-end
-
-% So, the step-to-step time is:
-step2step_time  = time_interval/steps;
-total_steps     = (steps * (user_points-1) + 1);
-
-display(' ');
-display('On this simulation, receding horizon is considered, in function of steps');
-display(['In order to choose the receding horizon, it is good to know that there will be ', num2str(total_steps), ' steps on this simulation']);
-
-while steps_rec_hor <= 0
-    steps_rec_hor   = input('Number of steps for recalculating (Receding Horizon): ');
-end
-
-% Execute the script "formulation.m" for each point:
+% Initialize the parameters necessary for the simulation
+run("param.m");
 
 % Initially, sim_time = 0
 sim_time = 0;
@@ -110,11 +19,6 @@ CONTROLS    = zeros (steps*(user_points-1) + 1, 5);
 STATES_RH   = zeros (steps*(user_points-1) + 1, 8);
 CONTROLS_RH = zeros (steps*(user_points-1) + 1, 5);
 
-
-
-
-
-
 % Assuming that: 
 %       - When it reaches a point, its acceleration will be 0 (not
 %       necessarily its velocity)
@@ -123,7 +27,6 @@ CONTROLS_RH = zeros (steps*(user_points-1) + 1, 5);
 %       whole path (including the whole points inserted by the command
 %       window)
 %      
-
 
 % ------------ Main loop ------------ 
 for i = 1 : (user_points - 1)
@@ -151,9 +54,6 @@ for i = 1 : (user_points - 1)
     
 end
 % ------------ End of main loop ------------
-
-
-
 
 
 %%%%%%%%%%%%%%%%% RECEDING HORIZON %%%%%%%%%%%%%%%%%
@@ -226,8 +126,6 @@ for i = 1 : ceil(total_steps/steps_rec_hor2)
 
 end
 % ------------ End of receding horizon loop ------------ 
-
-
 
 
 % Plot the results

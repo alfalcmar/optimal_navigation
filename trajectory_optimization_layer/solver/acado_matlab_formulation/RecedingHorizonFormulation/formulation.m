@@ -8,15 +8,6 @@ BEGIN_ACADO;
 % Set the ACADO problem name:
 acadoSet('problemname', 'one_drone_simple_trajectory'); 
 
-% % Windmill's position and radius (no-fly zone) [m]:
-% px_windmill = 12.0;
-% py_windmill = 16.0;
-% r_windmill  = 9.0;
-
-% % Drone's start and end pose [x, y, z] [m]:
-% ps_drone     = [-10.0, -15.0, 0.0];
-% pe_drone     = [30.0, 45.0, 15.0];
-
 % Max drone's velocity and acceleration
 MAX_ACC     = 1.0;
 MAX_VEL_XY  = 2.5;
@@ -27,11 +18,6 @@ CAMERA_PITCH = 0.1;
 Z_RELATIVE_TARGET_DRONE = 1.5;
 
 eps         = 0.00001;
-
-% % Define t_start, t_end and time_horizon (interval's step size)
-% t_start = 0.0;
-% t_end = 30.0;
-% time_horizon_ = 100;
 
 % Drone's pose and velocity
 DifferentialState   px_ py_ pz_ vx_ vy_ vz_
@@ -44,10 +30,6 @@ Control s
 
 % Drone's dynamic model
 model = acado.DifferentialEquation();
-
-% In C++, use VariablesGrid
-% my_grid_ = zeros(1,3);
-% my_grid_ = [t_start,t_end,time_horizon_];
 
 % Define the kinematic model
 model.add(dot(px_) == vx_);
@@ -99,16 +81,11 @@ S_1(2,2) = 1;   %W_PY_N;
 % Set desired pose
 r_1 (1:2) = pe_drone(1:2); 
 
-% ocp.minimizeLagrangeTerm( ( (pz_ - pe_drone(3))/ ...
-%                           ( (px_ - pe_drone(1))^2 + ...
-%                             (py_ - pe_drone(2))^2 + eps) - ...
-%                             CAMERA_PITCH)^2 )
 % To make the drone stare at the windmill (any height)
 ocp.minimizeLagrangeTerm( ( (pz_ - z_windmill_inspect)/ ...
                      ( sqrt((px_ - px_windmill)^2 + ...
                             (py_ - py_windmill)^2 + eps)) - ...
                             CAMERA_PITCH)^2 )
-
 
 ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
@@ -119,14 +96,13 @@ h = [ax_ ay_ az_ s];
 S = eye(4, 4);
 S(1,1) = 1; %W_AX;
 S(2,2) = 1; %W_AY;
-S(3,3) = 1; %W_AZ;
+S(3,3) = 0.05; %W_AZ;
 S(4,4) = 5; %W_s;
 
 % At the final point, use the theoretical acceleration to reach that point
 r = [0, 0, 0, 0];
 
 ocp.minimizeLSQ( S, h, r );
-
 
 % Set up the optimization algorithm
 algo = acado.OptimizationAlgorithm(ocp);
@@ -143,13 +119,5 @@ END_ACADO;
 
 % Now, let's run the test!
 out = one_drone_simple_trajectory_RUN();
-
-% Once it compiles, we check the output states and control
-% C++:
-% solver.getDifferentialStates(output_states);
-% solver.getControls          (output_control);
-
-% MATLAB:
-% draw;
 
 end

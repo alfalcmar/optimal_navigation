@@ -23,4 +23,4 @@ path6 = addpath(genpath([pwd filesep 'acado' filesep 'packages']));
 
 
 % Go back to the folder where you are working
-cd ~/MATLAB/bin/ACADO/FormulacionRH_Alfonso
+cd ~/MATLAB/bin/ACADO/RecedingHorizonFormulation

@@ -67,8 +67,8 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     acadodata_f2 << px_;
     acadodata_f2 << py_;
     DVector acadodata_v1(2);
-    acadodata_v1(0) = 1.203216E+01;
-    acadodata_v1(1) = 3.501489E+01;
+    acadodata_v1(0) = 1.399991E+02;
+    acadodata_v1(1) = 1.200008E+02;
     DMatrix acadodata_M1;
     acadodata_M1.read( "one_drone_simple_trajectory_data_acadodata_M1.txt" );
     Function acadodata_f3;
@@ -79,14 +79,14 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     DMatrix acadodata_M2;
     acadodata_M2.read( "one_drone_simple_trajectory_data_acadodata_M2.txt" );
     DVector acadodata_v2(4);
-    acadodata_v2(0) = -4.124723E-04;
-    acadodata_v2(1) = -2.746635E-04;
-    acadodata_v2(2) = 6.135220E-06;
+    acadodata_v2(0) = 9.771588E-05;
+    acadodata_v2(1) = 1.691704E-06;
+    acadodata_v2(2) = -7.010475E-05;
     acadodata_v2(3) = 0;
     DVector acadodata_v3(4);
-    acadodata_v3(0) = -4.124723E-04;
-    acadodata_v3(1) = -2.746635E-04;
-    acadodata_v3(2) = 6.135220E-06;
+    acadodata_v3(0) = 9.771588E-05;
+    acadodata_v3(1) = 1.691704E-06;
+    acadodata_v3(2) = -7.010475E-05;
     acadodata_v3(3) = 0;
     DifferentialEquation acadodata_f1;
     acadodata_f1 << dot(px_) == vx_;
@@ -96,7 +96,7 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     acadodata_f1 << dot(vy_) == ay_;
     acadodata_f1 << dot(vz_) == az_;
 
-    OCP ocp1(41, 50, 36);
+    OCP ocp1(135.4167, 150, 35);
     ocp1.minimizeLagrangeTerm(pow(((-5.00000000000000000000e+00+pz_)/sqrt((1.00000000000000008180e-05+pow((-1.20000000000000000000e+01+px_),2.00000000000000000000e+00)+pow((-1.60000000000000000000e+01+py_),2.00000000000000000000e+00)))-1.00000000000000005551e-01),2.00000000000000000000e+00));
     ocp1.minimizeLSQ(acadodata_M2, acadodata_f3, acadodata_v3);
     ocp1.minimizeLSQEndTerm(acadodata_M1, acadodata_f2, acadodata_v1);
@@ -110,15 +110,15 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     ocp1.subjectTo((-1.50000000000000000000e+00) <= vz_ <= 1.50000000000000000000e+00);
     ocp1.subjectTo(1.50000000000000000000e+00 <= (-5.00000000000000000000e+00+pz_+s));
     ocp1.subjectTo(s >= 0.00000000000000000000e+00);
-    ocp1.subjectTo(AT_START, px_ == 2.33159279643436434526e+01);
-    ocp1.subjectTo(AT_START, py_ == 3.25524062378866005929e+01);
-    ocp1.subjectTo(AT_START, pz_ == 7.49630926241856965220e+00);
-    ocp1.subjectTo(AT_START, vx_ == (-1.11415105360314048433e+00));
-    ocp1.subjectTo(AT_START, vy_ == 3.53308578752198232387e-01);
-    ocp1.subjectTo(AT_START, vz_ == (-2.94016457768810218765e-02));
-    ocp1.subjectTo(AT_START, ax_ == (-7.24003696987042810740e-02));
-    ocp1.subjectTo(AT_START, ay_ == (-3.20302823503537878458e-02));
-    ocp1.subjectTo(AT_START, az_ == (-3.66779600134175317455e-03));
+    ocp1.subjectTo(AT_START, px_ == 1.23398293466838509858e+02);
+    ocp1.subjectTo(AT_START, py_ == 1.19205740704008491093e+02);
+    ocp1.subjectTo(AT_START, pz_ == 2.46512641427801071359e+01);
+    ocp1.subjectTo(AT_START, vx_ == 1.13716356077250146939e+00);
+    ocp1.subjectTo(AT_START, vy_ == 1.23651203550627725170e-01);
+    ocp1.subjectTo(AT_START, vz_ == 1.65804797734036245271e-02);
+    ocp1.subjectTo(AT_START, ax_ == 5.54555932399923394438e-03);
+    ocp1.subjectTo(AT_START, ay_ == (-5.89068041186698639761e-03));
+    ocp1.subjectTo(AT_START, az_ == (-7.38389567968128664177e-03));
     ocp1.subjectTo((pow((-1.20000000000000000000e+01+px_),2.00000000000000000000e+00)+pow((-1.60000000000000000000e+01+py_),2.00000000000000000000e+00)) >= 3.60000000000000000000e+01);
 
 
