@@ -30,7 +30,8 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   
 )
-find_package(safe_corridor_generator REQUIRED)
+
+find_package(safe_corridor_generator REQUIRED COMPONENTS)
 #MRS packages
 
 
@@ -92,8 +93,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
-  ${SAFE_CORRIDOR_GENERATOR_INCLUDE_DIRS}
-
 )
 if(DEFINED ENV{ACADO})
     include_directories(  ${ACADO_INCLUDE_DIRS})
@@ -114,7 +113,7 @@ add_dependencies(${${PROJECT_NAME}_EXPORTED_TARGETS}
 
 target_link_libraries(solver_library
 ${catkin_LIBRARIES}
-${SAFE_CORRIDOR_GENERATOR_LIBRARIES})
+)
 
 if(DEFINED ENV{FORCES})
   set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
