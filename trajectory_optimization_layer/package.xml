@@ -49,6 +49,7 @@
   <build_depend>nav_msgs</build_depend>
   <build_depend>mrs_msgs</build_depend>
   <build_depend>shot_executer</build_depend>
+  <build_depend>safe_corridor_generator</build_depend>
   <!-- <build_depend>uav_abstraction_layer</build_depend>
   <build_depend>multidrone_msgs</build_depend> -->
   <build_depend>acado</build_depend>
@@ -64,6 +65,7 @@
   <!-- <run_depend>multidrone_msgs</run_depend> -->
   <run_depend>shot_executer</run_depend>
   <run_depend>acado</run_depend>
+  <run_depend>safe_corridor_generator</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

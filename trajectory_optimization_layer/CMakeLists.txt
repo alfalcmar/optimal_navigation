@@ -5,6 +5,8 @@ project(optimal_control_interface)
 ADD_DEFINITIONS( -std=c++17 )
 add_compile_options(-std=c++17)
 
+set(CMAKE_CXX_FLAGS "-w")
+
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
@@ -28,7 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   
 )
-
+find_package(safe_corridor_generator REQUIRED)
 #MRS packages
 
 
@@ -39,6 +41,9 @@ if( MRS_INTERFACE)
               mrs_msgs REQUIRED
               shot_executer)
 endif()
+
+
+
 find_package(PythonLibs 2.7)
 find_package(Eigen3 REQUIRED)
 
@@ -52,6 +57,7 @@ endif()
 
 
 link_directories(${ACADO_LIBRARY_DIRS})
+link_directories(${SAFE_CORRIDOR_GENERATOR_INCLUDE_DIRS})
 
 add_message_files(
   FILES
@@ -66,8 +72,8 @@ geometry_msgs
 
 catkin_package(
  INCLUDE_DIRS include
-  LIBRARIES 
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib
+  LIBRARIES solver_library
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib safe_corridor_generator
 
   #DEPENDS ACADO
 )
@@ -86,21 +92,29 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${SAFE_CORRIDOR_GENERATOR_INCLUDE_DIRS}
 
 )
 if(DEFINED ENV{ACADO})
-  include_directories(  ${ACADO_INCLUDE_DIRS})
+    include_directories(  ${ACADO_INCLUDE_DIRS})
 
 
-add_library(solver_library
-  src/solver.cpp
-  src/solver_acado.cpp
-  src/UAVState.cpp
-  src/logger.cpp
-  src/backendSolver.cpp
-)
+  add_library(solver_library
+    src/solver.cpp
+    src/solver_acado.cpp
+    src/UAVState.cpp
+    src/logger.cpp
+    src/backendSolver.cpp
+  )
 endif()
 
+add_dependencies(${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(solver_library
+${catkin_LIBRARIES}
+${SAFE_CORRIDOR_GENERATOR_LIBRARIES})
 
 if(DEFINED ENV{FORCES})
   set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)

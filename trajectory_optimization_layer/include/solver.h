@@ -11,6 +11,7 @@
 #include <nav_msgs/Odometry.h>
 #include <memory>
 #include <UAVState.h>
+#include <safe_corridor_generator/safe_corridor_generator.h>
 USING_NAMESPACE_ACADO
 
 namespace NumericalSolver{
