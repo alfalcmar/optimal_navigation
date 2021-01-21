@@ -28,11 +28,13 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   shot_executer
   roslib
-  
+  safe_corridor_generator
+  decomp_ros_utils 
 )
 
-find_package(safe_corridor_generator REQUIRED)
 #MRS packages
+find_package(decomp_util REQUIRED)
+include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 
 if( MRS_INTERFACE)
@@ -58,7 +60,6 @@ endif()
 
 
 link_directories(${ACADO_LIBRARY_DIRS})
-link_directories(${SAFE_CORRIDOR_GENERATOR_INCLUDE_DIRS})
 
 add_message_files(
   FILES
@@ -74,7 +75,7 @@ geometry_msgs
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES solver_library
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib safe_corridor_generator
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib 
 
   #DEPENDS ACADO
 )
@@ -85,15 +86,17 @@ catkin_package(
 
 include_directories(
   include
+  ${catkin_INCLUDE_DIRS}
+  ${safe_corridor_generator_INCLUDE_DIRS}
   LIBRARIES
   CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
   lib
   solver
   solver/FORCESNLPsolver/lib
-  ${catkin_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
 )
+
 if(DEFINED ENV{ACADO})
     include_directories(  ${ACADO_INCLUDE_DIRS})
 
