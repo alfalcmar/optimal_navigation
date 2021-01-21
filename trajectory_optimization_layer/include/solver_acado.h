@@ -10,9 +10,11 @@ class ACADOSolver : public Solver{
 private:
     bool logACADOvars();
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
+    void polyhedronsToACADO(vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path);
+
 
 public:
-    ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &intial_guess);
+    ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &intial_guess, const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr);
 
     /** \brief This function fill the solver inputs and call it
     *  \param x y z vx vy vz       These are the variables where the calculated path will place

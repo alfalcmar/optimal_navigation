@@ -100,7 +100,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   solved_trajectory_pub  = pnh.advertise<optimal_control_interface::Solver>("trajectory", 1);
 
   // acado object
-  solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon, initial_guess_);
+  solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon, initial_guess_, safe_corridor_generator_);
 
   // log files
   logger = new SolverUtils::Logger(this,pnh);
