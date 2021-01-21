@@ -10,7 +10,7 @@ class ACADOSolver : public Solver{
 private:
     bool logACADOvars();
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
-    void polyhedronsToACADO(vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path);
+    void polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz);
 
 
 public:

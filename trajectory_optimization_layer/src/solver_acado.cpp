@@ -180,7 +180,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     return solver_success_;  
  }
 
-void NumericalSolver::ACADOSolver::polyhedronsToACADO(vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path){
+void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz){
    
    // Convert to inequality constraints Ax < b
    // Taken from decomp test node
@@ -201,6 +201,10 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(vec_E<Polyhedron<3>> &_vec
         std::cout << " is inside!" << std::endl;
         else
         std::cout << " is outside!" << std::endl;
+
+        for(size_t k = 0; k<cs.b().size(); k++){ //each polyhedron i is subject to k constraints
+            _ocp.subjectTo(i,  cs.A()(k,0)*_px + cs.A()(k,1)*_py + cs.A()(k,2)*_pz<= cs.b()[k]);
+        }
     }
 }
 
