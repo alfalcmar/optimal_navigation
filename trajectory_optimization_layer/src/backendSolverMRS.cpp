@@ -2,6 +2,7 @@
 
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
   ROS_INFO("Leader constructor");
+
   /* std::string target_topic; */
   /* _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic
    * /gazebo/dynamic_target/dynamic_pickup/pose */

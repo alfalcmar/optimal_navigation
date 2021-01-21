@@ -19,6 +19,11 @@
 #include <chrono>
 #include <UAVState.h>
 
+// MRS headers, TODO: avoid in this class
+#include <mrs_msgs/TrajectoryReference.h>
+#include <mrs_msgs/Reference.h>
+#include <mrs_lib/transformer.h>
+#include <mrs_msgs/String.h>
 #include <algorithm>
 #define ZERO 0.000001
 
@@ -77,6 +82,9 @@ protected:
 
   std::shared_ptr<State[]> initial_guess_;
 
+  std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator>  safe_corridor_generator_;
+
+
   std::vector<float>                no_fly_zone_center_;
   const float                       NO_FLY_ZONE_RADIUS = 4;
   std::vector<std::array<float, 2>> no_fly_zone_points_;
@@ -112,6 +120,16 @@ protected:
   ros::ServiceServer             service_for_activation; /**< service to activate the planning */
   std::map<int, ros::Subscriber> drone_pose_sub;         /**< subscribers of the drones poses <drone_id, pose_subscriber> */
   std::map<int, ros::Subscriber> drone_trajectory_sub;   /**< subscribers the solved trajectory of others <drone_id, trajectory_subscriber */
+  
+  // to visualize corridor
+  ros::Publisher pub_path_;
+  ros::Publisher pub_point_cloud_;
+  ros::Publisher pub_corridor_polyhedrons_;
+  ros::Publisher pub_corridor_ellipsoids_;
+
+  // to test corridor
+  ros::Subscriber sub_path_;
+  
   // aux flags
   // std::map<int, bool> has_poses; /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
   std::map<int, bool> trajectory_solved_received; /**<  flags to receive the solved trajectories for others <drone_id, received> */
@@ -134,6 +152,12 @@ protected:
   // FORCESPROsolver solver_;                /**< solver object */
 
   bool desired_position_reached_ = false; /**< flag to check if the last generated trajectory reach the desired point */
+
+
+  /** Utility function to test the safe corridor in solver node
+   */
+  void referencePathCallback(const nav_msgs::PathConstPtr &msg);
+
 
   /** \brief This function save the trajectory calculated by the solver **/
 

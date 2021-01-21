@@ -45,7 +45,55 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
     ROS_ERROR("No fly zone is not set");
   }
 
-  
+
+  std::string               node_name = ros::this_node::getName().c_str();
+  mrs_lib::ParamLoader param_loader(pnh, node_name);
+
+  // LOAD INITIAL PARAMETERS
+  ROS_INFO("[DecomposeWrapper]: Loading static parameters:");
+  std::string world_frame_;
+  std::string pcd_file_path_;  // path to pcd file containing representation of obstacles
+  double      main_loop_rate_;
+  double      robot_radius_;
+  double      segment_margin_;
+  Vec3f       local_bbox_;
+  std::vector<double> _local_bbox;
+  std::vector<float>  _map_frame_coordinates;
+  double _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
+  bool test_ = false;
+  param_loader.loadParam("pcl_filepath", pcd_file_path_);
+  param_loader.loadParam("world_frame", world_frame_);
+  param_loader.loadParam("loop_rate", main_loop_rate_);
+  param_loader.loadParam("robot_radius", robot_radius_);
+  param_loader.loadParam("segment_margin", segment_margin_);
+  param_loader.loadParam("local_bbox", _local_bbox);
+  param_loader.loadParam("test", test_);
+  param_loader.loadParam("map_width_x", _size_x);
+  param_loader.loadParam("map_width_y", _size_y);
+  param_loader.loadParam("map_width_z", _size_z);
+  param_loader.loadParam("max_height", _max_z);
+  param_loader.loadParam("z_ground", _min_z);
+  param_loader.loadParam("inflation", _jps_inflation);
+  param_loader.loadParam("resolution", _map_resolution);
+  param_loader.loadParam("map_center", _map_frame_coordinates);
+
+  // initializa safe corridor generator
+
+  safe_corridor_generator_ =std::make_shared<safe_corridor_generator::SafeCorridorGenerator> ();
+
+  safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
+                                      _map_frame_coordinates, _jps_inflation, _map_resolution);
+
+
+  // Initialize subs and pubs to visualize safe corridor
+
+  pub_path_                 = nh.advertise<nav_msgs::Path>("solver/safe_corridor/path_out", 1);
+  pub_point_cloud_          = nh.advertise<sensor_msgs::PointCloud2>("solver/safe_corridor/pcl_map_out", 1);
+  pub_corridor_polyhedrons_ = nh.advertise<decomp_ros_msgs::PolyhedronArray>("solver/safe_corridor/polyhedrons_out", 1);
+  pub_corridor_ellipsoids_  = nh.advertise<decomp_ros_msgs::EllipsoidArray>("solver/safe_corridor/ellipsoids_out", 1);
+
+  sub_path_ = nh.subscribe("solver/safe_corridor/path_in", 1, &backendSolver::referencePathCallback, this);
+                     
   // subscripions
   desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
   // publishers
@@ -56,6 +104,81 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   // log files
   logger = new SolverUtils::Logger(this,pnh);
+
+  sleep(8);
+
+  safe_corridor_generator_->publishCloud(pub_point_cloud_);
+
+}
+
+void backendSolver::referencePathCallback(const nav_msgs::PathConstPtr &msg) {
+
+  ROS_INFO("[DecomposeNode]: Path reference received.");
+
+  
+
+  ////////////////////////////////////// for testing //////////////////////////////////////////////////////////////////////
+  nav_msgs::Path                 aux;
+    geometry_msgs::PoseStamped              ps;
+    std::vector<geometry_msgs::PoseStamped> ps_vector;
+    geometry_msgs::Point                    p;
+    p.x              = -10.0;
+    p.y              = 0.0;
+    p.z              = 2.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    p.x              = -5.0;
+    p.y              = 0.0;
+    p.z              = 1.0;
+    ps.pose.position = p;
+    p.x              = 4.0;
+    p.y              = 0.0;
+    p.z              = 1.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    p.x              = 3.0;
+    p.y              = 0.0;
+    p.z              = 10.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    p.x              = 3.0;
+    p.y              = 0.0;
+    p.z              = 20.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    p.x              = 5.0;
+    p.y              = 5.0;
+    p.z              = 20.0;
+    ps.pose.position = p;
+    p.x              = -5.0;
+    p.y              = 5.0;
+    p.z              = 20.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    p.x              = -5.0;
+    p.y              = -5.0;
+    p.z              = 20.0;
+    ps.pose.position = p;
+    ps_vector.push_back(ps);
+    aux.poses           = ps_vector;
+    nav_msgs::PathConstPtr path_ref(&aux);
+
+    ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", path_ref->poses.size());
+
+  for (auto &pose : path_ref->poses) {
+    ROS_INFO("[debug]: Obtained path: [%.2f, %.2f, %.2f]", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+  }
+
+  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(path_ref);
+  decomp_ros_msgs::EllipsoidArrayPtr  ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(path_ref);
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  safe_corridor_generator_->publishLastPath(pub_path_);
+
+  ROS_INFO("[DecomposeNode]: Publishing corridors ");
+  safe_corridor_generator_->publishCorridor(pol_corrs, pub_corridor_polyhedrons_);
+  safe_corridor_generator_->publishCorridor(ell_corrs, pub_corridor_ellipsoids_);
 }
 
 

@@ -6,6 +6,8 @@
 #include <mrs_msgs/TrajectoryReference.h>
 #include <mrs_msgs/Reference.h>
 #include <mrs_lib/transformer.h>
+#include <mrs_msgs/String.h>
+
 
 class backendSolverMRS : public backendSolver {
 public:

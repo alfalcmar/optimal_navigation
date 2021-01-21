@@ -1,3 +1,4 @@
 <launch>
-<node pkg="rviz" name="rviz" type="rviz" args="-d $(find optimal_control_interface)/rviz/mrs.rviz"/>   
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+<node pkg="rviz" name="rviz" type="rviz" args="-d $(find optimal_control_interface)/rviz/uav1.rviz"/>   
 </launch>

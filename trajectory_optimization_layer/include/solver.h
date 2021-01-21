@@ -12,6 +12,7 @@
 #include <memory>
 #include <UAVState.h>
 #include <safe_corridor_generator/safe_corridor_generator.h>
+
 USING_NAMESPACE_ACADO
 
 namespace NumericalSolver{
@@ -45,6 +46,9 @@ protected:
     
     std::shared_ptr<State[]> initial_guess_;
     const int time_horizon_;
+    
+    std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator>  safe_corridor_generator_;
+
 
 
 public:
