@@ -31,7 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
   
 )
 
-find_package(safe_corridor_generator REQUIRED COMPONENTS)
+find_package(safe_corridor_generator REQUIRED)
 #MRS packages
 
 
