@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 2.8.3)
 project(optimal_control_interface)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -8,8 +8,7 @@ add_compile_options(-std=c++17)
 set(CMAKE_CXX_FLAGS "-w")
 
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "cmake/Modules/")
-set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} "cmake/Modules/" )
 
 set(ENV{ACADO} "true")
 
@@ -27,29 +26,29 @@ find_package(catkin REQUIRED COMPONENTS
   #uav_abstraction_layer
   nav_msgs
   shot_executer
-  roslib
-  safe_corridor_generator
-  decomp_ros_utils 
+  safe_corridor_generator 
+  nodelet
+  decomp_ros_utils
 )
-
-#MRS packages
-find_package(decomp_util REQUIRED)
-include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 
 if( MRS_INTERFACE)
   ADD_DEFINITIONS(-DUSE_MRS_INTERFACE)
-  find_package(catkin REQUIRED COMPONENTS
-              formation_church_planning REQUIRED
-              mrs_msgs REQUIRED
-              shot_executer)
+  find_package(formation_church_planning REQUIRED
+              mrs_msgs REQUIRED)
 endif()
 
 
 
 find_package(PythonLibs 2.7)
-find_package(Eigen3 REQUIRED)
 
+#Find Eigen libraries
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
+
+find_package(decomp_util REQUIRED)
+include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 if(DEFINED ENV{ACADO})
   find_package(ACADO REQUIRED)
@@ -69,28 +68,20 @@ add_message_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
-geometry_msgs
+  geometry_msgs
 )
 
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES solver_library
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs roslib 
-
-  #DEPENDS ACADO
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs 
 )
-
-
-#roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)
 
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${safe_corridor_generator_INCLUDE_DIRS}
-  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs #uav_abstraction_layer
-  lib
   solver
   solver/FORCESNLPsolver/lib
   ${PYTHON_INCLUDE_DIRS}
@@ -108,15 +99,19 @@ if(DEFINED ENV{ACADO})
     src/logger.cpp
     src/backendSolver.cpp
   )
-endif()
+
+
+
+target_link_libraries(solver_library
+${catkin_LIBRARIES}
+)
 
 add_dependencies(${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(solver_library
-${catkin_LIBRARIES}
-)
+endif()
+
 
 if(DEFINED ENV{FORCES})
   set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/solver/FORCESNLPsolver/lib/libFORCESNLPsolver.so)
