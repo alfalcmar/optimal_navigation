@@ -113,13 +113,13 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   // log files
   logger = new SolverUtils::Logger(this, pnh);
 
-  sleep(8);
-
-  safe_corridor_generator_->publishCloud(pub_point_cloud_);
-
   sleep(2);
 
-  sfg_test();
+  safe_corridor_generator_->solveDecomposition();
+
+  /* sleep(2); */
+
+  /* sfg_test(); */
 }
 
 void backendSolver::sfg_test() {

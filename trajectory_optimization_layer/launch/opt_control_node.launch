@@ -35,11 +35,11 @@
 
     </node>
 
-    <group if="$(arg run_rviz)">
-    <include file="$(find optimal_control_interface)/launch/rviz.launch">
-      <arg name="uav_name" value="$(arg uav_name)" />
-    </include>
-  </group>
+    <!-- <group if="$(arg run_rviz)"> -->
+    <!-- <include file="$(find optimal_control_interface)/launch/rviz.launch"> -->
+    <!--   <arg name="uav_name" value="$(arg uav_name)" /> -->
+    <!-- </include> -->
+  <!-- </group> -->
 
 </launch>
 
