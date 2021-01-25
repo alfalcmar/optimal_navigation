@@ -5,9 +5,9 @@ project(optimal_control_interface)
 ADD_DEFINITIONS( -std=c++17 )
 add_compile_options(-std=c++17)
 
-set(CMAKE_CXX_FLAGS "-w")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -w")
 
-set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Release)
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} "cmake/Modules/" )
 
 set(ENV{ACADO} "true")
@@ -17,6 +17,7 @@ set(MRS_INTERFACE ON)
 
 
 find_package(catkin REQUIRED COMPONENTS
+  nodelet
   roscpp
   rospy
   tf
@@ -27,8 +28,10 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   shot_executer
   safe_corridor_generator 
-  nodelet
   decomp_ros_utils
+	pcl_ros
+	pcl_conversions
+  geometry_msgs
 )
 
 
@@ -49,6 +52,9 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 find_package(decomp_util REQUIRED)
 include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
+
+find_package(jps3d REQUIRED)
+include_directories(${JPS3D_INCLUDE_DIRS})
 
 if(DEFINED ENV{ACADO})
   find_package(ACADO REQUIRED)
@@ -73,20 +79,24 @@ generate_messages(
 
 catkin_package(
  INCLUDE_DIRS include
-  LIBRARIES solver_library
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs 
+ CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs
+ LIBRARIES solver_library SolverNodelet 
 )
 
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${safe_corridor_generator_INCLUDE_DIRS}
+  # ${safe_corridor_generator_INCLUDE_DIRS}
   solver
   solver/FORCESNLPsolver/lib
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${PCL_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 if(DEFINED ENV{ACADO})
     include_directories(  ${ACADO_INCLUDE_DIRS})
@@ -100,8 +110,6 @@ if(DEFINED ENV{ACADO})
     src/backendSolver.cpp
   )
 
-
-
 target_link_libraries(solver_library
 ${catkin_LIBRARIES}
 )
@@ -109,6 +117,25 @@ ${catkin_LIBRARIES}
 add_dependencies(${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
+
+add_library(SolverNodelet 
+  src/solver_nodelet.cpp
+  src/backendSolverMRS.cpp
+  )
+
+target_link_libraries(SolverNodelet
+  solver_library
+  ${catkin_LIBRARIES} 
+  ${EXTRALIB_BIN} 
+  ${PYTHON_LIBRARIES} 
+  ${Eigen3_LIBRARIES} 
+  ${ACADO_SHARED_LIBRARIES}
+  ${JPS3D_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${DECOMP_UTIL_LIBRARIES}
+)
+
+add_dependencies(SolverNodelet ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 endif()
 

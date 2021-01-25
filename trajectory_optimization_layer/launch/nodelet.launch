@@ -1,0 +1,61 @@
+<launch>
+	<arg name="drones" default="[1]"/>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="trajectory_frame" default="$(arg uav_name)/gps_origin"/>
+  <arg name="run_rviz" default="true" />
+  <arg name="standalone" default="true" />
+
+
+  <arg name="debug" default="false" />
+  <arg unless="$(arg debug)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg debug)" name="launch_prefix_debug" value="debug_roslaunch"/>
+  <arg name="profile" default="false" />
+  <arg unless="$(arg profile)" name="launch_prefix_profile" value=""/>
+  <arg     if="$(arg profile)" name="launch_prefix_profile" value="valgrind --tool=callgrind --dump-instr=yes --simulate-cache=yes --collect-jumps=yes"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load" />
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone" />
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_darpa_nodelet_manager" />
+  <arg     if="$(arg standalone)" name="nodelet_manager" value="" />
+
+  <group ns="$(arg uav_name)">
+    <node name="solver_nodelet" pkg="nodelet" type="nodelet" args="$(arg nodelet) optimal_control_interface/SolverNodelet $(arg nodelet_manager)" launch_prefix="valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes -v --log-file=/home/vit/nodelet.log" output="screen">
+      <param name="drone_id" value="1"/>
+      <param name="solver_rate" value="1"/> <!-- Hz -->
+      <param name="trajectory_frame" value="$(arg trajectory_frame)"/> <!-- Hz -->
+      <rosparam param="drones" subst_value="true">$(arg drones)</rosparam>
+      <rosparam param="no_fly_zone" subst_value="true">[0 0]</rosparam>
+      <!-- remapping of topics -->
+      <remap from="~odometry_in" to="odometry/odom_main" />
+      <remap from="~diagnostics" to="formation_church_planning/diagnostics" />
+      <remap from="~desired_trajectory" to="control_manager/trajectory_reference" />
+      <remap from="~planned_trajectory" to="formation_church_planning/planned_trajectory" />
+      <remap from="~mrs_status" to="formation_church_planning/status" />
+      <remap from="~toggle_state" to="formation_church_planning/toggle_state" />
+      <remap from="~target_topic" to="/$(arg uav_name)/balloon_filter/chosen_out" />
+      <!-- <remap from="~target_topic" to="/$(arg uav_name)/balloon_filter/chosen_out" /> -->
+      <remap from="~target_odometry_out" to="/$(arg uav_name)/formation_church_planning/target_odometry" />
+
+      <rosparam file="$(find safe_corridor_generator)/config/params.yaml" />
+
+      <param name="pcl_filepath" value="$(find formation_church_planning)/maps/pcd_files/power_tower_danube.pcd" />
+      <param name="world_frame" value="$(arg uav_name)/gps_origin" />
+
+      <remap from="~path_out" to="~path_out" />
+      <remap from="~path_in" to="~path_in" />
+      <remap from="~pcl_map_out" to="~pcl_map_out" />
+      <remap from="~polyhedrons_out" to="~polyhedrons_out" />
+      <remap from="~ellipsoids_out" to="~ellipsoids_out" />
+
+    </node>
+
+  </group>
+
+    <group if="$(arg run_rviz)">
+    <include file="$(find optimal_control_interface)/launch/rviz.launch">
+      <arg name="uav_name" value="$(arg uav_name)" />
+    </include>
+  </group>
+
+</launch>
+

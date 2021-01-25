@@ -77,6 +77,7 @@ protected:
   // solver output - state variables - position and velocities (ROBOT) change to array
   const int time_horizon_;
 
+  std::string         pcd_file_path_;  // path to pcd file containing representation of obstacles
   std::unique_ptr<State[]> solution_;  
   
 
@@ -157,6 +158,8 @@ protected:
   /** Utility function to test the safe corridor in solver node
    */
   void referencePathCallback(const nav_msgs::PathConstPtr &msg);
+  
+  void sfg_test();
 
 
   /** \brief This function save the trajectory calculated by the solver **/

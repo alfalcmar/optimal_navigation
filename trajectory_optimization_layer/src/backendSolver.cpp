@@ -1,12 +1,20 @@
 #include <backendSolver.h>
 #include <iostream>
 #include <logger.h>
+// Convex Decomposition includes
+#include <decomp_ros_utils/data_ros_utils.h>
+#include <decomp_util/ellipsoid_decomp.h>
+#include <decomp_util/seed_decomp.h>
 
+// Includes from this package
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/point_cloud_conversion.h>
 
-
-backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int time_horizon) : time_horizon_(time_horizon),
-                                                                                                solution_(new State[time_horizon]),
-                                                                                                initial_guess_(new State[time_horizon]) {
+backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int time_horizon)
+    : time_horizon_(time_horizon), solution_(new State[time_horizon]), initial_guess_(new State[time_horizon]) {
   ROS_INFO("backend solver constructor");
 
   // drones param
@@ -46,21 +54,20 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   }
 
 
-  std::string               node_name = ros::this_node::getName().c_str();
+  std::string          node_name = ros::this_node::getName().c_str();
   mrs_lib::ParamLoader param_loader(pnh, node_name);
 
   // LOAD INITIAL PARAMETERS
   ROS_INFO("[DecomposeWrapper]: Loading static parameters:");
-  std::string world_frame_;
-  std::string pcd_file_path_;  // path to pcd file containing representation of obstacles
-  double      main_loop_rate_;
-  double      robot_radius_;
-  double      segment_margin_;
-  Vec3f       local_bbox_;
+  std::string         world_frame_;
+  double              main_loop_rate_;
+  double              robot_radius_;
+  double              segment_margin_;
+  Vec3f               local_bbox_;
   std::vector<double> _local_bbox;
   std::vector<float>  _map_frame_coordinates;
-  double _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
-  bool test_ = false;
+  double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
+  bool                test_ = false;
   param_loader.loadParam("pcl_filepath", pcd_file_path_);
   param_loader.loadParam("world_frame", world_frame_);
   param_loader.loadParam("loop_rate", main_loop_rate_);
@@ -79,10 +86,10 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   // initializa safe corridor generator
 
-  safe_corridor_generator_ =std::make_shared<safe_corridor_generator::SafeCorridorGenerator> ();
+  safe_corridor_generator_ = std::make_shared<safe_corridor_generator::SafeCorridorGenerator>();
 
   safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
-                                      _map_frame_coordinates, _jps_inflation, _map_resolution);
+                                       _map_frame_coordinates, _jps_inflation, _map_resolution);
 
 
   // Initialize subs and pubs to visualize safe corridor
@@ -93,21 +100,124 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   pub_corridor_ellipsoids_  = nh.advertise<decomp_ros_msgs::EllipsoidArray>("solver/safe_corridor/ellipsoids_out", 1);
 
   sub_path_ = nh.subscribe("solver/safe_corridor/path_in", 1, &backendSolver::referencePathCallback, this);
-                     
+
   // subscripions
-  desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback, this);  // desired pose from shot executer
+  desired_pose_sub = nh.subscribe<shot_executer::DesiredShot>("shot_executer_node/desired_pose", 1, &backendSolver::desiredPoseCallback,
+                                                              this);  // desired pose from shot executer
   // publishers
-  solved_trajectory_pub  = pnh.advertise<optimal_control_interface::Solver>("trajectory", 1);
+  solved_trajectory_pub = pnh.advertise<optimal_control_interface::Solver>("trajectory", 1);
 
   // acado object
   solver_pt_ = std::make_unique<NumericalSolver::ACADOSolver>(solver_rate_, time_horizon, initial_guess_);
 
   // log files
-  logger = new SolverUtils::Logger(this,pnh);
+  logger = new SolverUtils::Logger(this, pnh);
 
   sleep(8);
 
   safe_corridor_generator_->publishCloud(pub_point_cloud_);
+
+  sleep(2);
+
+  sfg_test();
+}
+
+void backendSolver::sfg_test() {
+
+  ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
+  nav_msgs::PathPtr                       path_ref(new nav_msgs::Path) ;
+  geometry_msgs::PoseStamped              ps;
+  std::vector<geometry_msgs::PoseStamped> ps_vector;
+  geometry_msgs::Point                    p;
+  p.x              = -10.0;
+  p.y              = 0.0;
+  p.z              = 2.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = -5.0;
+  p.y              = 0.0;
+  p.z              = 1.0;
+  ps.pose.position = p;
+  p.x              = 4.0;
+  p.y              = 0.0;
+  p.z              = 1.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 3.0;
+  p.y              = 0.0;
+  p.z              = 10.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 3.0;
+  p.y              = 0.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 5.0;
+  p.y              = 5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  p.x              = -5.0;
+  p.y              = 5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = -5.0;
+  p.y              = -5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
+  path_ref->poses = ps_vector;
+  /* nav_msgs::PathConstPtr path_ref(&aux); */
+
+  ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", path_ref->poses.size());
+
+  for (auto &pose : path_ref->poses) {
+    ROS_INFO("[debug]: Obtained path: [%.2f, %.2f, %.2f]", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+  }
+
+
+  vec_Vec3f   path_vector_;
+  EllipsoidDecomp3D decomp_util_;
+  sensor_msgs::PointCloud2 pcl_sensor_message_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud_;
+  pcl_cloud_ = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+  
+  if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_file_path_.c_str(), *pcl_cloud_) == -1)  // load the file
+  {
+    ROS_ERROR("Couldn't read file %s\n", pcd_file_path_.c_str());
+  }
+  ROS_INFO_STREAM("Loaded " << pcl_cloud_->width * pcl_cloud_->height << " data points from " << pcd_file_path_);
+
+  Vec3f     waypoint;
+  for (const auto &it : path_ref->poses) {
+    waypoint(0) = it.pose.position.x;
+    waypoint(1) = it.pose.position.y;
+    waypoint(2) = it.pose.position.z;
+    path_vector_.push_back(waypoint);
+  }
+
+  vec_Vec3f     pcl_map_vector;
+  sensor_msgs::PointCloud cloud_msg;
+  pcl::toROSMsg(*pcl_cloud_.get(), pcl_sensor_message_);
+  if (sensor_msgs::convertPointCloud2ToPointCloud(pcl_sensor_message_, cloud_msg)) {
+    pcl_map_vector  = DecompROS::cloud_to_vec(cloud_msg);
+  } else {
+    ROS_WARN("[DecomposeWrapper]: Conversion of PointCloud to PointCloud2 failed.");
+  }
+
+  ROS_WARN("[DecomposeWrapper]: Conversion of PointCloud to PointCloud2 succesful.");
+  decomp_util_.set_obs(pcl_map_vector);
+  decomp_util_.set_local_bbox(Vec3f(2, 2, 2));  // use for generation of cuboids surrounding the path
+  decomp_util_.set_inflate_distance(0.5);
+  ROS_INFO("[DecomposeWrapper]: Dilating path, path size = %lu ", path_vector_.size());
+
+  ros::WallTime start = ros::WallTime::now();
+  decomp_util_.dilate(path_vector_, 1.0);
+  ROS_INFO("[DecomposeWrapper]: Dilating path took %.2f ms", (ros::WallTime::now() - start).toSec() * 1000.0);
+
+  ROS_INFO("[DecompWrapper]: Corridors generated.");
 
 }
 
@@ -115,63 +225,65 @@ void backendSolver::referencePathCallback(const nav_msgs::PathConstPtr &msg) {
 
   ROS_INFO("[DecomposeNode]: Path reference received.");
 
-  
 
   ////////////////////////////////////// for testing //////////////////////////////////////////////////////////////////////
-  nav_msgs::Path                 aux;
-    geometry_msgs::PoseStamped              ps;
-    std::vector<geometry_msgs::PoseStamped> ps_vector;
-    geometry_msgs::Point                    p;
-    p.x              = -10.0;
-    p.y              = 0.0;
-    p.z              = 2.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    p.x              = -5.0;
-    p.y              = 0.0;
-    p.z              = 1.0;
-    ps.pose.position = p;
-    p.x              = 4.0;
-    p.y              = 0.0;
-    p.z              = 1.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    p.x              = 3.0;
-    p.y              = 0.0;
-    p.z              = 10.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    p.x              = 3.0;
-    p.y              = 0.0;
-    p.z              = 20.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    p.x              = 5.0;
-    p.y              = 5.0;
-    p.z              = 20.0;
-    ps.pose.position = p;
-    p.x              = -5.0;
-    p.y              = 5.0;
-    p.z              = 20.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    p.x              = -5.0;
-    p.y              = -5.0;
-    p.z              = 20.0;
-    ps.pose.position = p;
-    ps_vector.push_back(ps);
-    aux.poses           = ps_vector;
-    nav_msgs::PathConstPtr path_ref(&aux);
+  nav_msgs::Path                          aux;
+  geometry_msgs::PoseStamped              ps;
+  std::vector<geometry_msgs::PoseStamped> ps_vector;
+  geometry_msgs::Point                    p;
+  p.x              = -10.0;
+  p.y              = 0.0;
+  p.z              = 2.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = -5.0;
+  p.y              = 0.0;
+  p.z              = 1.0;
+  ps.pose.position = p;
+  p.x              = 4.0;
+  p.y              = 0.0;
+  p.z              = 1.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 3.0;
+  p.y              = 0.0;
+  p.z              = 10.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 3.0;
+  p.y              = 0.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = 5.0;
+  p.y              = 5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  p.x              = -5.0;
+  p.y              = 5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  p.x              = -5.0;
+  p.y              = -5.0;
+  p.z              = 20.0;
+  ps.pose.position = p;
+  ps_vector.push_back(ps);
+  aux.poses = ps_vector;
+  /* nav_msgs::PathConstPtr path_ref(&aux); */
 
-    ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", path_ref->poses.size());
+  ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", msg->poses.size());
 
-  for (auto &pose : path_ref->poses) {
+  for (auto &pose : msg->poses) {
     ROS_INFO("[debug]: Obtained path: [%.2f, %.2f, %.2f]", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
   }
 
-  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(path_ref);
-  decomp_ros_msgs::EllipsoidArrayPtr  ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(path_ref);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(msg);
+
+  ros::Duration(10.0).sleep();
+
+  decomp_ros_msgs::EllipsoidArrayPtr ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(msg);
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   safe_corridor_generator_->publishLastPath(pub_path_);
@@ -190,18 +302,17 @@ void backendSolver::desiredPoseCallback(const shot_executer::DesiredShot::ConstP
 }
 
 
-
-void backendSolver::saveCalculatedTrajectory(){
-  for (int i=0; i<time_horizon_; i++){
-      solution_[i].pose.x = solver_pt_->solution_[i].pose.x;
-      solution_[i].pose.y = solver_pt_->solution_[i].pose.y;
-      solution_[i].pose.z = solver_pt_->solution_[i].pose.z;
-      solution_[i].velocity.x = solver_pt_->solution_[i].velocity.x;
-      solution_[i].velocity.y = solver_pt_->solution_[i].velocity.y;
-      solution_[i].velocity.z = solver_pt_->solution_[i].velocity.z;
-      solution_[i].acc.x = solver_pt_->solution_[i].acc.x;
-      solution_[i].acc.y = solver_pt_->solution_[i].acc.y;
-      solution_[i].acc.z = solver_pt_->solution_[i].acc.z;
+void backendSolver::saveCalculatedTrajectory() {
+  for (int i = 0; i < time_horizon_; i++) {
+    solution_[i].pose.x     = solver_pt_->solution_[i].pose.x;
+    solution_[i].pose.y     = solver_pt_->solution_[i].pose.y;
+    solution_[i].pose.z     = solver_pt_->solution_[i].pose.z;
+    solution_[i].velocity.x = solver_pt_->solution_[i].velocity.x;
+    solution_[i].velocity.y = solver_pt_->solution_[i].velocity.y;
+    solution_[i].velocity.z = solver_pt_->solution_[i].velocity.z;
+    solution_[i].acc.x      = solver_pt_->solution_[i].acc.x;
+    solution_[i].acc.y      = solver_pt_->solution_[i].acc.y;
+    solution_[i].acc.z      = solver_pt_->solution_[i].acc.z;
   }
 }
 
@@ -234,7 +345,7 @@ void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &
   uavs_pose_[id].state.pose.x = msg->pose.position.x;
   uavs_pose_[id].state.pose.y = msg->pose.position.y;
   uavs_pose_[id].state.pose.z = msg->pose.position.z;
-  
+
   uavs_pose_[id].state.quaternion.x = msg->pose.orientation.x;
   uavs_pose_[id].state.quaternion.y = msg->pose.orientation.y;
   uavs_pose_[id].state.quaternion.z = msg->pose.orientation.z;
@@ -265,7 +376,7 @@ std::vector<double> backendSolver::predictingPitch() {
   Eigen::Vector3f q_camera_target;
   for (int i = 0; i < time_horizon_; i++) {
     target_pose_aux = Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, 0);
-    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x,solution_[i].pose.y, solution_[i].pose.z);
+    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x, solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = drone_pose_aux - target_pose_aux;
     float aux_sqrt  = sqrt(pow(q_camera_target[0], 2.0) + pow(q_camera_target[1], 2.0));
     pitch.push_back(1.57 - atan2(aux_sqrt, q_camera_target[2]));
@@ -284,7 +395,7 @@ std::vector<double> backendSolver::predictingYaw() {
   for (int i = 0; i < time_horizon_; i++) {
     target_pose_aux =
         Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, target_trajectory_[i].pose.pose.position.z);
-    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x,solution_[i].pose.y, solution_[i].pose.z);
+    drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x, solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = target_pose_aux - drone_pose_aux;
     yaw.push_back(atan2(q_camera_target[1], q_camera_target[0]));
     ROS_INFO("[%s]: Estimated target trajectory target = [%.2f, %.2f, %.2f], drone = [%.2f, %.2f, %.2f], yaw = %.2f", ros::this_node::getName().c_str(),
@@ -306,7 +417,7 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
     aux.twist                = target_odometry_.twist;  // velocity constant model
     target_trajectory_.push_back(aux);
     // ROS_INFO("[%s]: Target trajectory velocity model: target = [%.2f, %.2f, %.2f],", ros::this_node::getName().c_str(), aux.pose.pose.position.x,
-            // aux.pose.pose.position.y, aux.pose.pose.position.z);
+    // aux.pose.pose.position.y, aux.pose.pose.position.z);
   }
 }
 
@@ -314,16 +425,16 @@ bool backendSolver::checkConnectivity() {
   // check the connectivity with drones and target
   size_t cont = 0;
 
-  for(auto it = uavs_pose_.begin();it!=uavs_pose_.end();it++){
-    if(it->second.has_pose) cont++;
+  for (auto it = uavs_pose_.begin(); it != uavs_pose_.end(); it++) {
+    if (it->second.has_pose)
+      cont++;
   }
-  if(target_){
-    if(target_has_pose) cont++;
-    return (cont == drones.size()+1);
-  }
-  else
-  {
-    return (cont == drones.size());     
+  if (target_) {
+    if (target_has_pose)
+      cont++;
+    return (cont == drones.size() + 1);
+  } else {
+    return (cont == drones.size());
   }
 }
 
@@ -344,8 +455,9 @@ int backendSolver::closestPose() {
   float nearest_distance = INFINITY;
   float point_distance   = 0;
   for (int i = 0; i < time_horizon_; i++) {
-    point_distance = sqrt(pow((solution_[i].pose.x - uavs_pose_[drone_id_].state.pose.x), 2) + pow((solution_[i].pose.y - uavs_pose_[drone_id_].state.pose.y), 2) +
-                          pow((solution_[i].pose.z - uavs_pose_[drone_id_].state.pose.z), 2));
+    point_distance =
+        sqrt(pow((solution_[i].pose.x - uavs_pose_[drone_id_].state.pose.x), 2) + pow((solution_[i].pose.y - uavs_pose_[drone_id_].state.pose.y), 2) +
+             pow((solution_[i].pose.z - uavs_pose_[drone_id_].state.pose.z), 2));
     if (point_distance < nearest_distance) {
       nearest_distance = point_distance;
       nearest_point    = i;
@@ -359,7 +471,7 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 }
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
-  new_initial_guess = true; //TODO: for testing
+  new_initial_guess = true;  // TODO: for testing
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction
@@ -371,28 +483,28 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
     float scalar_dir_z   = (desired_odometry_.pose.pose.position.z - uavs_pose_[drone_id_].state.pose.z) / aux_norm;
     float vel_module_cte = max_vel / 2;  // vel cte guess for the initial
     // accelerations
-    initial_guess_[0].acc.x = ZERO;
-    initial_guess_[0].acc.y = ZERO;
-    initial_guess_[0].acc.z = ZERO;
-    initial_guess_[0].pose.x = uavs_pose_[drone_id_].state.pose.x;
-    initial_guess_[0].pose.y = uavs_pose_[drone_id_].state.pose.y;
-    initial_guess_[0].pose.z = uavs_pose_[drone_id_].state.pose.z;
+    initial_guess_[0].acc.x      = ZERO;
+    initial_guess_[0].acc.y      = ZERO;
+    initial_guess_[0].acc.z      = ZERO;
+    initial_guess_[0].pose.x     = uavs_pose_[drone_id_].state.pose.x;
+    initial_guess_[0].pose.y     = uavs_pose_[drone_id_].state.pose.y;
+    initial_guess_[0].pose.z     = uavs_pose_[drone_id_].state.pose.z;
     initial_guess_[0].velocity.x = scalar_dir_x * vel_module_cte;
     initial_guess_[0].velocity.y = scalar_dir_y * vel_module_cte;
     initial_guess_[0].velocity.z = scalar_dir_z * vel_module_cte;
     for (int i = 1; i < time_horizon_; i++) {
-      initial_guess_[i].acc.x = ZERO;
-      initial_guess_[i].acc.y = ZERO;
-      initial_guess_[i].acc.z = ZERO;
+      initial_guess_[i].acc.x      = ZERO;
+      initial_guess_[i].acc.y      = ZERO;
+      initial_guess_[i].acc.z      = ZERO;
       initial_guess_[i].velocity.x = scalar_dir_x * vel_module_cte;
       initial_guess_[i].velocity.y = scalar_dir_y * vel_module_cte;
       initial_guess_[i].velocity.z = scalar_dir_z * vel_module_cte;
-      initial_guess_[i].pose.x = initial_guess_[i - 1].pose.x + step_size * initial_guess_[i - 1].velocity.x;
-      initial_guess_[i].pose.y = initial_guess_[i - 1].pose.y + step_size * initial_guess_[i - 1].velocity.y;
-      initial_guess_[i].pose.z = initial_guess_[i - 1].pose.z + step_size * initial_guess_[i - 1].velocity.z;
+      initial_guess_[i].pose.x     = initial_guess_[i - 1].pose.x + step_size * initial_guess_[i - 1].velocity.x;
+      initial_guess_[i].pose.y     = initial_guess_[i - 1].pose.y + step_size * initial_guess_[i - 1].velocity.y;
+      initial_guess_[i].pose.z     = initial_guess_[i - 1].pose.z + step_size * initial_guess_[i - 1].velocity.z;
       // no fly zone
       if (pow(initial_guess_[i].pose.x - no_fly_zone_center_[0], 2) + pow(initial_guess_[i].pose.y - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
-        aux                     = expandPose(initial_guess_[i].pose.x, initial_guess_[i].pose.y);
+        aux                      = expandPose(initial_guess_[i].pose.x, initial_guess_[i].pose.y);
         initial_guess_[i].pose.x = aux[0];
         initial_guess_[i].pose.y = aux[1];
       }
@@ -400,15 +512,15 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   } else {
     // previous one
     for (int i = 0; i < time_horizon_; i++) {
-      initial_guess_[i].acc.x =solution_[i].acc.x;
-      initial_guess_[i].acc.y =solution_[i].acc.y;
-      initial_guess_[i].acc.z =solution_[i].acc.z;
-      initial_guess_[i].pose.x =solution_[i].pose.x;
-      initial_guess_[i].pose.y =solution_[i].pose.y;
-      initial_guess_[i].pose.z = solution_[i].pose.z;
-      initial_guess_[i].velocity.x =solution_[i].velocity.x;
-      initial_guess_[i].velocity.y =solution_[i].velocity.y;
-      initial_guess_[i].velocity.z =solution_[i].velocity.z;
+      initial_guess_[i].acc.x      = solution_[i].acc.x;
+      initial_guess_[i].acc.y      = solution_[i].acc.y;
+      initial_guess_[i].acc.z      = solution_[i].acc.z;
+      initial_guess_[i].pose.x     = solution_[i].pose.x;
+      initial_guess_[i].pose.y     = solution_[i].pose.y;
+      initial_guess_[i].pose.z     = solution_[i].pose.z;
+      initial_guess_[i].velocity.x = solution_[i].velocity.x;
+      initial_guess_[i].velocity.y = solution_[i].velocity.y;
+      initial_guess_[i].velocity.z = solution_[i].velocity.z;
     }
   }
   // for (int i = 0; i < time_horizon_; i++) {
@@ -455,83 +567,84 @@ void backendSolver::IDLEState() {
 //     }
 // }
 float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point start) {
-  std::chrono::duration<double> diff             = std::chrono::system_clock::now() - start;
-  float rounded_time = round( diff.count() * 10.0 ) / 10.0;
+  std::chrono::duration<double> diff         = std::chrono::system_clock::now() - start;
+  float                         rounded_time = round(diff.count() * 10.0) / 10.0;
   return rounded_time;
 }
 
 
 void backendSolver::stateMachine() {
-  int       closest_point = 0;
-  ros::Rate solver_timer(solver_rate_); //Hz
-  bool      loop_rate_violated = false;
+  int                                   closest_point = 0;
+  ros::Rate                             solver_timer(solver_rate_);  // Hz
+  bool                                  loop_rate_violated = false;
   std::chrono::system_clock::time_point start;
-  std::chrono::duration<double> diff;
-  float actual_cicle_time = 0.0;
-  bool change_initial_guess = true;
+  std::chrono::duration<double>         diff;
+  float                                 actual_cicle_time    = 0.0;
+  bool                                  change_initial_guess = true;
   // int cont =
   first_time_solving_ = true;
-  
+
   while (ros::ok) {
     ros::spinOnce();
-    if (desired_type_ == shot_executer::DesiredShot::IDLE) { // IDLE STATE
+    if (desired_type_ == shot_executer::DesiredShot::IDLE) {  // IDLE STATE
       IDLEState();
       std::this_thread::sleep_for(std::chrono::seconds(1));
       continue;
-    } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) { // Shooting action
-       
+    } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) {  // Shooting action
+
 
       do {
         ros::spinOnce();
         // predict the target trajectory if it exists
-        if (target_) {  
+        if (target_) {
           targetTrajectoryVelocityCTEModel();
         }
         // if it is the first time or the previous time the solver couldn't success, don't take previous trajectory as initial guess
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
-        
+
         // call the solver
-        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, actual_cicle_time, first_time_solving_);  // ACADO
+        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, actual_cicle_time,
+                                                    first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
-        
+
         // log solved trajectory
         logger->loggingCalculatedTrajectory(solver_success);
 
         // if the solver didn't success, change initial guess
-        if(solver_success !=0){
+        if (solver_success != 0) {
           change_initial_guess = true;
-        }else{
+        } else {
           change_initial_guess = false;
-        }  
+        }
       } while (solver_success != returnValueType::SUCCESSFUL_RETURN && solver_success != returnValueType::RET_MAX_TIME_REACHED);
     }
 
     // wait for the planned time
-    if(solver_timer.sleep()){
-      actual_cicle_time = 1/solver_rate_;
-    }else{
-      actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0 )/ 10.0;
+    if (solver_timer.sleep()) {
+      actual_cicle_time = 1 / solver_rate_;
+    } else {
+      actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0) / 10.0;
     }
     // check and log the time that the last loop lasted
     // csv_pose << "cycle time: " << actual_cicle_time << std::endl;
-    
+
     // publish the last calculated trajectory if the solver successed
     saveCalculatedTrajectory();
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
-    if(actual_cicle_time>1/solver_rate_ && !first_time_solving_){
-      closest_point = (actual_cicle_time-1/solver_rate_)/step_size;
-    }else{
+    if (actual_cicle_time > 1 / solver_rate_ && !first_time_solving_) {
+      closest_point = (actual_cicle_time - 1 / solver_rate_) / step_size;
+    } else {
       closest_point = 0;
     }
     // predict yaw and pitch and publish trajectory
     std::vector<double> yaw   = predictingYaw();
     std::vector<double> pitch = predictingPitch();
     publishSolvedTrajectory(yaw, pitch, closest_point);
-    logger->publishPath(); // publish to visualize
+    logger->publishPath();  // publish to visualize
 
-    first_time_solving_=false;
-  
+    first_time_solving_ = false;
+
     solver_timer.reset();
   }
 }

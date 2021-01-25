@@ -1,0 +1,6 @@
+<library path="lib/libSolverNodelet">
+  <class name="optimal_control_interface/SolverNodelet" type="optimal_control_interface::SolverNodelet" base_class_type="nodelet::Nodelet">
+    <description>Nodelet for optimal control interface package</description>
+  </class>
+</library>
+
