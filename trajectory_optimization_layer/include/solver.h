@@ -36,7 +36,7 @@ protected:
     int solver_success_ = false;
     const float MAX_ACC = 1.0;
     const float MAX_VEL_XY = 1;
-    const float MAX_VEL_Z = 0.5;
+    const float MAX_VEL_Z = 1;
     const float W_PX_N = 0.1;
     const float W_PY_N = 0.1;
     const float W_AX = 1;
@@ -49,13 +49,13 @@ protected:
     
     std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator>  safe_corridor_generator_;
 
-
+    vec_Vec3f pathFromStartToEnd(const Vec3f &start, const Vec3f &end);
 
 public:
 
     std::unique_ptr<State[]> solution_;
 
-    Solver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> initial_guess);
+    Solver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> initial_guess, const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr);
     virtual int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
 };
 

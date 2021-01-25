@@ -1,6 +1,8 @@
 #include<solver_acado.h>
 
-NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess) : Solver(solving_rate, time_horizon, initial_guess){
+NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess, 
+                                         const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr) : 
+                                        Solver(solving_rate, time_horizon, initial_guess, _safe_corridor_generator_ptr){
     
 
 }
@@ -177,6 +179,35 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     return solver_success_;  
  }
+
+void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz){
+   
+   // Convert to inequality constraints Ax < b
+   // Taken from decomp test node
+    for (size_t i = 0; i < _initial_path.size() - 1; i++) {
+        const auto         pt_inside = (_initial_path[i] + _initial_path[i + 1]) / 2;
+        LinearConstraint3D cs(pt_inside, _vector_of_polyhedrons[i].hyperplanes());
+        printf("i: %zu\n", i);
+        std::cout << "A: " << cs.A() << std::endl;
+        std::cout << "b: " << cs.b() << std::endl;
+        std::cout << "point: " << _initial_path[i].transpose();
+        if (cs.inside(_initial_path[i]))
+        std::cout << " is inside!" << std::endl;
+        else
+        std::cout << " is outside!" << std::endl;
+
+        std::cout << "point: " << _initial_path[i + 1].transpose();
+        if (cs.inside(_initial_path[i + 1]))
+        std::cout << " is inside!" << std::endl;
+        else
+        std::cout << " is outside!" << std::endl;
+
+        for(size_t k = 0; k<cs.b().size(); k++){ //each polyhedron i is subject to k constraints
+            _ocp.subjectTo(i,  cs.A()(k,0)*_px + cs.A()(k,1)*_py + cs.A()(k,2)*_pz<= cs.b()[k]);
+        }
+    }
+}
+
 
  bool NumericalSolver::ACADOSolver::logACADOvars(){
     // define the solver
