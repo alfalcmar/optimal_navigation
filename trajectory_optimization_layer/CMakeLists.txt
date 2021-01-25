@@ -45,11 +45,6 @@ endif()
 
 find_package(PythonLibs 2.7)
 
-#Find Eigen libraries
-find_package(Eigen3 REQUIRED)
-set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
-set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
-
 find_package(decomp_util REQUIRED)
 include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
@@ -91,7 +86,6 @@ include_directories(
   solver
   solver/FORCESNLPsolver/lib
   ${PYTHON_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
 )
 
@@ -128,7 +122,6 @@ target_link_libraries(SolverNodelet
   ${catkin_LIBRARIES} 
   ${EXTRALIB_BIN} 
   ${PYTHON_LIBRARIES} 
-  ${Eigen3_LIBRARIES} 
   ${ACADO_SHARED_LIBRARIES}
   ${JPS3D_LIBRARIES}
   ${PCL_LIBRARIES}
@@ -168,7 +161,7 @@ if(DEFINED ENV{FORCES})
 endif()
 
 target_link_libraries(optimal_control_interface_node 
-${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${Eigen3_LIBRARIES} ${ACADO_SHARED_LIBRARIES}) 
+${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES} ${ACADO_SHARED_LIBRARIES}) 
 
 
 add_dependencies(optimal_control_interface_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
