@@ -5,7 +5,7 @@ project(optimal_control_interface)
 ADD_DEFINITIONS( -std=c++17 )
 add_compile_options(-std=c++17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -w")
+set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color -w")
 
 # set(CMAKE_BUILD_TYPE Release)
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} "cmake/Modules/" )

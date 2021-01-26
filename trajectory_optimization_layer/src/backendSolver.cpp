@@ -169,54 +169,16 @@ void backendSolver::sfg_test() {
   ps_vector.push_back(ps);
   ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
   path_ref->poses = ps_vector;
-  /* nav_msgs::PathConstPtr path_ref(&aux); */
 
-  ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", path_ref->poses.size());
+  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(path_ref);
 
-  for (auto &pose : path_ref->poses) {
-    ROS_INFO("[debug]: Obtained path: [%.2f, %.2f, %.2f]", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-  }
+  decomp_ros_msgs::EllipsoidArrayPtr ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(path_ref);
 
+  safe_corridor_generator_->publishLastPath(pub_path_);
 
-  vec_Vec3f   path_vector_;
-  EllipsoidDecomp3D decomp_util_;
-  sensor_msgs::PointCloud2 pcl_sensor_message_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud_;
-  pcl_cloud_ = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-  
-  if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_file_path_.c_str(), *pcl_cloud_) == -1)  // load the file
-  {
-    ROS_ERROR("Couldn't read file %s\n", pcd_file_path_.c_str());
-  }
-  ROS_INFO_STREAM("Loaded " << pcl_cloud_->width * pcl_cloud_->height << " data points from " << pcd_file_path_);
-
-  Vec3f     waypoint;
-  for (const auto &it : path_ref->poses) {
-    waypoint(0) = it.pose.position.x;
-    waypoint(1) = it.pose.position.y;
-    waypoint(2) = it.pose.position.z;
-    path_vector_.push_back(waypoint);
-  }
-
-  vec_Vec3f     pcl_map_vector;
-  sensor_msgs::PointCloud cloud_msg;
-  pcl::toROSMsg(*pcl_cloud_.get(), pcl_sensor_message_);
-  if (sensor_msgs::convertPointCloud2ToPointCloud(pcl_sensor_message_, cloud_msg)) {
-    pcl_map_vector  = DecompROS::cloud_to_vec(cloud_msg);
-  } else {
-    ROS_WARN("[DecomposeWrapper]: Conversion of PointCloud to PointCloud2 failed.");
-  }
-
-  ROS_WARN("[DecomposeWrapper]: Conversion of PointCloud to PointCloud2 succesful.");
-  decomp_util_.set_obs(pcl_map_vector);
-  decomp_util_.set_local_bbox(Vec3f(2, 2, 2));  // use for generation of cuboids surrounding the path
-  decomp_util_.set_inflate_distance(0.5);
-  ROS_INFO("[DecomposeWrapper]: Dilating path, path size = %lu ", path_vector_.size());
-
-  ros::WallTime start = ros::WallTime::now();
-  decomp_util_.dilate(path_vector_, 1.0);
-  ROS_INFO("[DecomposeWrapper]: Dilating path took %.2f ms", (ros::WallTime::now() - start).toSec() * 1000.0);
-
+  ROS_INFO("[DecomposeNode]: Publishing corridors ");
+  safe_corridor_generator_->publishCorridor(pol_corrs, pub_corridor_polyhedrons_);
+  safe_corridor_generator_->publishCorridor(ell_corrs, pub_corridor_ellipsoids_);
   ROS_INFO("[DecompWrapper]: Corridors generated.");
 
 }
