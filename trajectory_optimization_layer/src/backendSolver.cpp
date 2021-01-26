@@ -115,11 +115,11 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   sleep(2);
 
-  safe_corridor_generator_->solveDecomposition();
+  /* safe_corridor_generator_->solveDecomposition(); */
 
   /* sleep(2); */
 
-  /* sfg_test(); */
+  sfg_test();
 }
 
 void backendSolver::sfg_test() {
