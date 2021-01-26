@@ -113,11 +113,10 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   // log files
   logger = new SolverUtils::Logger(this, pnh);
 
+
   sleep(2);
 
-  /* safe_corridor_generator_->solveDecomposition(); */
 
-  /* sleep(2); */
 
   sfg_test();
 }
@@ -170,89 +169,30 @@ void backendSolver::sfg_test() {
   ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
   path_ref->poses = ps_vector;
 
-  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(path_ref);
-
-  decomp_ros_msgs::EllipsoidArrayPtr ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(path_ref);
+  
+  vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
   safe_corridor_generator_->publishLastPath(pub_path_);
 
   ROS_INFO("[DecomposeNode]: Publishing corridors ");
-  safe_corridor_generator_->publishCorridor(pol_corrs, pub_corridor_polyhedrons_);
-  safe_corridor_generator_->publishCorridor(ell_corrs, pub_corridor_ellipsoids_);
+  
+  safe_corridor_generator_->publishCorridor(polyhedron_vector, pub_corridor_polyhedrons_);
+  
   ROS_INFO("[DecompWrapper]: Corridors generated.");
+  
+  safe_corridor_generator_->publishCloud(pub_point_cloud_);
+
+  // test acado constrainst
+
+  // bool success = solver_pt_->testPolyhedronConstraints();
 
 }
 
 void backendSolver::referencePathCallback(const nav_msgs::PathConstPtr &msg) {
 
   ROS_INFO("[DecomposeNode]: Path reference received.");
+  sfg_test();
 
-
-  ////////////////////////////////////// for testing //////////////////////////////////////////////////////////////////////
-  nav_msgs::Path                          aux;
-  geometry_msgs::PoseStamped              ps;
-  std::vector<geometry_msgs::PoseStamped> ps_vector;
-  geometry_msgs::Point                    p;
-  p.x              = -10.0;
-  p.y              = 0.0;
-  p.z              = 2.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  p.x              = -5.0;
-  p.y              = 0.0;
-  p.z              = 1.0;
-  ps.pose.position = p;
-  p.x              = 4.0;
-  p.y              = 0.0;
-  p.z              = 1.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  p.x              = 3.0;
-  p.y              = 0.0;
-  p.z              = 10.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  p.x              = 3.0;
-  p.y              = 0.0;
-  p.z              = 20.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  p.x              = 5.0;
-  p.y              = 5.0;
-  p.z              = 20.0;
-  ps.pose.position = p;
-  p.x              = -5.0;
-  p.y              = 5.0;
-  p.z              = 20.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  p.x              = -5.0;
-  p.y              = -5.0;
-  p.z              = 20.0;
-  ps.pose.position = p;
-  ps_vector.push_back(ps);
-  aux.poses = ps_vector;
-  /* nav_msgs::PathConstPtr path_ref(&aux); */
-
-  ROS_INFO("[DecomposeNode]: Publishing corridors for path with #waypoints = %lu", msg->poses.size());
-
-  for (auto &pose : msg->poses) {
-    ROS_INFO("[debug]: Obtained path: [%.2f, %.2f, %.2f]", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-  }
-
-  decomp_ros_msgs::PolyhedronArrayPtr pol_corrs = safe_corridor_generator_->getSafeCorridorPolyhedrons(msg);
-
-  ros::Duration(10.0).sleep();
-
-  decomp_ros_msgs::EllipsoidArrayPtr ell_corrs = safe_corridor_generator_->getSafeCorridorEllipsoids(msg);
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  safe_corridor_generator_->publishLastPath(pub_path_);
-
-  ROS_INFO("[DecomposeNode]: Publishing corridors ");
-  safe_corridor_generator_->publishCorridor(pol_corrs, pub_corridor_polyhedrons_);
-  safe_corridor_generator_->publishCorridor(ell_corrs, pub_corridor_ellipsoids_);
 }
 
 
@@ -279,6 +219,7 @@ void backendSolver::saveCalculatedTrajectory() {
 }
 
 /** \brief This callback receives the solved trajectory of uavs
+ *ing the sampling of the collision free to obtain collision free path, but I am not completely sure what is the required result.
  */
 void backendSolver::uavTrajectoryCallback(const optimal_control_interface::Solver::ConstPtr &msg, int id) {
   uavs_trajectory[id].positions.clear();
