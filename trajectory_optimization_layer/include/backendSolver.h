@@ -105,7 +105,7 @@ protected:
   nav_msgs::Odometry desired_odometry_;        /**< Desired pose [x y z yaw] */
   int                desired_type_ = shot_executer::DesiredShot::IDLE;
   // solver
-  float        solver_rate_        = 0.5; /**< Rate to call the solver (Hz) */  // NOT USED
+  float        solver_rate_        = 0.5; /**< Rate to call the solver (Hz) */
   int          solver_success      = -1;                                        /**< the solver has solved successfully */
   bool         multi_              = false;                                     /**< true if multi uav formation is activated */
   bool         target_             = true;                                      /**< true if there is a target that is being filmed*/

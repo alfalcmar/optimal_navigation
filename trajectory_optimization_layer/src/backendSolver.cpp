@@ -113,12 +113,11 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   // log files
   logger = new SolverUtils::Logger(this, pnh);
 
+  sleep(3);
 
-  sleep(2);
+  safe_corridor_generator_->publishCloud(pub_point_cloud_);
 
 
-
-  sfg_test();
 }
 
 void backendSolver::sfg_test() {
@@ -180,7 +179,6 @@ void backendSolver::sfg_test() {
   
   ROS_INFO("[DecompWrapper]: Corridors generated.");
   
-  safe_corridor_generator_->publishCloud(pub_point_cloud_);
 
   // test acado constrainst
 
@@ -533,7 +531,13 @@ void backendSolver::stateMachine() {
     // csv_pose << "cycle time: " << actual_cicle_time << std::endl;
 
     // publish the last calculated trajectory if the solver successed
+    
     saveCalculatedTrajectory();
+
+    safe_corridor_generator_->publishLastPath(pub_path_);
+  
+    safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
+
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
     if (actual_cicle_time > 1 / solver_rate_ && !first_time_solving_) {
       closest_point = (actual_cicle_time - 1 / solver_rate_) / step_size;

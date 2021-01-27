@@ -53,7 +53,6 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     ocp.subjectTo(s>=0);
 
 
-
     if(first_time_solving){
         ocp.subjectTo( AT_START, px_ == _uavs_pose.at(_drone_id).state.pose.x);
         ocp.subjectTo( AT_START, py_ == _uavs_pose.at(_drone_id).state.pose.y);
@@ -73,7 +72,28 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
         ocp.subjectTo( AT_START, az_ == solution_[(time_initial_position/step_size)+offset_].acc.z);
     }
 
-    //ocp.subjectTo( s >= 0 ); slack variable
+    // polyhedrons
+    Vec3f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y,  _uavs_pose.at(_drone_id).state.pose.z);
+    Vec3f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y, Z_RELATIVE_TARGET_DRONE+_target_trajectory.end()->pose.pose.position.z);
+    
+
+    nav_msgs::Path path = calculatePath(start_pose, final_pose);
+
+    nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
+
+    path_ref->poses = path.poses;
+
+    vec_Vec3f path_ref_vector;
+
+    for(int i=0; i<path_ref->poses.size();i++){
+        path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
+
+        std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
+    }
+
+    vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
+
+    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
 
     // Define objectives
     Function h_1;
@@ -157,7 +177,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver.set( KKT_TOLERANCE        , 1e-3            );
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
-    solver.set( MAX_TIME        , 1.0  );
+    solver.set( MAX_TIME        , 2.0  );
 
     // call the solver
     solver_success_ = solver.solve();
@@ -201,6 +221,7 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
         std::cout << " is inside!" << std::endl;
         else
         std::cout << " is outside!" << std::endl;
+    
 
         for(size_t k = 0; k<cs.b().size(); k++){ //each polyhedron i is subject to k constraints
             _ocp.subjectTo(i,  cs.A()(k,0)*_px + cs.A()(k,1)*_py + cs.A()(k,2)*_pz<= cs.b()[k]);
@@ -223,6 +244,12 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
     // logRecord << LOG_INTERMEDIATE_STATES;
     // logRecord << LOG_DIFFERENTIAL_STATES;
     return true;
+ }
+
+ bool NumericalSolver::ACADOSolver::testPolyhedronConstraints(const std::vector<geometry_msgs::PoseStamped> &_path, const vec_E<Polyhedron<3>> &_polyhedrons){
+
+
+     return true;
  }
 
  bool NumericalSolver::ACADOSolver::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving){
@@ -261,3 +288,22 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
     }
     return true;
  }
+
+nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec3f &start_pose, const Vec3f &final_pose){
+
+    Vec3f vel = MAX_VEL_XY*(final_pose-start_pose)/(final_pose-start_pose).norm();
+    nav_msgs::Path path;
+
+    geometry_msgs::PoseStamped              ps;
+    std::vector<geometry_msgs::PoseStamped> ps_vector;
+
+    for (int k=0; k<time_horizon_;k++){
+        ps.pose.position.x              = start_pose(0)+vel(0)*step_size*k;
+        ps.pose.position.y              = start_pose(1)+vel(1)*step_size*k;
+        ps.pose.position.z              = start_pose(2)+vel(2)*step_size*k;
+        ps_vector.push_back(ps);
+    }
+
+    path.poses = ps_vector;
+    return path;
+}   
