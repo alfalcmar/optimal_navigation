@@ -7,7 +7,7 @@
 
     <node pkg="optimal_control_interface" name="solver" type="optimal_control_interface_node" output="screen" ns="$(arg uav_name)">
       <param name="drone_id" value="1"/>
-      <param name="solver_rate" value="1"/> <!-- Hz -->
+      <param name="solver_rate" value="0.5"/> <!-- Hz -->
       <param name="trajectory_frame" value="$(arg trajectory_frame)"/> <!-- Hz -->
       <rosparam param="drones" subst_value="true">$(arg drones)</rosparam>
       <rosparam param="no_fly_zone" subst_value="true">[0 0]</rosparam>
@@ -18,7 +18,7 @@
       <remap from="~planned_trajectory" to="formation_church_planning/planned_trajectory" />
       <remap from="~mrs_status" to="formation_church_planning/status" />
       <remap from="~toggle_state" to="formation_church_planning/toggle_state" />
-      <remap from="~target_topic" to="/$(arg uav_name)/balloon_filter/chosen_out" />
+      <remap from="~target_topic" to="/gazebo/dynamic_model/jeff_electrician/odometry" />
       <!-- <remap from="~target_topic" to="/$(arg uav_name)/balloon_filter/chosen_out" /> -->
       <remap from="~target_odometry_out" to="/$(arg uav_name)/formation_church_planning/target_odometry" />
 
@@ -35,11 +35,11 @@
 
     </node>
 
-    <!-- <group if="$(arg run_rviz)"> -->
-    <!-- <include file="$(find optimal_control_interface)/launch/rviz.launch"> -->
-    <!--   <arg name="uav_name" value="$(arg uav_name)" /> -->
-    <!-- </include> -->
-  <!-- </group> -->
+    <group if="$(arg run_rviz)"> -->
+     <include file="$(find optimal_control_interface)/launch/rviz.launch"> 
+       <arg name="uav_name" value="$(arg uav_name)" /> 
+     </include> 
+   </group>
 
 </launch>
 
