@@ -72,7 +72,7 @@ class ShotExecuter
         const int VELOCITY_MODE = 0;    /**< trajectory predicted using the target velocity */
         const int ORIENTATION_MODE = 1; /**< trajectory predicted using the target orientation */
         const double VEL_CTE = 0.5; /**< Target velocity guess to predict trajectory */
-
+        const float MAX_DRONE_VEL = 1;
         // parameters
         int drone_id_ = 1; // TODO initialize by constructor
         const float step_size_ = 0.2;    /**< step size (seconds) */
@@ -84,6 +84,8 @@ class ShotExecuter
         
         bool new_shooting_action_received_ = false;
         bool shooting_action_running_ = false;
+
+        void calculateHorizonPoint(nav_msgs::Odometry &desired_point, const nav_msgs::Odometry &drone_pose);
         /** \brief This predicts the target trajectory over time_horizon_. We use a velocity cte model.
          *          Besides, publish the predicted trajectory for visualization
          *  \return The predicted target trajectory 

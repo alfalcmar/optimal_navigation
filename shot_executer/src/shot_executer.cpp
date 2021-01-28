@@ -39,6 +39,21 @@ void ShotExecuter::publishDesiredPoint(nav_msgs::Odometry desired_odometry) {
 void ShotExecuter::publishCameraCommand(){
     ROS_WARN("Publish camera command of the base class");
 }
+
+void ShotExecuter::calculateHorizonPoint(nav_msgs::Odometry &desired_point, const nav_msgs::Odometry &drone_pose){
+    Eigen::Vector3f start_pose = Eigen::Vector3f(drone_pose.pose.pose.position.x,drone_pose.pose.pose.position.y,drone_pose.pose.pose.position.z);
+    Eigen::Vector3f final_pose = Eigen::Vector3f(desired_point.pose.pose.position.x,desired_point.pose.pose.position.y,desired_point.pose.pose.position.z);
+
+    Eigen::Vector3f max_vel =MAX_DRONE_VEL*(final_pose-start_pose)/(final_pose-start_pose).norm();
+    Eigen::Vector3f max_distance = start_pose+max_vel*time_horizon_*step_size_;
+    if((final_pose-start_pose).norm()>max_distance.norm()){
+        ROS_INFO("too much distance");
+        desired_point.pose.pose.position.x = max_distance(0);
+        desired_point.pose.pose.position.y = max_distance(1);
+        desired_point.pose.pose.position.z = max_distance(2);
+    }
+}
+
 /** \brief target array for real experiment
  */
 void ShotExecuter::targetPoseCallback(const nav_msgs::Odometry::ConstPtr& _msg) // real target callback
@@ -111,6 +126,7 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.x  = _shooting_action.rt_parameters.x;
         desired_point.pose.pose.position.y = _shooting_action.rt_parameters.y;
         desired_point.pose.pose.position.z = _shooting_action.rt_parameters.z;
+        calculateHorizonPoint(desired_point, drone_pose_);
 
         // desired vel
         desired_point.twist.twist.linear.x =0.0;
@@ -124,6 +140,9 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.x  = drone_pose_.pose.pose.position.x;//target_trajectory.back().pose.pose.position.x+_shooting_action.rt_parameters.x; //-10 //+(cos(-0.9)*_shooting_action.rt_parameters.x-sin(-0.9)*_shooting_action.rt_parameters.y);
         desired_point.pose.pose.position.y = drone_pose_.pose.pose.position.y;
         desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
+        
+        calculateHorizonPoint(desired_point, drone_pose_);
+
         // desired vel
         desired_point.twist.twist.linear.x =0;
         desired_point.twist.twist.linear.y =0;
@@ -138,6 +157,9 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(target_orientation_[YAW])*_shooting_action.rt_parameters.x+cos(target_orientation_[YAW])*_shooting_action.rt_parameters.y);
         desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
         // desired vel
+        calculateHorizonPoint(desired_point, drone_pose_);
+
+
         desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;
         desired_point.twist.twist.linear.y =target_trajectory.back().twist.twist.linear.y;
         desired_point.twist.twist.linear.z =0;
@@ -149,6 +171,8 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.x  = target_trajectory[time_horizon_-1].pose.pose.position.x+(cos(target_orientation_[YAW])*_shooting_action.rt_parameters.x-sin(target_orientation_[YAW])*_shooting_action.rt_parameters.y);
         desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(target_orientation_[YAW])*_shooting_action.rt_parameters.x+cos(target_orientation_[YAW])*_shooting_action.rt_parameters.y);
         desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
+
+        calculateHorizonPoint(desired_point, drone_pose_);
 
         // desired
         desired_point.twist.twist.linear.x =target_trajectory[time_horizon_-1].twist.twist.linear.x;
@@ -163,6 +187,7 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.y =  _shooting_action.rt_parameters.y;
         desired_point.pose.pose.position.z  = _shooting_action.rt_parameters.z;
 
+        calculateHorizonPoint(desired_point, drone_pose_);
         // desired
         desired_point.twist.twist.linear.x =0;
         desired_point.twist.twist.linear.y =0;
@@ -177,6 +202,8 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
 
     }
 }
+
+
 
 bool ShotExecuter::actionCallback(shot_executer::ShootingAction::Request  &req, shot_executer::ShootingAction::Response &res){
     ROS_INFO("action callback");
