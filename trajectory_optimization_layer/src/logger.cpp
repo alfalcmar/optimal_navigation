@@ -12,7 +12,7 @@ SolverUtils::Logger::Logger(backendSolver* class_to_log, ros::NodeHandle pnh): c
     std::cout<<str_time<<std::endl;
     std::string mypackage = ros::package::getPath("optimal_control_interface");
     // file open
-    file_.open(mypackage+ + "/logs/"+ string_time+"_drone"+std::to_string(class_to_log_ptr_->drone_id_));
+    file_.open("/home/alfonso/logs/"+ string_time+"_drone"+std::to_string(class_to_log_ptr_->drone_id_));
     // file_ << std::fixed << std::setprecision(5);
 
     path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
@@ -25,6 +25,10 @@ SolverUtils::Logger::~Logger(){
 
     file_.close();
 
+}
+
+void SolverUtils::Logger::logTime(float time){
+  file_ << "solving time: "<<time<<std::endl;
 }
 
 void SolverUtils::Logger::logging() {

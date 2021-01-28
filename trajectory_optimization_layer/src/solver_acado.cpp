@@ -74,10 +74,10 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     // polyhedrons
     Vec3f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y,  _uavs_pose.at(_drone_id).state.pose.z);
-    Vec3f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y, Z_RELATIVE_TARGET_DRONE+_target_trajectory.end()->pose.pose.position.z);
+    Vec3f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y, Z_RELATIVE_TARGET_DRONE+_target_trajectory.end()->pose.pose.position.z+2);
     
-
-    nav_msgs::Path path = calculatePath(start_pose, final_pose);
+    State uav_state = _uavs_pose.at(_drone_id).state;
+    nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state);
 
     nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
 
@@ -93,7 +93,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
-    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
+    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
 
     // Define objectives
     Function h_1;
@@ -205,6 +205,7 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
    // Convert to inequality constraints Ax < b
    // Taken from decomp test node
     for (size_t i = 0; i < _initial_path.size() - 1; i++) {
+
         const auto         pt_inside = (_initial_path[i] + _initial_path[i + 1]) / 2;
         LinearConstraint3D cs(pt_inside, _vector_of_polyhedrons[i].hyperplanes());
         printf("i: %zu\n", i);
@@ -289,9 +290,11 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
     return true;
  }
 
-nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec3f &start_pose, const Vec3f &final_pose){
+nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec3f &start_pose, const Vec3f &final_pose, const State &_uav_state){
 
-    Vec3f vel = MAX_VEL_XY*(final_pose-start_pose)/(final_pose-start_pose).norm();
+    Vec3f vel_aux(_uav_state.velocity.x, _uav_state.velocity.y, _uav_state.velocity.z);
+    double vel_norm = vel_aux.norm();
+    Vec3f vel = vel_norm*(final_pose-start_pose)/(final_pose-start_pose).norm();
     nav_msgs::Path path;
 
     geometry_msgs::PoseStamped              ps;

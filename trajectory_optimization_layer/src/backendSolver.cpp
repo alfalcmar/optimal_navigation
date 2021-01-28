@@ -68,6 +68,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   std::vector<float>  _map_frame_coordinates;
   double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
   bool                test_ = false;
+  double max_sampling_distance = 1000.0;
   param_loader.loadParam("pcl_filepath", pcd_file_path_);
   param_loader.loadParam("world_frame", world_frame_);
   param_loader.loadParam("loop_rate", main_loop_rate_);
@@ -83,13 +84,15 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   param_loader.loadParam("inflation", _jps_inflation);
   param_loader.loadParam("resolution", _map_resolution);
   param_loader.loadParam("map_center", _map_frame_coordinates);
+  param_loader.loadParam("max_sampling_dist", max_sampling_distance);
+
 
   // initializa safe corridor generator
 
   safe_corridor_generator_ = std::make_shared<safe_corridor_generator::SafeCorridorGenerator>();
 
   safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
-                                       _map_frame_coordinates, _jps_inflation, _map_resolution);
+                                       _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance);
 
 
   // Initialize subs and pubs to visualize safe corridor
@@ -527,8 +530,9 @@ void backendSolver::stateMachine() {
     } else {
       actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0) / 10.0;
     }
+
+    logger->logTime(actual_cicle_time);
     // check and log the time that the last loop lasted
-    // csv_pose << "cycle time: " << actual_cicle_time << std::endl;
 
     // publish the last calculated trajectory if the solver successed
     

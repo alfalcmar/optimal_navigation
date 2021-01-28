@@ -46,6 +46,9 @@ public:
     *   \return nav_msg to visualize
     **/
     nav_msgs::Path targetPathVisualization();
+
+    void logTime(float time);
+
 };
 
 }
