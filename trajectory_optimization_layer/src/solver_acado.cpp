@@ -73,11 +73,11 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     }
 
     // polyhedrons
-    Vec3f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y,  _uavs_pose.at(_drone_id).state.pose.z);
-    Vec3f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y, Z_RELATIVE_TARGET_DRONE+_target_trajectory.end()->pose.pose.position.z+2);
+    Vec2f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y);
+    Vec2f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y);
     
     State uav_state = _uavs_pose.at(_drone_id).state;
-    nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state);
+    nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state, _target_trajectory);
 
     nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
 
@@ -93,7 +93,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
-    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
+    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
 
     // Define objectives
     Function h_1;
@@ -290,23 +290,25 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
     return true;
  }
 
-nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec3f &start_pose, const Vec3f &final_pose, const State &_uav_state){
+nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec2f &start_pose, const Vec2f &final_pose, const State &_uav_state, const std::vector<nav_msgs::Odometry> &_target_trajectory){
 
-    Vec3f vel_aux(_uav_state.velocity.x, _uav_state.velocity.y, _uav_state.velocity.z);
-    double vel_norm = vel_aux.norm();
-    Vec3f vel = vel_norm*(final_pose-start_pose)/(final_pose-start_pose).norm();
-    nav_msgs::Path path;
+    float segment_dist = ((final_pose-start_pose).norm())/time_horizon_;
 
+    Vec2f segment_uni = (final_pose-start_pose)/(final_pose-start_pose).norm();
     geometry_msgs::PoseStamped              ps;
     std::vector<geometry_msgs::PoseStamped> ps_vector;
-
+    
     for (int k=0; k<time_horizon_;k++){
-        ps.pose.position.x              = start_pose(0)+vel(0)*step_size*k;
-        ps.pose.position.y              = start_pose(1)+vel(1)*step_size*k;
-        ps.pose.position.z              = start_pose(2)+vel(2)*step_size*k;
+        ps.pose.position.x              = start_pose(0)+segment_uni(0)*k*segment_dist;
+        ps.pose.position.y              = start_pose(1)+segment_uni(1)*k*segment_dist;
+        ps.pose.position.z              = CAMERA_PITCH*(sqrt(pow(ps.pose.position.x-_target_trajectory[k].pose.pose.position.x,2)+pow(ps.pose.position.y-_target_trajectory[k].pose.pose.position.y,2)))+_target_trajectory[k].pose.pose.position.z;
+        if( Z_RELATIVE_TARGET_DRONE >ps.pose.position.z-_target_trajectory.back().pose.pose.position.z){
+           ps.pose.position.z =   Z_RELATIVE_TARGET_DRONE+_target_trajectory.back().pose.pose.position.z;
+        }
         ps_vector.push_back(ps);
     }
-
+    nav_msgs::Path path;
     path.poses = ps_vector;
+
     return path;
 }   
