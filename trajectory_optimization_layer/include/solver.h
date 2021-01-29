@@ -37,12 +37,12 @@ protected:
     const float MAX_ACC = 1.0;
     const float MAX_VEL_XY = 1;
     const float MAX_VEL_Z = 1;
-    const float W_PX_N = 0.1;
-    const float W_PY_N = 0.1;
+    const float W_PX_N = 0.7;
+    const float W_PY_N = 0.7;
     const float W_AX = 1;
     const float W_AY = 1;
     const float W_AZ = 1;
-    const float W_SLACK = 5;
+    const float W_SLACK = 3;
     
     std::shared_ptr<State[]> initial_guess_;
     const int time_horizon_;

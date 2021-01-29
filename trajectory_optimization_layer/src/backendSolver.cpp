@@ -375,7 +375,7 @@ bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose
 }
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
-  new_initial_guess = true;  // TODO: for testing
+  // new_initial_guess = true;  // TODO: for testing
   if (new_initial_guess) {
     std::array<float, 2> aux;
     // calculate scalar direction

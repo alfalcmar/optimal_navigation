@@ -87,13 +87,11 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     for(int i=0; i<path_ref->poses.size();i++){
         path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
-
-        std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
     }
 
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
-    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
+    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
 
     // Define objectives
     Function h_1;
@@ -117,11 +115,10 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
     //use target_x and targety_ptr
-    ocp.minimizeLagrangeTerm(pow((pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
+    ocp.minimizeLagrangeTerm(5*(pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
                                                                         pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
                                                                         pow(py_-_target_trajectory[0].pose.pose.position.y,2)
-                                                                        +eps)-CAMERA_PITCH
-                                ,2));
+                                                                        +eps)-CAMERA_PITCH);
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
     Function h;
@@ -173,9 +170,9 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // solver.initializeAlgebraicStates(inter_state_init);
 
     //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
-    solver.set( INTEGRATOR_TOLERANCE , 1e-8            );
+    solver.set( INTEGRATOR_TOLERANCE , 1e-3            ); //1e-8
     //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
-    solver.set( KKT_TOLERANCE        , 1e-3            );
+    solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
     solver.set( MAX_TIME        , 2.0  );
 
@@ -208,22 +205,6 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
 
         const auto         pt_inside = (_initial_path[i] + _initial_path[i + 1]) / 2;
         LinearConstraint3D cs(pt_inside, _vector_of_polyhedrons[i].hyperplanes());
-        printf("i: %zu\n", i);
-        std::cout << "A: " << cs.A() << std::endl;
-        std::cout << "b: " << cs.b() << std::endl;
-        std::cout << "point: " << _initial_path[i].transpose();
-        if (cs.inside(_initial_path[i]))
-        std::cout << " is inside!" << std::endl;
-        else
-        std::cout << " is outside!" << std::endl;
-
-        std::cout << "point: " << _initial_path[i + 1].transpose();
-        if (cs.inside(_initial_path[i + 1]))
-        std::cout << " is inside!" << std::endl;
-        else
-        std::cout << " is outside!" << std::endl;
-    
-
         for(size_t k = 0; k<cs.b().size(); k++){ //each polyhedron i is subject to k constraints
             _ocp.subjectTo(i,  cs.A()(k,0)*_px + cs.A()(k,1)*_py + cs.A()(k,2)*_pz<= cs.b()[k]);
         }
@@ -283,7 +264,6 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
                 solution_[i].acc.x=output_control(i-offset_*(int)!first_time_solving,0);
                 solution_[i].acc.y=output_control(i-offset_*(int)!first_time_solving,1);
                 solution_[i].acc.z=output_control(i-offset_*(int)!first_time_solving,2);
-                // csv<<output_control(i,3)<<std::endl;
             }
         }
     }
@@ -307,6 +287,14 @@ nav_msgs::Path NumericalSolver::ACADOSolver::calculatePath(const Vec2f &start_po
         }
         ps_vector.push_back(ps);
     }
+    // Vec3f last_point(ps.pose.position.x,ps.pose.position.y,ps.pose.position.z);
+    // int k = 1;
+    // while(safe_corridor_generator->isPointOccupied(last_point)){
+    //     ps_vector.back().pose.position.x              = last_point(0)+segment_uni(0)*k*segment_dist;
+    //     ps_vector.back().pose.position.y              = last_point(1)+segment_uni(1)*k*segment_dist;
+    //     ps_vector.back().pose.position.z              = CAMERA_PITCH*(sqrt(pow(ps.pose.position.x-_target_trajectory[k].pose.pose.position.x,2)+pow(ps.pose.position.y-_target_trajectory[k].pose.pose.position.y,2)))+_target_trajectory[k].pose.pose.position.z;
+    //     k= k+1;
+    // }
     nav_msgs::Path path;
     path.poses = ps_vector;
 
