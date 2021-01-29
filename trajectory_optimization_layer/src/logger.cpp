@@ -16,6 +16,8 @@ SolverUtils::Logger::Logger(backendSolver* class_to_log, ros::NodeHandle pnh): c
     // file_ << std::fixed << std::setprecision(5);
 
     path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
+    target_path_rviz_pub          = pnh.advertise<nav_msgs::Path>("target_path", 1);
+    
     path_no_fly_zone       = pnh.advertise<nav_msgs::Path>("noflyzone", 1);
     target_path_rviz_pub   = pnh.advertise<nav_msgs::Path>("target/path", 1);
 
@@ -123,18 +125,20 @@ void SolverUtils::Logger::publishNoFlyZone(double point_1[2], double point_2[2],
   path_no_fly_zone.publish(msg);
 }
 
-nav_msgs::Path SolverUtils::Logger::targetPathVisualization() {
+void SolverUtils::Logger::targetPathVisualization() {
   nav_msgs::Path                          msg;
-  std::vector<geometry_msgs::PoseStamped> poses(class_to_log_ptr_->target_trajectory_.size());
+  geometry_msgs::PoseStamped aux_pose;
   msg.header.frame_id = class_to_log_ptr_->trajectory_frame_;
+  
   for (size_t i = 0; i < class_to_log_ptr_->target_trajectory_.size(); i++) {
-    poses.at(i).pose.position.x    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.x;
-    poses.at(i).pose.position.y    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.y;
-    poses.at(i).pose.position.z    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.z;
-    poses.at(i).pose.orientation.x = 0;
-    poses.at(i).pose.orientation.y = 0;
-    poses.at(i).pose.orientation.z = 0;
-    poses.at(i).pose.orientation.w = 1;
+    aux_pose.pose.position.x    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.x;
+    aux_pose.pose.position.y    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.y;
+    aux_pose.pose.position.z    = class_to_log_ptr_->target_trajectory_[i].pose.pose.position.z;
+    aux_pose.pose.orientation.x = 0;
+    aux_pose.pose.orientation.y = 0;
+    aux_pose.pose.orientation.z = 0;
+    aux_pose.pose.orientation.w = 1;
+    msg.poses.push_back(aux_pose);
   }
-  return msg;
+  target_path_rviz_pub.publish(msg);
 }

@@ -113,6 +113,8 @@ protected:
   bool         first_time_solving_ = true;
   bool         height_reached_     = false; /**< utility flag to set true when the height of the shot is reached */
 
+  const float OFFSET_YAW = -0.5;
+
   std::vector<int> drones;
   // services and topics
   ros::Subscriber                target_array_sub;       /**< Subscriber to target topic */

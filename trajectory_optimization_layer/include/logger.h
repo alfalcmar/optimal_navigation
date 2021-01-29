@@ -22,7 +22,7 @@ private:
     std::ofstream file_;
     backendSolver* class_to_log_ptr_;
     ros::Publisher                 path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */
-    ros::Publisher                 target_path_rviz_pub;   /**< Publisher for visualizing the target trajectory on RVIZ */
+    ros::Publisher                 target_path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */
     ros::Publisher                 path_no_fly_zone;       /**< Publisher for visualizing the no-fly zone RVIZ */
 
 public:
@@ -45,7 +45,7 @@ public:
     /*! \brief Utility function to create a msg that allows us to visualize the target path prediction on RVIZ
     *   \return nav_msg to visualize
     **/
-    nav_msgs::Path targetPathVisualization();
+    void targetPathVisualization();
 
     void logTime(float time);
 

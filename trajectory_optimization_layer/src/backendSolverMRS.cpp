@@ -29,8 +29,10 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
     ros::spinOnce();
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
-  std::cout<<ANSI_COLOR_GREEN<<"Drone "<<drone_id_<<": connected"<<std::endl;
 
+  int c;
+  ROS_INFO("Press a key to start a mission");
+  c = getchar();
 }
 
 
@@ -52,12 +54,12 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     aux_point.position.x = solution_[i].pose.x;
     aux_point.position.y = solution_[i].pose.y;
     aux_point.position.z = solution_[i].pose.z;
-    aux_point.heading    = yaw[i];
+    aux_point.heading    = yaw[i]+OFFSET_YAW;
     // trajectory to followers
     aux_point_for_followers.x     = solution_[i].pose.x;
     aux_point_for_followers.y     = solution_[i].pose.y;
     aux_point_for_followers.z     = solution_[i].pose.z;
-    aux_point_for_followers.yaw   = yaw[i];
+    aux_point_for_followers.yaw   = yaw[i]+OFFSET_YAW;
     aux_point_for_followers.pitch = pitch[i];
     aux_point_for_followers.phi   = 0.0;
     aux_point_for_followers.mode  = 2;

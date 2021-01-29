@@ -500,9 +500,7 @@ void backendSolver::stateMachine() {
       do {
         ros::spinOnce();
         // predict the target trajectory if it exists
-        if (target_) {
           targetTrajectoryVelocityCTEModel();
-        }
         // if it is the first time or the previous time the solver couldn't success, don't take previous trajectory as initial guess
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
 
@@ -549,6 +547,7 @@ void backendSolver::stateMachine() {
       closest_point = 0;
     }
     // predict yaw and pitch and publish trajectory
+    logger->targetPathVisualization();
     std::vector<double> yaw   = predictingYaw();
     std::vector<double> pitch = predictingPitch();
     publishSolvedTrajectory(yaw, pitch, closest_point);
