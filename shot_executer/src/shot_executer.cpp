@@ -157,7 +157,7 @@ shot_executer::DesiredShot ShotExecuter::calculateDesiredPoint(const struct shoo
         desired_point.pose.pose.position.y = target_trajectory[time_horizon_-1].pose.pose.position.y+(sin(target_orientation_[YAW])*_shooting_action.rt_parameters.x+cos(target_orientation_[YAW])*_shooting_action.rt_parameters.y);
         desired_point.pose.pose.position.z = target_trajectory[time_horizon_-1].pose.pose.position.z+_shooting_action.rt_parameters.z;
         // desired vel
-        calculateHorizonPoint(desired_point, drone_pose_);
+        // calculateHorizonPoint(desired_point, drone_pose_);
 
 
         desired_point.twist.twist.linear.x =target_trajectory.back().twist.twist.linear.x;

@@ -536,9 +536,9 @@ void backendSolver::stateMachine() {
     
     saveCalculatedTrajectory();
 
-    safe_corridor_generator_->publishLastPath(pub_path_);
+    // safe_corridor_generator_->publishLastPath(pub_path_);
   
-    safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
+    // safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
 
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
     if (actual_cicle_time > 1 / solver_rate_ && !first_time_solving_) {

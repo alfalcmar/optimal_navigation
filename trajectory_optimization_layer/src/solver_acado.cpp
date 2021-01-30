@@ -87,11 +87,12 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     for(int i=0; i<path_ref->poses.size();i++){
         path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
+        std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
     }
 
-    vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
+    // vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
-    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
+    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
 
     // Define objectives
     Function h_1;
@@ -115,7 +116,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
     //use target_x and targety_ptr
-    ocp.minimizeLagrangeTerm(0.1*(pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
+    ocp.minimizeLagrangeTerm(5*(pz_-_target_trajectory[0].pose.pose.position.z)/sqrt(
                                                                         pow(px_-_target_trajectory[0].pose.pose.position.x,2)+
                                                                         pow(py_-_target_trajectory[0].pose.pose.position.y,2)
                                                                         +eps)-CAMERA_PITCH);
