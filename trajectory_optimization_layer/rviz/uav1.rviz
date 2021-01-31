@@ -91,17 +91,17 @@ Visualization Manager:
       Topic: /uav1/solver/safe_corridor/path_out
       Unreliable: false
       Value: true
-    - Alpha: 0.05000000074505806
+    - Alpha: 0.009999999776482582
       BoundColor: 255; 0; 0
       Class: decomp_rviz_plugins/PolyhedronArray
-      Enabled: false
+      Enabled: true
       MeshColor: 0; 0; 255
       Name: PolyhedronArray
       Scale: 1
       State: Mesh
       Topic: /uav1/solver/safe_corridor/polyhedrons_out
       Unreliable: false
-      Value: false
+      Value: true
       VsColor: 0; 255; 0
       VsScale: 1
     - Alpha: 0.30000001192092896
@@ -260,25 +260,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 68.31831359863281
+      Distance: 36.914432525634766
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -4.969790935516357
-        Y: -1.3014640808105469
+        X: -3.0146689414978027
+        Y: -1.8022041320800781
         Z: -8.58306884765625e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.10539795458316803
+      Pitch: 0.09039787948131561
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz)
-      Yaw: 5.439063549041748
+      Yaw: 5.709060192108154
     Saved: ~
 Window Geometry:
   Displays:

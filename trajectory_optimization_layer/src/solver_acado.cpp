@@ -7,7 +7,184 @@ NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int ti
 
 }
 
+int NumericalSolver::ACADOSolver::mpc(){
+    DifferentialState px_,py_,pz_,vx_,vy_,vz_;
 
+    Control ax_,ay_,az_;
+
+    DifferentialEquation model;
+    Grid my_grid( t_start,t_end,time_horizon_ );
+
+    // define the model
+    model << dot(px_) == vx_;
+    model << dot(py_) == vy_;
+    model << dot(pz_) == vz_;
+    model << dot(vx_) == ax_;
+    model << dot(vy_) == ay_;
+    model << dot(vz_) == az_;
+    
+
+    OCP ocp(my_grid);
+    ocp.subjectTo(model);
+
+
+    ocp.subjectTo(  -MAX_ACC <= ax_ <=  MAX_ACC   );  
+    ocp.subjectTo(  -MAX_ACC <= ay_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_ACC <= az_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vx_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vy_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_Z <= vz_ <= MAX_VEL_Z   );
+
+
+    ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
+    ocp.subjectTo( AT_START, py_ == solution_[0].pose.y);
+    ocp.subjectTo( AT_START, pz_ == solution_[0].pose.z);
+    ocp.subjectTo( AT_START, vx_ == solution_[0].velocity.x);
+    ocp.subjectTo( AT_START, vy_ == solution_[0].velocity.y);
+    ocp.subjectTo( AT_START, vz_ == solution_[0].velocity.z);
+    ocp.subjectTo( AT_START, ax_ == solution_[0].acc.x);
+    ocp.subjectTo( AT_START, ay_ == solution_[0].acc.y);
+    ocp.subjectTo( AT_START, az_ == solution_[0].acc.z);
+
+    ////////// polyhedrons/////////////////
+    geometry_msgs::PoseStamped pose_aux;
+    nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
+
+    for(int i=0; i<time_horizon_;i++){ // solution to nav msgs
+        pose_aux.pose.position.x = solution_[i].pose.x;
+        pose_aux.pose.position.y = solution_[i].pose.y;
+        pose_aux.pose.position.z = solution_[i].pose.z;
+
+        path_ref->poses.push_back(pose_aux);
+    }
+
+
+    vec_Vec3f path_ref_vector;
+
+    for(int i=0; i<path_ref->poses.size();i++){ // nav_msgs to eigen vector
+        path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
+        std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
+    }
+    
+
+    vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref); // get polyhedrons
+
+    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ ); // polyhedrons to acado
+
+    ////////////////////////////////////////
+
+    // setup reference trajectory
+    ROS_INFO("[Acado]: Set reference trajectory");
+    VariablesGrid reference_trajectory(3, t_start,t_end,time_horizon_ );
+    DVector       reference_point(3);
+    for (int k = 0; k < time_horizon_; k++) { // previous solution to reference
+      reference_point(0) = solution_[k].pose.x;
+      reference_point(1) = solution_[k].pose.y;
+      reference_point(2) = solution_[k].pose.z;
+      reference_trajectory.setVector(k, reference_point);  // TODO: check indexing
+    }
+
+
+  // DEFINE LSQ function to minimize diff from desired trajectory
+  Function rf;
+
+  rf << px_;
+  rf << py_;
+  rf << pz_;
+
+  DMatrix S(3, 3);
+
+  S.setIdentity();
+  S(0, 0) = 1.0;
+  S(1, 1) = 1.0;
+  S(2, 2) = 1.0;
+
+  ROS_INFO("[%s]: Reference size: points = %u, cols = %u, rows = %u", ros::this_node::getName().c_str(), reference_trajectory.getNumPoints(),
+           reference_trajectory.getNumCols(), reference_trajectory.getNumRows());
+  ocp.minimizeLSQ(S, rf, reference_trajectory);
+
+  // DEFINE LSQ function to minimize accelerations
+  Function rf_a;
+
+  rf_a << ax_;
+  rf_a << ay_;
+  rf_a << az_;
+
+  DMatrix S_a(3, 3);
+  DVector r_a(3);
+
+  r_a.setZero();
+
+  S_a.setIdentity();
+  S_a(0, 0) = 1.0;
+  S_a(1, 1) = 1.0;
+  S_a(2, 2) = 1.0;
+
+  ocp.minimizeLSQ(S, rf_a, r_a);
+
+  ROS_INFO("[Acado]: Objective functions defined");
+
+  OptimizationAlgorithm solver(ocp);  
+  ////////////////// INITIALIZATION //////////////////////////////////
+  VariablesGrid state_init(6,my_grid), control_init(3,my_grid);
+  
+  for(uint k=0; k<time_horizon_; k++){
+      control_init(k,0)= solution_[k].acc.x;
+      control_init(k,1)= solution_[k].acc.y;
+      control_init(k,2)= solution_[k].acc.z;
+      state_init(k,0)= solution_[k].pose.x;
+      state_init(k,1)= solution_[k].pose.y;
+      state_init(k,2)= solution_[k].pose.z;
+      state_init(k,3)= solution_[k].velocity.x;
+      state_init(k,4)= solution_[k].velocity.y;
+      state_init(k,5)= solution_[k].velocity.z;
+  }
+
+    solver.initializeDifferentialStates( state_init );
+    solver.initializeControls          ( control_init );
+
+    //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
+    solver.set( INTEGRATOR_TOLERANCE , 1e-3            ); //1e-8
+    //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
+    solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
+    // solver.set( MAX_NUM_ITERATIONS        , 5  );
+    solver.set( MAX_TIME        , 2.0  );
+
+    // call the solver
+    bool solver_success = solver.solve();
+    // get solution
+    VariablesGrid output_states,output_control;
+
+
+    solver.getDifferentialStates(output_states);
+    solver.getControls          (output_control);
+
+    for(int k =0; k<time_horizon_;k++){
+        solution_[k].pose.x = output_states(k,0);
+        solution_[k].pose.y = output_states(k,1);
+        solution_[k].pose.z = output_states(k,2);
+        solution_[k].velocity.x = output_states(k,3);
+        solution_[k].velocity.y = output_states(k,4);
+        solution_[k].velocity.z = output_states(k,5);
+        solution_[k].acc.x = output_control(k,0);
+        solution_[k].acc.y = output_control(k,1);
+        solution_[k].acc.z = output_control(k,2);
+    }
+
+    px_.clearStaticCounters();
+    py_.clearStaticCounters();
+    pz_.clearStaticCounters();
+    vx_.clearStaticCounters();
+    vy_.clearStaticCounters();
+    vz_.clearStaticCounters();
+    ax_.clearStaticCounters();
+    ay_.clearStaticCounters();
+    az_.clearStaticCounters();
+
+    if(solver_success==returnValueType::SUCCESSFUL_RETURN ||solver_success==returnValueType::RET_MAX_TIME_REACHED ) ROS_INFO("MPC was successful");
+    else ROS_INFO("MPC cannot solve");
+    return solver_success;
+}
 
 int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
@@ -194,8 +371,18 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     az_.clearStaticCounters();
     s.clearStaticCounters();
     // pitch.clearStaticCounters();
+    bool mpc_return = false; 
+    if (solver_success_==returnValueType::SUCCESSFUL_RETURN || solver_success_==returnValueType::RET_MAX_TIME_REACHED) {
+       mpc_return =   mpc(); //TODO: think about how to manage the return of mpc
+       if(mpc_return==returnValueType::SUCCESSFUL_RETURN){
+           return solver_success_;
+       }else{
+           return mpc_return;
+       }
+    }else{
+        return solver_success_;  
+    }
 
-    return solver_success_;  
  }
 
 void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz){

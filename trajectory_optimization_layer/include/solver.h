@@ -12,6 +12,7 @@
 #include <memory>
 #include <UAVState.h>
 #include <safe_corridor_generator/safe_corridor_generator.h>
+#include <geometry_msgs/PoseStamped.h>
 
 USING_NAMESPACE_ACADO
 
