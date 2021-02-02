@@ -69,6 +69,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
   bool                test_ = false;
   double max_sampling_distance = 1000.0;
+  int max_jps_expansions = 0;
   param_loader.loadParam("pcl_filepath", pcd_file_path_);
   param_loader.loadParam("world_frame", world_frame_);
   param_loader.loadParam("loop_rate", main_loop_rate_);
@@ -85,6 +86,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   param_loader.loadParam("resolution", _map_resolution);
   param_loader.loadParam("map_center", _map_frame_coordinates);
   param_loader.loadParam("max_sampling_dist", max_sampling_distance);
+  param_loader.loadParam("max_jps_expansions", max_jps_expansions);
 
 
   // initializa safe corridor generator
@@ -92,7 +94,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   safe_corridor_generator_ = std::make_shared<safe_corridor_generator::SafeCorridorGenerator>();
 
   safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
-                                       _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance);
+                                       _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance,max_jps_expansions);
 
 
   // Initialize subs and pubs to visualize safe corridor
@@ -118,7 +120,20 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   sleep(3);
 
+  // for testing ostacle avoidance
+  geometry_msgs::Point pose;
+  pose.x = 8;
+  pose.y = -13;
+  pose.z = 2;
+  
+  const double raidus = 2;
+  const int n_points = 4000;
+
+  safe_corridor_generator_->addPositionOfRobotToPclMap(pose, raidus, n_points);
+  ///
   safe_corridor_generator_->publishCloud(pub_point_cloud_);
+
+  safe_corridor_generator_->updateMaps();
 
 
 }
