@@ -28,12 +28,12 @@ int NumericalSolver::ACADOSolver::mpc(){
     ocp.subjectTo(model);
 
 
-    ocp.subjectTo(  -MAX_ACC <= ax_ <=  MAX_ACC   );  
-    ocp.subjectTo(  -MAX_ACC <= ay_ <= MAX_ACC   );
-    ocp.subjectTo(  -MAX_ACC <= az_ <= MAX_ACC   );
-    ocp.subjectTo(  -MAX_VEL_XY <= vx_ <= MAX_VEL_XY   );
-    ocp.subjectTo(  -MAX_VEL_XY <= vy_ <= MAX_VEL_XY   );
-    ocp.subjectTo(  -MAX_VEL_Z <= vz_ <= MAX_VEL_Z   );
+    ocp.subjectTo(  -10 <= ax_ <= 10   );  
+    ocp.subjectTo(  -10 <= ay_ <= 10   );
+    ocp.subjectTo(  -10 <= az_ <= 10   );
+    ocp.subjectTo(  -20 <= vx_ <= 20   );
+    ocp.subjectTo(  -20 <= vy_ <= 20   );
+    ocp.subjectTo(  -20 <= vz_ <= 20   );
 
 
     ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
@@ -66,7 +66,21 @@ int NumericalSolver::ACADOSolver::mpc(){
         std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
     }
     
+    // if the last point is occupied
+    int k = time_horizon_ - 1;
+    while(safe_corridor_generator_->isPointOccupied(path_ref_vector[k])){
+        ROS_INFO("solver: point occupied");
+        k--;
+    }
+    if(k!= time_horizon_ -1){
+        for(int i = k+1;i<time_horizon_;i++){
+            path_ref_vector[i] = path_ref_vector[k];
+            path_ref->poses[i] = path_ref->poses[k];
+        }
+    }
+    /////
 
+    
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref); // get polyhedrons
 
     polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ ); // polyhedrons to acado
@@ -145,11 +159,10 @@ int NumericalSolver::ACADOSolver::mpc(){
 
     //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
     solver.set( INTEGRATOR_TOLERANCE , 1e-3            ); //1e-8
-    //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
-    solver.set( MAX_TIME        , 2.0  );
 
+    solver.set( MAX_TIME        , 2.0  );
     // call the solver
     bool solver_success = solver.solve();
     // get solution
@@ -249,23 +262,23 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
         ocp.subjectTo( AT_START, az_ == solution_[(time_initial_position/step_size)+offset_].acc.z);
     }
 
-    // polyhedrons
-    Vec2f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y);
-    Vec2f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y);
+    // // polyhedrons
+    // Vec2f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y);
+    // Vec2f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y);
     
-    State uav_state = _uavs_pose.at(_drone_id).state;
-    nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state, _target_trajectory);
+    // State uav_state = _uavs_pose.at(_drone_id).state;
+    // nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state, _target_trajectory);
 
-    nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
+    // nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
 
-    path_ref->poses = path.poses;
+    // path_ref->poses = path.poses;
 
-    vec_Vec3f path_ref_vector;
+    // vec_Vec3f path_ref_vector;
 
-    for(int i=0; i<path_ref->poses.size();i++){
-        path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
-        std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
-    }
+    // for(int i=0; i<path_ref->poses.size();i++){
+    //     path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
+    //     std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
+    // }
 
     // vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
@@ -373,6 +386,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // pitch.clearStaticCounters();
     bool mpc_return = false; 
     if (solver_success_==returnValueType::SUCCESSFUL_RETURN || solver_success_==returnValueType::RET_MAX_TIME_REACHED) {
+       ROS_INFO("solving mpc");
        mpc_return =   mpc(); //TODO: think about how to manage the return of mpc
        if(mpc_return==returnValueType::SUCCESSFUL_RETURN){
            return solver_success_;
