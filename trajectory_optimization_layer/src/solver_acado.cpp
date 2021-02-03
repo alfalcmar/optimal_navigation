@@ -84,7 +84,17 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref); // get polyhedrons
 
-    polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ ); // polyhedrons to acado
+    // get JPS path along which the polyhedrons were generated - needed to generation of correct constraints
+    nav_msgs::PathPtr collision_free_path = safe_corridor_generator_->getLastPath();
+
+    vec_Vec3f collision_free_path_vector;
+
+    for(int i = 0; i <collision_free_path->poses.size(); i++){ // nav_msgs to eigen vector
+        collision_free_path_vector.push_back(Vec3f(collision_free_path->poses[i].pose.position.x,collision_free_path->poses[i].pose.position.y, collision_free_path->poses[i].pose.position.z));
+        std::cout<<"x: "<<collision_free_path->poses[i].pose.position.x<<" y: "<<collision_free_path->poses[i].pose.position.y<<" z: "<<collision_free_path->poses[i].pose.position.z<<std::endl;
+    }
+
+    polyhedronsToACADO(ocp, polyhedron_vector, collision_free_path_vector, px_, py_, pz_ ); // polyhedrons to acado
 
     safe_corridor_generator_->publishLastPath(pub_path_);
   
