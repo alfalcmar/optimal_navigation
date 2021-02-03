@@ -11,7 +11,7 @@ private:
     bool logACADOvars();
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
     void polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz);
-    int mpc();
+    int mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_);
 
 
 public:
@@ -24,7 +24,7 @@ public:
     *  \param target_vel           [target_vx target_vy targe_vz] We guess velocity constant target
     *  \TODO m                     manage priorities by drones (ID)
     */
-    int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
+    int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, float time_initial_position = 0, bool first_time_solving = true, const int _drone_id = 1, const bool _target = true, const bool _multi = false);
     bool testPolyhedronConstraints(const std::vector<geometry_msgs::PoseStamped> &_path, const vec_E<Polyhedron<3>> &_polyhedrons);
     nav_msgs::Path calculatePath(const Vec2f &start_pose, const Vec2f &final_pose, const State &_uav_state, const std::vector<nav_msgs::Odometry> &_target_trajectory);
     

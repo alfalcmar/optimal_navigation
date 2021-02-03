@@ -520,7 +520,7 @@ void backendSolver::stateMachine() {
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
 
         // call the solver
-        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, actual_cicle_time,
+        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_,pub_path_, pub_corridor_polyhedrons_, actual_cicle_time,
                                                     first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h

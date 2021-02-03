@@ -1,5 +1,6 @@
 #include<solver_acado.h>
 
+
 NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess, 
                                          const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr) : 
                                         Solver(solving_rate, time_horizon, initial_guess, _safe_corridor_generator_ptr){
@@ -7,7 +8,7 @@ NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int ti
 
 }
 
-int NumericalSolver::ACADOSolver::mpc(){
+int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
 
     Control ax_,ay_,az_;
@@ -36,15 +37,15 @@ int NumericalSolver::ACADOSolver::mpc(){
     ocp.subjectTo(  -20 <= vz_ <= 20   );
 
 
-    ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
-    ocp.subjectTo( AT_START, py_ == solution_[0].pose.y);
-    ocp.subjectTo( AT_START, pz_ == solution_[0].pose.z);
-    ocp.subjectTo( AT_START, vx_ == solution_[0].velocity.x);
-    ocp.subjectTo( AT_START, vy_ == solution_[0].velocity.y);
-    ocp.subjectTo( AT_START, vz_ == solution_[0].velocity.z);
-    ocp.subjectTo( AT_START, ax_ == solution_[0].acc.x);
-    ocp.subjectTo( AT_START, ay_ == solution_[0].acc.y);
-    ocp.subjectTo( AT_START, az_ == solution_[0].acc.z);
+    // ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
+    // ocp.subjectTo( AT_START, py_ == solution_[0].pose.y);
+    // ocp.subjectTo( AT_START, pz_ == solution_[0].pose.z);
+    // ocp.subjectTo( AT_START, vx_ == solution_[0].velocity.x);
+    // ocp.subjectTo( AT_START, vy_ == solution_[0].velocity.y);
+    // ocp.subjectTo( AT_START, vz_ == solution_[0].velocity.z);
+    // ocp.subjectTo( AT_START, ax_ == solution_[0].acc.x);
+    // ocp.subjectTo( AT_START, ay_ == solution_[0].acc.y);
+    // ocp.subjectTo( AT_START, az_ == solution_[0].acc.z);
 
     ////////// polyhedrons/////////////////
     geometry_msgs::PoseStamped pose_aux;
@@ -85,6 +86,10 @@ int NumericalSolver::ACADOSolver::mpc(){
 
     polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ ); // polyhedrons to acado
 
+    safe_corridor_generator_->publishLastPath(pub_path_);
+  
+    safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
+
     ////////////////////////////////////////
 
     // setup reference trajectory
@@ -109,9 +114,9 @@ int NumericalSolver::ACADOSolver::mpc(){
   DMatrix S(3, 3);
 
   S.setIdentity();
-  S(0, 0) = 1.0;
-  S(1, 1) = 1.0;
-  S(2, 2) = 1.0;
+  S(0, 0) = 0.1;
+  S(1, 1) = 0.1;
+  S(2, 2) = 0.1;
 
   ROS_INFO("[%s]: Reference size: points = %u, cols = %u, rows = %u", ros::this_node::getName().c_str(), reference_trajectory.getNumPoints(),
            reference_trajectory.getNumCols(), reference_trajectory.getNumRows());
@@ -139,28 +144,13 @@ int NumericalSolver::ACADOSolver::mpc(){
   ROS_INFO("[Acado]: Objective functions defined");
 
   OptimizationAlgorithm solver(ocp);  
-  ////////////////// INITIALIZATION //////////////////////////////////
-  VariablesGrid state_init(6,my_grid), control_init(3,my_grid);
-  
-  for(uint k=0; k<time_horizon_; k++){
-      control_init(k,0)= solution_[k].acc.x;
-      control_init(k,1)= solution_[k].acc.y;
-      control_init(k,2)= solution_[k].acc.z;
-      state_init(k,0)= solution_[k].pose.x;
-      state_init(k,1)= solution_[k].pose.y;
-      state_init(k,2)= solution_[k].pose.z;
-      state_init(k,3)= solution_[k].velocity.x;
-      state_init(k,4)= solution_[k].velocity.y;
-      state_init(k,5)= solution_[k].velocity.z;
-  }
-
-    solver.initializeDifferentialStates( state_init );
-    solver.initializeControls          ( control_init );
 
     //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
     solver.set( INTEGRATOR_TOLERANCE , 1e-3            ); //1e-8
     solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
+    // solver.set( HESSIAN_APPROXIMATION, GAUSS_NEWTON );
+    
 
     solver.set( MAX_TIME        , 2.0  );
     // call the solver
@@ -199,7 +189,7 @@ int NumericalSolver::ACADOSolver::mpc(){
     return solver_success;
 }
 
-int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, float time_initial_position, bool first_time_solving, int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, float time_initial_position, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
@@ -387,7 +377,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     bool mpc_return = false; 
     if (solver_success_==returnValueType::SUCCESSFUL_RETURN || solver_success_==returnValueType::RET_MAX_TIME_REACHED) {
        ROS_INFO("solving mpc");
-       mpc_return =   mpc(); //TODO: think about how to manage the return of mpc
+       mpc_return =   mpc(pub_path_,pub_corridor_polyhedrons_); //TODO: think about how to manage the return of mpc
        if(mpc_return==returnValueType::SUCCESSFUL_RETURN){
            return solver_success_;
        }else{
@@ -403,12 +393,23 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
    
    // Convert to inequality constraints Ax < b
    // Taken from decomp test node
+   ROS_INFO("[Acado]: polyhedrons to acado ");
+
     for (size_t i = 0; i < _initial_path.size() - 1; i++) {
 
-        const auto         pt_inside = (_initial_path[i] + _initial_path[i + 1]) / 2;
+        ROS_INFO("[Acado]: polyhedrons to acado - iter i = %lu, initial path size = %lu, polyhedrons size =%lu ", i, _initial_path.size(),_vector_of_polyhedrons.size());
+        const auto         pt_inside = _initial_path[i+1];
+
         LinearConstraint3D cs(pt_inside, _vector_of_polyhedrons[i].hyperplanes());
         for(size_t k = 0; k<cs.b().size(); k++){ //each polyhedron i is subject to k constraints
-            _ocp.subjectTo(i,  cs.A()(k,0)*_px + cs.A()(k,1)*_py + cs.A()(k,2)*_pz<= cs.b()[k]);
+            ROS_INFO("[Acado]: polyhedrons to acado - iter k = %lu ", k);
+            if(!std::isnan(cs.A()(k, 0)) && !std::isnan(cs.A()(k, 1)) && !std::isnan(cs.A()(k, 2)) && !std::isnan(cs.b()[k])) {
+                _ocp.subjectTo(i+1, cs.A()(k, 0) * _px + cs.A()(k, 1) * _py + cs.A()(k, 2) * _pz <= cs.b()[k]);
+            } else {
+                ROS_ERROR("[Acado]: NaNs detected in polyhedrons ");
+            }
+                ROS_INFO("[Acado]: Adding constraint: %.2f * px + %.2f * py + %.2f * pz <= %.2f", cs.A()(k, 0), cs.A()(k, 1), cs.A()(k, 2), cs.b()[k]);
+                ROS_INFO("[Acado]: Point: [%.2f, %.2f, %.2f], result = %.2f", pt_inside(0), pt_inside(1), pt_inside(2), cs.A()(k, 0) * pt_inside(0) + cs.A()(k, 1) * pt_inside(1) + cs.A()(k, 2) * pt_inside(2));
         }
     }
 }
