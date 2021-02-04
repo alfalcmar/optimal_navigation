@@ -121,15 +121,15 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   sleep(3);
 
   // for testing ostacle avoidance
-  geometry_msgs::Point pose;
-  pose.x = 8;
-  pose.y = -13;
-  pose.z = 2;
+  // geometry_msgs::Point pose;
+  // pose.x = 8;
+  // pose.y = -13;
+  // pose.z = 2;
   
-  const double raidus = 2;
-  const int n_points = 4000;
+  // const double raidus = 2;
+  // const int n_points = 4000;
 
-  safe_corridor_generator_->addPositionOfRobotToPclMap(pose, raidus, n_points);
+  // safe_corridor_generator_->addPositionOfRobotToPclMap(pose, raidus, n_points);
   ///
   safe_corridor_generator_->publishCloud(pub_point_cloud_);
 
@@ -551,9 +551,9 @@ void backendSolver::stateMachine() {
     
     saveCalculatedTrajectory();
 
-    safe_corridor_generator_->publishLastPath(pub_path_);
+    // safe_corridor_generator_->publishLastPath(pub_path_);
   
-    safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
+    // safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
 
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
     if (actual_cicle_time > 1 / solver_rate_ && !first_time_solving_) {

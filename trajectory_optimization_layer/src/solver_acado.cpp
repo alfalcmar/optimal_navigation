@@ -68,19 +68,32 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     }
     
     // if the last point is occupied
-    int k = time_horizon_ - 1;
-    while(safe_corridor_generator_->isPointOccupied(path_ref_vector[k])){
-        ROS_INFO("solver: point occupied");
-        k--;
-    }
-    if(k!= time_horizon_ -1){
-        for(int i = k+1;i<time_horizon_;i++){
-            path_ref_vector[i] = path_ref_vector[k];
-            path_ref->poses[i] = path_ref->poses[k];
+    if(safe_corridor_generator_->isPointOccupied(path_ref_vector.back())){
+        Vec3f last_point = path_ref_vector.back();
+        const Vec3f first_point = path_ref_vector[0];
+        const Vec3f point_dir = (last_point-first_point)/(last_point-first_point).norm();
+        while(safe_corridor_generator_->isPointOccupied(last_point)){
+            last_point = last_point+point_dir;
         }
+        path_ref_vector.back() = last_point;
+        path_ref->poses.back().pose.position.x = last_point(0);
+        path_ref->poses.back().pose.position.y = last_point(1);
+        path_ref->poses.back().pose.position.z = last_point(2);
     }
-    /////
 
+    // // if the last point is occupied
+    // int k = time_horizon_ - 1;
+    // while(safe_corridor_generator_->isPointOccupied(path_ref_vector[k])){
+    //     ROS_INFO("solver: point occupied");
+    //     k--;
+    // }
+    // if(k!= time_horizon_ -1){
+    //     for(int i = k+1;i<time_horizon_;i++){
+    //         path_ref_vector[i] = path_ref_vector[k];
+    //         path_ref->poses[i] = path_ref->poses[k];
+    //     }
+    // }
+    // /////
     
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref); // get polyhedrons
 
@@ -339,25 +352,25 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     OptimizationAlgorithm solver(ocp);
 
     ////////////////// INITIALIZATION //////////////////////////////////
-    VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
+    // VariablesGrid state_init(6,my_grid_), control_init(4,my_grid_);
    
-    for(uint i=0; i<time_horizon_; i++){
-        control_init(i,0)= initial_guess_[i].acc.x;
-        control_init(i,1)= initial_guess_[i].acc.y;
-        control_init(i,2)= initial_guess_[i].acc.z;
-        control_init(i,3)=0.0; //slack
-        state_init(i,0)= initial_guess_[i].pose.x;
-        state_init(i,1)= initial_guess_[i].pose.y;
-        state_init(i,2)= initial_guess_[i].pose.z;
-        state_init(i,3)= initial_guess_[i].velocity.x;
-        state_init(i,4)= initial_guess_[i].velocity.y;
-        state_init(i,5)= initial_guess_[i].velocity.z;
-       // control(i,3) = _initial_guess["pitch"][i];
-    //    inter_state_init(i,0) = 0.2;
-    }
+    // for(uint i=0; i<time_horizon_; i++){
+    //     control_init(i,0)= initial_guess_[i].acc.x;
+    //     control_init(i,1)= initial_guess_[i].acc.y;
+    //     control_init(i,2)= initial_guess_[i].acc.z;
+    //     control_init(i,3)=0.0; //slack
+    //     state_init(i,0)= initial_guess_[i].pose.x;
+    //     state_init(i,1)= initial_guess_[i].pose.y;
+    //     state_init(i,2)= initial_guess_[i].pose.z;
+    //     state_init(i,3)= initial_guess_[i].velocity.x;
+    //     state_init(i,4)= initial_guess_[i].velocity.y;
+    //     state_init(i,5)= initial_guess_[i].velocity.z;
+    //    // control(i,3) = _initial_guess["pitch"][i];
+    // //    inter_state_init(i,0) = 0.2;
+    // }
 
-    solver.initializeDifferentialStates( state_init );
-    solver.initializeControls          ( control_init );
+    // solver.initializeDifferentialStates( state_init );
+    // solver.initializeControls          ( control_init );
     // solver.initializeAlgebraicStates(inter_state_init);
 
     //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
