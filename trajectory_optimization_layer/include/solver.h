@@ -27,7 +27,7 @@ private:
 protected:
     const float t_start = 0.0;
     const float t_end = 7.8; 
-    const float CAMERA_PITCH = 0.07;
+    const float CAMERA_PITCH = 1.8;
     const float Z_RELATIVE_TARGET_DRONE =2;  /*! height of the drone with respect to the target */
     float solving_rate_; // solving rate (s)
     const bool no_fly_zone = false;
