@@ -294,7 +294,7 @@ std::vector<double> backendSolver::predictingPitch() {
   Eigen::Vector3f drone_pose_aux;
   Eigen::Vector3f q_camera_target;
   for (int i = 0; i < time_horizon_; i++) {
-    target_pose_aux = Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, 0);
+    target_pose_aux = Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, target_trajectory_[i].pose.pose.position.z);
     drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x, solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = drone_pose_aux - target_pose_aux;
     float aux_sqrt  = sqrt(pow(q_camera_target[0], 2.0) + pow(q_camera_target[1], 2.0));
@@ -327,7 +327,6 @@ std::vector<double> backendSolver::predictingYaw() {
 void backendSolver::targetTrajectoryVelocityCTEModel() {
 
   target_trajectory_.clear();
-  double             target_vel_module = sqrt(pow(target_odometry_.twist.twist.linear.x, 2) + pow(target_odometry_.twist.twist.linear.y, 2));
   nav_msgs::Odometry aux;
   for (int i = 0; i < time_horizon_; i++) {
     aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + step_size * i * target_odometry_.twist.twist.linear.x;
