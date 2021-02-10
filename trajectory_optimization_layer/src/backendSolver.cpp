@@ -61,19 +61,18 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   ROS_INFO("[DecomposeWrapper]: Loading static parameters:");
   std::string         world_frame_;
   double              main_loop_rate_;
-  double              robot_radius_;
   double              segment_margin_;
   Vec3f               local_bbox_;
   std::vector<double> _local_bbox;
   std::vector<float>  _map_frame_coordinates;
-  double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
+  double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution, _decompose_inflation;
   bool                test_ = false;
   double max_sampling_distance = 1000.0;
   int max_jps_expansions = 0;
   param_loader.loadParam("pcl_filepath", pcd_file_path_);
   param_loader.loadParam("world_frame", world_frame_);
   param_loader.loadParam("loop_rate", main_loop_rate_);
-  param_loader.loadParam("robot_radius", robot_radius_);
+  param_loader.loadParam("decompose_inflation", _decompose_inflation);
   param_loader.loadParam("segment_margin", segment_margin_);
   param_loader.loadParam("local_bbox", _local_bbox);
   param_loader.loadParam("test", test_);
@@ -93,7 +92,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   safe_corridor_generator_ = std::make_shared<safe_corridor_generator::SafeCorridorGenerator>();
 
-  safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
+  safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, _decompose_inflation, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
                                        _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance,max_jps_expansions);
 
 

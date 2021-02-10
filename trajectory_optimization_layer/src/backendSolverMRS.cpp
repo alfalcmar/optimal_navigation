@@ -168,7 +168,7 @@ void backendSolverMRS::publishTargetOdometry() {
     return;
   }
   nav_msgs::Odometry msg = target_odometry_;
-  msg.header.frame_id    = "uav47/gps_origin";
+  msg.header.frame_id    = "uav47/gps_origin"; //FIXME
   try {
     target_odometry_pub.publish(msg);
   }
