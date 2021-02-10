@@ -62,7 +62,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     aux_point_for_followers.yaw   = yaw[i]+OFFSET_YAW;
     aux_point_for_followers.pitch = pitch[i];
     aux_point_for_followers.phi   = 0.0;
-    aux_point_for_followers.mode  = 2;
+    aux_point_for_followers.mode  = 3;
 
     traj_to_followers.points.push_back(aux_point_for_followers);
     traj_to_command.points.push_back(aux_point);
