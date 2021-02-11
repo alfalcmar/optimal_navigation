@@ -59,7 +59,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     aux_point_for_followers.x     = solution_[i].pose.x;
     aux_point_for_followers.y     = solution_[i].pose.y;
     aux_point_for_followers.z     = solution_[i].pose.z;
-    aux_point_for_followers.yaw   = yaw[i]+OFFSET_YAW;
+    aux_point_for_followers.yaw   = yaw[i];
     aux_point_for_followers.pitch = pitch[i];
     aux_point_for_followers.phi   = 0.0;
     aux_point_for_followers.mode  = 3;
@@ -168,7 +168,7 @@ void backendSolverMRS::publishTargetOdometry() {
     return;
   }
   nav_msgs::Odometry msg = target_odometry_;
-  msg.header.frame_id    = "uav47/gps_origin"; //FIXME
+  msg.header.frame_id    = "uav2/gps_origin"; //FIXME
   try {
     target_odometry_pub.publish(msg);
   }
