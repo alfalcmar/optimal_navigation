@@ -445,7 +445,7 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
   //     initial_guess_["pitch"][i] = 0.3;
   // }
   // log the initial guess
-  logger->logging();
+  // logger->logging();
 }
 
 std::array<float, 2> backendSolver::expandPose(float x, float y) {

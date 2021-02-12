@@ -20,6 +20,7 @@ class Logger{
 
 private:
     std::ofstream file_;
+    std::ofstream file_time_;
     backendSolver* class_to_log_ptr_;
     ros::Publisher                 path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */
     ros::Publisher                 target_path_rviz_pub;          /**< Publisher for visualizing the generated trajectory on RVIZ */

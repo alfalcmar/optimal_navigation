@@ -13,6 +13,7 @@ SolverUtils::Logger::Logger(backendSolver* class_to_log, ros::NodeHandle pnh): c
     std::string mypackage = ros::package::getPath("optimal_control_interface");
     // file open
     file_.open("/home/alfonso/logs/"+ string_time+"_drone"+std::to_string(class_to_log_ptr_->drone_id_));
+    file_time_.open("/home/alfonso/logs/"+ string_time+"_time_drone"+std::to_string(class_to_log_ptr_->drone_id_));
     // file_ << std::fixed << std::setprecision(5);
 
     path_rviz_pub          = pnh.advertise<nav_msgs::Path>("path", 1);
@@ -30,8 +31,10 @@ SolverUtils::Logger::~Logger(){
 }
 
 void SolverUtils::Logger::logTime(float time){
-  file_ << "solving time: "<<time<<std::endl;
+  file_time_ <<time<<std::endl;
 }
+
+
 
 void SolverUtils::Logger::logging() {
   // logging all results
@@ -59,8 +62,8 @@ void SolverUtils::Logger::logging() {
 
 
 void SolverUtils::Logger::loggingCalculatedTrajectory(const int solver_success) {
-  file_ << "solver_success: " << solver_success << std::endl;
-  file_ << "Calculated trajectroy" << std::endl;
+  // file_ << "solver_success: " << solver_success << std::endl;
+  // file_ << "Calculated trajectroy" << std::endl;
   for (int i = 0; i < class_to_log_ptr_->time_horizon_; i++) {
     file_ << class_to_log_ptr_->solver_pt_->solution_[i].acc.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].acc.y << ", " << class_to_log_ptr_->solver_pt_->solution_[i].acc.z
       << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.x << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.y << ", " << class_to_log_ptr_->solver_pt_->solution_[i].pose.z
