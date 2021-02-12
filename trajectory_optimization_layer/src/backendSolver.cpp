@@ -61,19 +61,18 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   ROS_INFO("[DecomposeWrapper]: Loading static parameters:");
   std::string         world_frame_;
   double              main_loop_rate_;
-  double              robot_radius_;
   double              segment_margin_;
   Vec3f               local_bbox_;
   std::vector<double> _local_bbox;
   std::vector<float>  _map_frame_coordinates;
-  double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution;
-  bool                test_ = false;
-  double max_sampling_distance = 1000.0;
-  int max_jps_expansions = 0;
+  double              _size_x, _size_y, _size_z, _min_z, _max_z, _jps_inflation, _map_resolution, _decompose_inflation;
+  bool                test_                 = false;
+  double              max_sampling_distance = 1000.0;
+  int                 max_jps_expansions    = 0;
   param_loader.loadParam("pcl_filepath", pcd_file_path_);
   param_loader.loadParam("world_frame", world_frame_);
   param_loader.loadParam("loop_rate", main_loop_rate_);
-  param_loader.loadParam("robot_radius", robot_radius_);
+  param_loader.loadParam("decompose_inflation", _decompose_inflation);
   param_loader.loadParam("segment_margin", segment_margin_);
   param_loader.loadParam("local_bbox", _local_bbox);
   param_loader.loadParam("test", test_);
@@ -93,8 +92,8 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
   safe_corridor_generator_ = std::make_shared<safe_corridor_generator::SafeCorridorGenerator>();
 
-  safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, robot_radius_, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z, _min_z,
-                                       _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance,max_jps_expansions);
+  safe_corridor_generator_->initialize(pcd_file_path_, world_frame_, _decompose_inflation, segment_margin_, _local_bbox, _size_x, _size_y, _size_z, _max_z,
+                                       _min_z, _map_frame_coordinates, _jps_inflation, _map_resolution, max_sampling_distance, max_jps_expansions);
 
 
   // Initialize subs and pubs to visualize safe corridor
@@ -125,7 +124,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   // pose.x = 8;
   // pose.y = -13;
   // pose.z = 2;
-  
+
   // const double raidus = 2;
   // const int n_points = 4000;
 
@@ -134,14 +133,12 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   safe_corridor_generator_->publishCloud(pub_point_cloud_);
 
   safe_corridor_generator_->updateMaps();
-
-
 }
 
 void backendSolver::sfg_test() {
 
   ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
-  nav_msgs::PathPtr                       path_ref(new nav_msgs::Path) ;
+  nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
   geometry_msgs::PoseStamped              ps;
   std::vector<geometry_msgs::PoseStamped> ps_vector;
   geometry_msgs::Point                    p;
@@ -186,29 +183,27 @@ void backendSolver::sfg_test() {
   ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
   path_ref->poses = ps_vector;
 
-  
+
   vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
 
   safe_corridor_generator_->publishLastPath(pub_path_);
 
   ROS_INFO("[DecomposeNode]: Publishing corridors ");
-  
+
   safe_corridor_generator_->publishCorridor(polyhedron_vector, pub_corridor_polyhedrons_);
-  
+
   ROS_INFO("[DecompWrapper]: Corridors generated.");
-  
+
 
   // test acado constrainst
 
   // bool success = solver_pt_->testPolyhedronConstraints();
-
 }
 
 void backendSolver::referencePathCallback(const nav_msgs::PathConstPtr &msg) {
 
   ROS_INFO("[DecomposeNode]: Path reference received.");
   sfg_test();
-
 }
 
 
@@ -294,7 +289,8 @@ std::vector<double> backendSolver::predictingPitch() {
   Eigen::Vector3f drone_pose_aux;
   Eigen::Vector3f q_camera_target;
   for (int i = 0; i < time_horizon_; i++) {
-    target_pose_aux = Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, target_trajectory_[i].pose.pose.position.z);
+    target_pose_aux =
+        Eigen::Vector3f(target_trajectory_[i].pose.pose.position.x, target_trajectory_[i].pose.pose.position.y, target_trajectory_[i].pose.pose.position.z);
     drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x, solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = drone_pose_aux - target_pose_aux;
     float aux_sqrt  = sqrt(pow(q_camera_target[0], 2.0) + pow(q_camera_target[1], 2.0));
@@ -328,10 +324,11 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
 
   target_trajectory_.clear();
   nav_msgs::Odometry aux;
+  int                expected_solving_time_steps = 5;  // FIXME: expected solving time in time steps e.g. 1s / 0.2 s sampling period - shift target position for correct heading
   for (int i = 0; i < time_horizon_; i++) {
-    aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + step_size * i * target_odometry_.twist.twist.linear.x;
-    aux.pose.pose.position.y = target_odometry_.pose.pose.position.y + step_size * i * target_odometry_.twist.twist.linear.y;
-    aux.pose.pose.position.z = target_odometry_.pose.pose.position.z + step_size * i * target_odometry_.twist.twist.linear.z;
+    aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.x;
+    aux.pose.pose.position.y = target_odometry_.pose.pose.position.y + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.y;
+    aux.pose.pose.position.z = target_odometry_.pose.pose.position.z + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.z;
     aux.twist                = target_odometry_.twist;  // velocity constant model
     target_trajectory_.push_back(aux);
     // ROS_INFO("[%s]: Target trajectory velocity model: target = [%.2f, %.2f, %.2f],", ros::this_node::getName().c_str(), aux.pose.pose.position.x,
@@ -514,12 +511,29 @@ void backendSolver::stateMachine() {
       do {
         ros::spinOnce();
         // predict the target trajectory if it exists
-          targetTrajectoryVelocityCTEModel();
+        targetTrajectoryVelocityCTEModel();
         // if it is the first time or the previous time the solver couldn't success, don't take previous trajectory as initial guess
         calculateInitialGuess(first_time_solving_ || change_initial_guess);
 
+        // FIXME: add target positions to pcl to be avoided
+        safe_corridor_generator_->removeAddedPointsFromPclMap();
+        geometry_msgs::PoseArray spheres_to_avoid;
+        geometry_msgs::Pose      p;
+        int                      n_points_to_include = fmin(40, target_trajectory_.size());
+
+        for (int k = 0; k < n_points_to_include; k++) {
+          p.position.x = target_trajectory_[k].pose.pose.position.x;
+          p.position.y = target_trajectory_[k].pose.pose.position.y;
+          p.position.z = target_trajectory_[k].pose.pose.position.z;
+          spheres_to_avoid.poses.push_back(p);
+        }
+
+        safe_corridor_generator_->addPositionsOfRobotsToPclMap(spheres_to_avoid, 1.0, 50);
+        safe_corridor_generator_->updateMaps();
+
         // call the solver
-        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_,pub_path_, pub_corridor_polyhedrons_, actual_cicle_time,
+        solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, pub_path_,
+                                                    pub_corridor_polyhedrons_, actual_cicle_time,
                                                     first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
@@ -547,11 +561,11 @@ void backendSolver::stateMachine() {
     // check and log the time that the last loop lasted
 
     // publish the last calculated trajectory if the solver successed
-    
+
     saveCalculatedTrajectory();
 
     // safe_corridor_generator_->publishLastPath(pub_path_);
-  
+
     // safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
 
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points

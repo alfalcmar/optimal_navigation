@@ -3,6 +3,7 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="trajectory_frame" default="$(arg uav_name)/gps_origin"/>
   <arg name="run_rviz" default="true" />
+  <arg name="pcl_map_filename" default="$(find formation_church_planning)/maps/pcd_files/power_tower_danube.pcd" />
 
 
     <node pkg="optimal_control_interface" name="solver" type="optimal_control_interface_node" output="screen" ns="$(arg uav_name)">
@@ -24,7 +25,7 @@
 
       <rosparam file="$(find safe_corridor_generator)/config/params.yaml" />
 
-      <param name="pcl_filepath" value="$(find formation_church_planning)/maps/pcd_files/power_tower_danube.pcd" />
+      <param name="pcl_filepath" value="$(arg pcl_map_filename)" />
       <param name="world_frame" value="$(arg uav_name)/gps_origin" />
 
       <remap from="~path_out" to="~path_out" />
