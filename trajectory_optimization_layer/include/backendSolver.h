@@ -109,9 +109,12 @@ protected:
   int          solver_success      = -1;                                        /**< the solver has solved successfully */
   bool         multi_              = false;                                     /**< true if multi uav formation is activated */
   bool         target_             = true;                                      /**< true if there is a target that is being filmed*/
-  const double step_size           = 0.2;                                       /**< step size (seg) */
+  const double STEP_SIZE           = 0.2;                                       /**< step size (seg) */
   bool         first_time_solving_ = true;
   bool         height_reached_     = false; /**< utility flag to set true when the height of the shot is reached */
+
+  float                                 actual_cicle_time_    = 0.0;
+
 
   /* const float OFFSET_YAW = -0.5; */
   const float OFFSET_YAW = 0.0;
@@ -204,7 +207,7 @@ protected:
   /*!  \brief receives uav's pose and save it in uavs_pose[id]. If the solved trajectory from other is not received, it initializa solved_trajectory with this
    * pose \param msg uav's pose \param id  drone_id
    */
-  void uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id);
+  void uavPoseCallback(const nav_msgs::Odometry::ConstPtr &msg, int id);
 
   //////////////// UTILITY FUNCTION ////////////////////////////////
   /*! \brief This function calculates the pitch of the camera over the N steps through calculated trajectroy and target trajectory

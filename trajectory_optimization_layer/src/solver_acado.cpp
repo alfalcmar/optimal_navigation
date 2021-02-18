@@ -8,7 +8,7 @@ NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int ti
 
 }
 
-int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_){
+int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const std::map<int,UavState> &_uavs_pose, const int _drone_id){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
 
     Control ax_,ay_,az_;
@@ -94,7 +94,23 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     //     }
     // }
     // /////
+    // for testing ostacle avoidance
     
+    // add follower to the map
+    geometry_msgs::Point aux_point;
+    const double raidus = 0.5;
+    const int n_points = 100;
+    for (auto it=_uavs_pose.begin(); it!=_uavs_pose.end(); ++it){
+        if(it->first!=_drone_id){
+            aux_point.x = it->second.state.pose.x;
+            aux_point.y = it->second.state.pose.y;
+            aux_point.z = it->second.state.pose.z;
+            std::cout<<"adding follower to map with pose: "<<"x:  "<<aux_point.x<<" y: "<<aux_point.y<<" z: "<<aux_point.z<<std::endl;
+            safe_corridor_generator_->addPositionOfRobotToPclMap(aux_point, raidus, n_points);
+
+        }
+    }  
+
     vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref); // get polyhedrons
 
     // get JPS path along which the polyhedrons were generated - needed to generation of correct constraints
@@ -401,7 +417,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     bool mpc_return = false; 
     if (solver_success_==returnValueType::SUCCESSFUL_RETURN || solver_success_==returnValueType::RET_MAX_TIME_REACHED) {
        ROS_INFO("solving mpc");
-       mpc_return =   mpc(pub_path_,pub_corridor_polyhedrons_); //TODO: think about how to manage the return of mpc
+       mpc_return =   mpc(pub_path_,pub_corridor_polyhedrons_, _uavs_pose, _drone_id); //TODO: think about how to manage the return of mpc
        if(mpc_return==returnValueType::SUCCESSFUL_RETURN){
            return solver_success_;
        }else{
