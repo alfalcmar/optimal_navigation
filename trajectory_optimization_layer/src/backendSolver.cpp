@@ -17,14 +17,6 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
     : time_horizon_(time_horizon), solution_(new State[time_horizon]), initial_guess_(new State[time_horizon]) {
   ROS_INFO("backend solver constructor");
 
-  // drones param
-  if (ros::param::has("~drones")) {
-    if (!ros::param::get("~drones", drones)) {
-      ROS_ERROR("'Drones' does not have the rigth type");
-    }
-  } else {
-    ROS_ERROR("fail to get the drones ids");
-  }
   // no fly zone param
   if (ros::param::has("~no_fly_zone")) {
     if (!ros::param::get("~no_fly_zone", no_fly_zone_center_)) {
@@ -86,6 +78,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   param_loader.loadParam("map_center", _map_frame_coordinates);
   param_loader.loadParam("max_sampling_dist", max_sampling_distance);
   param_loader.loadParam("max_jps_expansions", max_jps_expansions);
+  param_loader.loadParam("uav_priority_list", drones); //TODO: read the param generally
 
 
   // initializa safe corridor generator
@@ -243,28 +236,6 @@ void backendSolver::uavTrajectoryCallback(const optimal_control_interface::Solve
   ROS_INFO("Solver %d: trajectory callback from drone %d", drone_id_, id);
 }
 
-/** \brief callback for the pose of uavs
- */
-void backendSolver::uavPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg, int id) {
-  uavs_pose_[id].has_pose = true;
-  if (!trajectory_solved_received[id]) {
-    for (int i = 0; i < time_horizon_; i++) {
-      geometry_msgs::PoseStamped pose_aux;
-      pose_aux.pose.position.x = msg->pose.position.x;
-      pose_aux.pose.position.y = msg->pose.position.y;
-      pose_aux.pose.position.z = msg->pose.position.z;
-      uavs_trajectory[id].positions.push_back(pose_aux);
-    }
-  }
-  uavs_pose_[id].state.pose.x = msg->pose.position.x;
-  uavs_pose_[id].state.pose.y = msg->pose.position.y;
-  uavs_pose_[id].state.pose.z = msg->pose.position.z;
-
-  uavs_pose_[id].state.quaternion.x = msg->pose.orientation.x;
-  uavs_pose_[id].state.quaternion.y = msg->pose.orientation.y;
-  uavs_pose_[id].state.quaternion.z = msg->pose.orientation.z;
-  uavs_pose_[id].state.quaternion.w = msg->pose.orientation.w;
-}
 
 
 void backendSolver::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points /*0 default */) {
@@ -324,11 +295,11 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
 
   target_trajectory_.clear();
   nav_msgs::Odometry aux;
-  int                expected_solving_time_steps = 5;  // FIXME: expected solving time in time steps e.g. 1s / 0.2 s sampling period - shift target position for correct heading
+  int                expected_solving_time_steps = solver_rate_ / STEP_SIZE;  // FIXME: expected solving time in time steps e.g. 1s / 0.2 s sampling period - shift target position for correct heading
   for (int i = 0; i < time_horizon_; i++) {
-    aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.x;
-    aux.pose.pose.position.y = target_odometry_.pose.pose.position.y + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.y;
-    aux.pose.pose.position.z = target_odometry_.pose.pose.position.z + step_size * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.z;
+    aux.pose.pose.position.x = target_odometry_.pose.pose.position.x + STEP_SIZE * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.x;
+    aux.pose.pose.position.y = target_odometry_.pose.pose.position.y + STEP_SIZE * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.y;
+    aux.pose.pose.position.z = target_odometry_.pose.pose.position.z + STEP_SIZE * (i + expected_solving_time_steps) * target_odometry_.twist.twist.linear.z;
     aux.twist                = target_odometry_.twist;  // velocity constant model
     target_trajectory_.push_back(aux);
     // ROS_INFO("[%s]: Target trajectory velocity model: target = [%.2f, %.2f, %.2f],", ros::this_node::getName().c_str(), aux.pose.pose.position.x,
@@ -414,9 +385,9 @@ void backendSolver::calculateInitialGuess(bool new_initial_guess) {
       initial_guess_[i].velocity.x = scalar_dir_x * vel_module_cte;
       initial_guess_[i].velocity.y = scalar_dir_y * vel_module_cte;
       initial_guess_[i].velocity.z = scalar_dir_z * vel_module_cte;
-      initial_guess_[i].pose.x     = initial_guess_[i - 1].pose.x + step_size * initial_guess_[i - 1].velocity.x;
-      initial_guess_[i].pose.y     = initial_guess_[i - 1].pose.y + step_size * initial_guess_[i - 1].velocity.y;
-      initial_guess_[i].pose.z     = initial_guess_[i - 1].pose.z + step_size * initial_guess_[i - 1].velocity.z;
+      initial_guess_[i].pose.x     = initial_guess_[i - 1].pose.x + STEP_SIZE * initial_guess_[i - 1].velocity.x;
+      initial_guess_[i].pose.y     = initial_guess_[i - 1].pose.y + STEP_SIZE * initial_guess_[i - 1].velocity.y;
+      initial_guess_[i].pose.z     = initial_guess_[i - 1].pose.z + STEP_SIZE * initial_guess_[i - 1].velocity.z;
       // no fly zone
       if (pow(initial_guess_[i].pose.x - no_fly_zone_center_[0], 2) + pow(initial_guess_[i].pose.y - no_fly_zone_center_[1], 2) < pow(NO_FLY_ZONE_RADIUS, 2)) {
         aux                      = expandPose(initial_guess_[i].pose.x, initial_guess_[i].pose.y);
@@ -494,7 +465,6 @@ void backendSolver::stateMachine() {
   bool                                  loop_rate_violated = false;
   std::chrono::system_clock::time_point start;
   std::chrono::duration<double>         diff;
-  float                                 actual_cicle_time    = 0.0;
   bool                                  change_initial_guess = true;
   // int cont =
   first_time_solving_ = true;
@@ -533,7 +503,7 @@ void backendSolver::stateMachine() {
 
         // call the solver
         solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, pub_path_,
-                                                    pub_corridor_polyhedrons_, actual_cicle_time,
+                                                    pub_corridor_polyhedrons_, actual_cicle_time_,
                                                     first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
@@ -552,12 +522,12 @@ void backendSolver::stateMachine() {
 
     // wait for the planned time
     if (solver_timer.sleep()) {
-      actual_cicle_time = 1 / solver_rate_;
+      actual_cicle_time_ = 1 / solver_rate_;
     } else {
-      actual_cicle_time = round(solver_timer.cycleTime().toSec() * 10.0) / 10.0;
+      actual_cicle_time_ = round(solver_timer.cycleTime().toSec() * 10.0) / 10.0;
     }
 
-    logger->logTime(actual_cicle_time);
+    logger->logTime(actual_cicle_time_);
     // check and log the time that the last loop lasted
 
     // publish the last calculated trajectory if the solver successed
@@ -569,8 +539,8 @@ void backendSolver::stateMachine() {
     // safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
 
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
-    if (actual_cicle_time > 1 / solver_rate_ && !first_time_solving_) {
-      closest_point = (actual_cicle_time - 1 / solver_rate_) / step_size;
+    if (actual_cicle_time_ > 1 / solver_rate_ && !first_time_solving_) {
+      closest_point = (actual_cicle_time_ - 1 / solver_rate_) / STEP_SIZE;
     } else {
       closest_point = 0;
     }

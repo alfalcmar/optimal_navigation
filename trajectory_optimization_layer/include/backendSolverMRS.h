@@ -38,4 +38,6 @@ private:
 
   void publishTargetOdometry();
   void publishState(const bool state);
+  void uavPoseCallback(const nav_msgs::Odometry::ConstPtr &msg, int id);
+
 };

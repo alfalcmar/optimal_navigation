@@ -11,7 +11,7 @@ private:
     bool logACADOvars();
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
     void polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz);
-    int mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_);
+    int mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const std::map<int,UavState> &_uavs_pose, const int _drone_id);
 
 
 public:

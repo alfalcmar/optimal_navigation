@@ -3,6 +3,12 @@
 backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
   ROS_INFO("Leader constructor");
 
+  for(int i=0;i<drones.size();i++){
+    if(drones[i]!=drone_id_){
+      drone_pose_sub[i] = _pnh.subscribe<nav_msgs::Odometry>("/uav"+std::to_string(drones[i]) + "/odometry/odom_main", 1, std::bind(&backendSolverMRS::uavPoseCallback, this, std::placeholders::_1, drones[i]));
+    }
+  }
+
   /* std::string target_topic; */
   /* _pnh.param<std::string>("target_topic",target_topic, "/gazebo/dynamic_model/jeff_electrician/odometry"); // target topic
    * /gazebo/dynamic_target/dynamic_pickup/pose */
@@ -35,6 +41,30 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   c = getchar();
 }
 
+
+/** \brief callback for the pose of uavs
+ */
+void backendSolverMRS::uavPoseCallback(const nav_msgs::Odometry::ConstPtr &msg, int id) {
+  std::cout<<"pose uav "<<id<<"received"<<std::endl;
+  uavs_pose_[id].has_pose = true;
+  if (!trajectory_solved_received[id]) {
+    for (int i = 0; i < time_horizon_; i++) {
+      geometry_msgs::PoseStamped pose_aux;
+      pose_aux.pose.position.x = msg->pose.pose.position.x;
+      pose_aux.pose.position.y = msg->pose.pose.position.y;
+      pose_aux.pose.position.z = msg->pose.pose.position.z;
+      uavs_trajectory[id].positions.push_back(pose_aux);
+    }
+  }
+  uavs_pose_[id].state.pose.x = msg->pose.pose.position.x;
+  uavs_pose_[id].state.pose.y = msg->pose.pose.position.y;
+  uavs_pose_[id].state.pose.z = msg->pose.pose.position.z;
+
+  uavs_pose_[id].state.quaternion.x = msg->pose.pose.orientation.x;
+  uavs_pose_[id].state.quaternion.y = msg->pose.pose.orientation.y;
+  uavs_pose_[id].state.quaternion.z = msg->pose.pose.orientation.z;
+  uavs_pose_[id].state.quaternion.w = msg->pose.pose.orientation.w;
+}
 
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int closest_point) {
   publishState(true);
