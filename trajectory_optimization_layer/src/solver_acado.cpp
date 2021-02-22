@@ -336,10 +336,10 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // r_1(4) = _desired_odometry.twist.twist.linear.y;
     // r_1(5) = _desired_odometry.twist.twist.linear.z;
     //use target_x and targety_ptr
-    ocp.minimizeLagrangeTerm(5*(pz_-target_z)/sqrt(
+    ocp.minimizeLagrangeTerm(pow((pz_-target_z)/sqrt(
                                                    pow(px_-target_x,2)+
                                                    pow(py_-target_y,2)
-                                                   +eps)-CAMERA_PITCH);
+                                                   +eps)-CAMERA_PITCH,2));
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
     Function h;
