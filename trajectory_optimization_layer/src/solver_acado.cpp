@@ -4,11 +4,18 @@
 NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess, 
                                          const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr) : 
                                         Solver(solving_rate, time_horizon, initial_guess, _safe_corridor_generator_ptr){
-    
+    ocp_.open("/home/grvc/ocp.txt");
+    poly_.open("/home/grvc/poly.txt");
+    mpc_.open("/home/grvc/mpc.txt");
+
 
 }
 
 int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const std::map<int,UavState> &_uavs_pose, const int _drone_id){
+    
+    start = start = std::chrono::system_clock::now();
+    
+
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
 
     Control ax_,ay_,az_;
@@ -131,6 +138,10 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
 
     ////////////////////////////////////////
 
+    std::chrono::duration<double> diff         = std::chrono::system_clock::now() - start;
+    poly_<<diff.count()<<std::endl;
+    start = start = std::chrono::system_clock::now();
+
     // setup reference trajectory
     ROS_INFO("[Acado]: Set reference trajectory");
     VariablesGrid reference_trajectory(3, t_start,t_end,time_horizon_ );
@@ -223,12 +234,16 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
 
+    std::chrono::duration<double> ocp_         = std::chrono::system_clock::now() - start;
+    ocp_<<diff.count()<<std::endl;
+
     if(solver_success==returnValueType::SUCCESSFUL_RETURN ||solver_success==returnValueType::RET_MAX_TIME_REACHED ) ROS_INFO("MPC was successful");
     else ROS_INFO("MPC cannot solve");
     return solver_success;
 }
 
 int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, float time_initial_position, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+    start = std::chrono::system_clock::now();
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
@@ -401,6 +416,8 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     solver_success_ = solver.solve();
     // get solution
 
+    std::chrono::duration<double> diff         = std::chrono::system_clock::now() - start;
+    ocp_<<diff.count()<<std::endl;
     getResults(time_initial_position, solver, first_time_solving);
 
     px_.clearStaticCounters();

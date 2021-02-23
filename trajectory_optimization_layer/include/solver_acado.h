@@ -12,7 +12,11 @@ private:
     bool getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving);
     void polyhedronsToACADO(OCP &_ocp, const vec_E<Polyhedron<3>> &_vector_of_polyhedrons, const vec_Vec3f &_initial_path, DifferentialState &_px, DifferentialState &_py, DifferentialState &_pz);
     int mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const std::map<int,UavState> &_uavs_pose, const int _drone_id);
+    std::ofstream ocp_;
+    std::ofstream poly_;
+    std::ofstream mpc_;
 
+    std::chrono::system_clock::time_point start;
 
 public:
     ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &intial_guess, const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr);
