@@ -15,7 +15,7 @@
 
 backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int time_horizon)
     : time_horizon_(time_horizon), solution_(new State[time_horizon]), initial_guess_(new State[time_horizon]) {
-  ROS_INFO("backend solver constructor");
+  // ROS_INFO("backend solver constructor");
 
   // no fly zone param
   if (ros::param::has("~no_fly_zone")) {
@@ -130,7 +130,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
 
 void backendSolver::sfg_test() {
 
-  ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
+  // ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
   nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
   geometry_msgs::PoseStamped              ps;
   std::vector<geometry_msgs::PoseStamped> ps_vector;
@@ -173,7 +173,7 @@ void backendSolver::sfg_test() {
   p.z              = 20.0;
   ps.pose.position = p;
   ps_vector.push_back(ps);
-  ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
+  // ROS_INFO("[%s]: sfg_test start ", ros::this_node::getName().c_str());
   path_ref->poses = ps_vector;
 
 
@@ -181,11 +181,11 @@ void backendSolver::sfg_test() {
 
   safe_corridor_generator_->publishLastPath(pub_path_);
 
-  ROS_INFO("[DecomposeNode]: Publishing corridors ");
+  // ROS_INFO("[DecomposeNode]: Publishing corridors ");
 
   safe_corridor_generator_->publishCorridor(polyhedron_vector, pub_corridor_polyhedrons_);
 
-  ROS_INFO("[DecompWrapper]: Corridors generated.");
+  // ROS_INFO("[DecompWrapper]: Corridors generated.");
 
 
   // test acado constrainst
@@ -195,7 +195,7 @@ void backendSolver::sfg_test() {
 
 void backendSolver::referencePathCallback(const nav_msgs::PathConstPtr &msg) {
 
-  ROS_INFO("[DecomposeNode]: Path reference received.");
+  // ROS_INFO("[DecomposeNode]: Path reference received.");
   sfg_test();
 }
 
@@ -233,13 +233,13 @@ void backendSolver::uavTrajectoryCallback(const optimal_control_interface::Solve
   uavs_trajectory[id].positions     = msg->positions;
   uavs_trajectory[id].velocities    = msg->velocities;
   uavs_trajectory[id].accelerations = msg->accelerations;
-  ROS_INFO("Solver %d: trajectory callback from drone %d", drone_id_, id);
+  // ROS_INFO("Solver %d: trajectory callback from drone %d", drone_id_, id);
 }
 
 
 
 void backendSolver::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points /*0 default */) {
-  ROS_INFO("virtual definition of publish solved trajectory");
+  // ROS_INFO("virtual definition of publish solved trajectory");
 }
 
 
@@ -284,9 +284,9 @@ std::vector<double> backendSolver::predictingYaw() {
     drone_pose_aux  = Eigen::Vector3f(solution_[i].pose.x, solution_[i].pose.y, solution_[i].pose.z);
     q_camera_target = target_pose_aux - drone_pose_aux;
     yaw.push_back(atan2(q_camera_target[1], q_camera_target[0]));
-    ROS_INFO("[%s]: Estimated target trajectory target = [%.2f, %.2f, %.2f], drone = [%.2f, %.2f, %.2f], yaw = %.2f", ros::this_node::getName().c_str(),
-             target_pose_aux[0], target_pose_aux[1], target_pose_aux[2], drone_pose_aux[0], drone_pose_aux[1], drone_pose_aux[2],
-             atan2(-q_camera_target[1], -q_camera_target[0]));
+    // ROS_INFO("[%s]: Estimated target trajectory target = [%.2f, %.2f, %.2f], drone = [%.2f, %.2f, %.2f], yaw = %.2f", ros::this_node::getName().c_str(),
+            //  target_pose_aux[0], target_pose_aux[1], target_pose_aux[2], drone_pose_aux[0], drone_pose_aux[1], drone_pose_aux[2],
+            //  atan2(-q_camera_target[1], -q_camera_target[0]));
   }
   return yaw;
 }
@@ -353,7 +353,7 @@ int backendSolver::closestPose() {
 }
 
 bool backendSolver::isDesiredPoseReached(const nav_msgs::Odometry &_desired_pose, const nav_msgs::Odometry &_last_pose) {
-  ROS_INFO("Desired pose reached");
+  // ROS_INFO("Desired pose reached");
 }
 
 void backendSolver::calculateInitialGuess(bool new_initial_guess) {
@@ -433,7 +433,7 @@ std::array<float, 2> backendSolver::expandPose(float x, float y) {
 }
 
 void backendSolver::IDLEState() {
-  ROS_INFO("Solver %d: IDLE state", drone_id_);
+  // ROS_INFO("Solver %d: IDLE state", drone_id_);
 }
 
 // void backendSolver::deletingPoints(const int number_of_points){

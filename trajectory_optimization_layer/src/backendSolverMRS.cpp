@@ -97,10 +97,10 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     traj_to_followers.points.push_back(aux_point_for_followers);
     traj_to_command.points.push_back(aux_point);
   }
-  for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
-    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x, traj_to_followers.points[k].y,
-             traj_to_followers.points[k].z);
-  }
+  // for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
+    // ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x, traj_to_followers.points[k].y,
+            //  traj_to_followers.points[k].z);
+  // }
   traj_to_command.header.stamp = ros::Time::now();
   traj_to_followers.stamp      = ros::Time::now();
   publishTargetOdometry();
