@@ -4,9 +4,9 @@
 NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> &initial_guess, 
                                          const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr) : 
                                         Solver(solving_rate, time_horizon, initial_guess, _safe_corridor_generator_ptr){
-    ocp_.open("/home/grvc/ocp.txt");
-    poly_.open("/home/grvc/poly.txt");
-    mpc_.open("/home/grvc/mpc.txt");
+    ocp_.open("/home/alfonso/ocp.txt");
+    poly_.open("/home/alfonso/poly.txt");
+    mpc_.open("/home/alfonso/mpc.txt");
 
 
 }
@@ -138,8 +138,10 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
 
     ////////////////////////////////////////
 
-    std::chrono::duration<double> diff         = std::chrono::system_clock::now() - start;
-    poly_<<diff.count()<<std::endl;
+    std::chrono::duration<double> diff2         = std::chrono::system_clock::now() - start;
+    float                         rounded_time = round(diff2.count() * 10.0) / 10.0;
+
+    poly_<<rounded_time<<std::endl;
     start = start = std::chrono::system_clock::now();
 
     // setup reference trajectory
@@ -234,8 +236,10 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     ay_.clearStaticCounters();
     az_.clearStaticCounters();
 
-    std::chrono::duration<double> ocp_         = std::chrono::system_clock::now() - start;
-    ocp_<<diff.count()<<std::endl;
+    std::chrono::duration<double> diff1         = std::chrono::system_clock::now() - start;
+    float                         rounded_time1 = round(diff1.count() * 10000.0) / 10000.0;
+
+    mpc_<<rounded_time1<<std::endl;
 
     if(solver_success==returnValueType::SUCCESSFUL_RETURN ||solver_success==returnValueType::RET_MAX_TIME_REACHED ) ROS_INFO("MPC was successful");
     else ROS_INFO("MPC cannot solve");
@@ -417,7 +421,8 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     // get solution
 
     std::chrono::duration<double> diff         = std::chrono::system_clock::now() - start;
-    ocp_<<diff.count()<<std::endl;
+    float                         rounded_time = round(diff.count() * 10.0) / 10.0;
+    ocp_<<rounded_time<<std::endl;
     getResults(time_initial_position, solver, first_time_solving);
 
     px_.clearStaticCounters();
