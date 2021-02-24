@@ -201,6 +201,15 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
     // solver.set( HESSIAN_APPROXIMATION, GAUSS_NEWTON );
+    solver.set(INTEGRATOR_PRINTLEVEL, NONE);
+	solver.set(PRINT_INTEGRATOR_PROFILE, NO);
+	// solver.set(PLOT_RESOLUTION, NONE);
+    solver.set(CONIC_SOLVER_PRINT_LEVEL, NONE);
+	solver.set(PRINTLEVEL, NONE);
+    solver.set(PRINT_COPYRIGHT, NONE);
+
+
+
     
 
     solver.set( MAX_TIME        , 2.0  );
@@ -410,12 +419,21 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     //solver.set( INTEGRATOR_TYPE      , INT_RK78        );
     solver.set( INTEGRATOR_TOLERANCE , 1e-3            ); //1e-8
-    solver.set( PRINT_LEVEL , NONE         ); //1e-8
+    // solver.set( PRINT_LEVEL , NONE         ); //1e-8
 
     //solver.set( DISCRETIZATION_TYPE  , SINGLE_SHOOTING );
     solver.set( KKT_TOLERANCE        , 1e-1            ); // 1e-3
     // solver.set( MAX_NUM_ITERATIONS        , 5  );
     solver.set( MAX_TIME        , 2.0  );
+    solver.set(CONIC_SOLVER_PRINT_LEVEL, NONE);
+
+
+	solver.set(INTEGRATOR_PRINTLEVEL, NONE);
+	solver.set(PRINT_INTEGRATOR_PROFILE, NONE);
+	// solver.set(PLOT_RESOLUTION, NONE);
+    solver.set(PRINTLEVEL, NONE);
+    solver.set(PRINT_COPYRIGHT, NONE);
+
 
     // call the solver
     solver_success_ = solver.solve();
