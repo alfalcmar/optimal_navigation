@@ -5,6 +5,7 @@ from std_srvs.srv import SetBool
 from uav_abstraction_layer.srv import TakeOffRequest
 from uav_abstraction_layer.srv import TakeOff
 from uav_abstraction_layer.srv import GoToWaypoint
+from uav_abstraction_layer.msg import State
 from shot_executer.srv import ShootingActionRequest
 from shot_executer.srv import ShootingAction
 from random import randint, uniform,random
@@ -18,6 +19,7 @@ import threading
 target_pose = Odometry()
 action_flag = False
 drone_pose = Odometry()
+ual_ready = False
 
 def callback_drone_pose(data):
     global drone_pose
@@ -41,9 +43,18 @@ def thread_function(name):
         target_odom.pose.pose.position.x = 20
         target_odom.pose.pose.position.y = 0
         target_odom.pose.pose.position.z = 0
-        target_fake_pub.publish(target_odom)
+        # target_fake_pub.publish(target_odom)
         time.sleep(1)
 
+def callback_state(data):
+    global ual_ready
+    data_splitted = str(data).split(": ")
+    state = int(data_splitted[1])
+
+    if (state >= 2 and state <= 4):
+        ual_ready = True
+    else:
+        ual_ready = False
 
    
 if __name__ == "__main__":
@@ -58,13 +69,18 @@ if __name__ == "__main__":
     rospy.wait_for_service(go_to_waypoint_url)
     
     go_to_waypoint = rospy.ServiceProxy(go_to_waypoint_url, GoToWaypoint)
-    target_fake_pub = rospy.Publisher('/target_fake', Odometry, queue_size=10)
+    # target_fake_pub = rospy.Publisher('/target_fake', Odometry, queue_size=10)
     desired_pose = rospy.ServiceProxy('/'+uav_id+'/action',ShootingAction)
+    
+    rospy.Subscriber("/drone_1/ual/state", State, callback_state)
     
     mythread = threading.Thread(target=thread_function, args=(1,))
     mythread.start()
-
+    # raw_input("taking off UAL")
+    while (not ual_ready):
+        time.sleep(1)
     try:
+        print "Taking off"
         take_off = TakeOffRequest()
         take_off.height = 2
         take_off.blocking = True
@@ -99,8 +115,15 @@ if __name__ == "__main__":
     except:
         print("fail to call shooting action")
 
+    # raw_input("Fly over")
+    # shooting_action = ShootingActionRequest()
+    # shooting_action.shooting_action_type = ShootingActionRequest.FLYOVER
+    # #relative position
+    # shooting_action.rt_parameter.x = -2
+    # shooting_action.rt_parameter.y = -2
+    # shooting_action.rt_parameter.z = 3
+    # try:
+    #     desired_pose(shooting_action)
+    # except:
+    #     print("fail to call shooting action")
 
-    
-
-
-    
