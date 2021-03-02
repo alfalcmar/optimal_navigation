@@ -29,23 +29,23 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     ocp.subjectTo(model);
 
 
-    ocp.subjectTo(  -10 <= ax_ <= 10   );  
-    ocp.subjectTo(  -10 <= ay_ <= 10   );
-    ocp.subjectTo(  -10 <= az_ <= 10   );
-    ocp.subjectTo(  -20 <= vx_ <= 20   );
-    ocp.subjectTo(  -20 <= vy_ <= 20   );
-    ocp.subjectTo(  -20 <= vz_ <= 20   );
+    ocp.subjectTo(  -MAX_ACC <= ax_ <= MAX_ACC   );  
+    ocp.subjectTo(  -MAX_ACC <= ay_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_ACC <= az_ <= MAX_ACC   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vx_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_XY <= vy_ <= MAX_VEL_XY   );
+    ocp.subjectTo(  -MAX_VEL_Z <= vz_ <= MAX_VEL_Z   );
 
 
-    // ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
-    // ocp.subjectTo( AT_START, py_ == solution_[0].pose.y);
-    // ocp.subjectTo( AT_START, pz_ == solution_[0].pose.z);
-    // ocp.subjectTo( AT_START, vx_ == solution_[0].velocity.x);
-    // ocp.subjectTo( AT_START, vy_ == solution_[0].velocity.y);
-    // ocp.subjectTo( AT_START, vz_ == solution_[0].velocity.z);
-    // ocp.subjectTo( AT_START, ax_ == solution_[0].acc.x);
-    // ocp.subjectTo( AT_START, ay_ == solution_[0].acc.y);
-    // ocp.subjectTo( AT_START, az_ == solution_[0].acc.z);
+    ocp.subjectTo( AT_START, px_ == solution_[0].pose.x);
+    ocp.subjectTo( AT_START, py_ == solution_[0].pose.y);
+    ocp.subjectTo( AT_START, pz_ == solution_[0].pose.z);
+    ocp.subjectTo( AT_START, vx_ == solution_[0].velocity.x);
+    ocp.subjectTo( AT_START, vy_ == solution_[0].velocity.y);
+    ocp.subjectTo( AT_START, vz_ == solution_[0].velocity.z);
+    ocp.subjectTo( AT_START, ax_ == solution_[0].acc.x);
+    ocp.subjectTo( AT_START, ay_ == solution_[0].acc.y);
+    ocp.subjectTo( AT_START, az_ == solution_[0].acc.z);
 
     ////////// polyhedrons/////////////////
     geometry_msgs::PoseStamped pose_aux;
@@ -80,21 +80,6 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
         path_ref->poses.back().pose.position.y = last_point(1);
         path_ref->poses.back().pose.position.z = last_point(2);
     }
-
-    // // if the last point is occupied
-    // int k = time_horizon_ - 1;
-    // while(safe_corridor_generator_->isPointOccupied(path_ref_vector[k])){
-    //     ROS_INFO("solver: point occupied");
-    //     k--;
-    // }
-    // if(k!= time_horizon_ -1){
-    //     for(int i = k+1;i<time_horizon_;i++){
-    //         path_ref_vector[i] = path_ref_vector[k];
-    //         path_ref->poses[i] = path_ref->poses[k];
-    //     }
-    // }
-    // /////
-    // for testing ostacle avoidance
     
     // add follower to the map
     geometry_msgs::Point aux_point;
@@ -125,9 +110,9 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
 
     polyhedronsToACADO(ocp, polyhedron_vector, collision_free_path_vector, px_, py_, pz_ ); // polyhedrons to acado
 
-    safe_corridor_generator_->publishLastPath(pub_path_);
+    // safe_corridor_generator_->publishLastPath(pub_path_);
   
-    safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
+    // safe_corridor_generator_->publishCorridor(pub_corridor_polyhedrons_);
 
     ////////////////////////////////////////
 
@@ -292,28 +277,6 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
         /* ocp.subjectTo( AT_START, az_ == solution_[(time_initial_position/step_size)+offset_].acc.z); */
     }
 
-    // // polyhedrons
-    // Vec2f start_pose( _uavs_pose.at(_drone_id).state.pose.x,  _uavs_pose.at(_drone_id).state.pose.y);
-    // Vec2f final_pose( _desired_odometry.pose.pose.position.x, _desired_odometry.pose.pose.position.y);
-    
-    // State uav_state = _uavs_pose.at(_drone_id).state;
-    // nav_msgs::Path path = calculatePath(start_pose, final_pose, uav_state, _target_trajectory);
-
-    // nav_msgs::PathPtr                       path_ref(new nav_msgs::Path);
-
-    // path_ref->poses = path.poses;
-
-    // vec_Vec3f path_ref_vector;
-
-    // for(int i=0; i<path_ref->poses.size();i++){
-    //     path_ref_vector.push_back(Vec3f(path_ref->poses[i].pose.position.x,path_ref->poses[i].pose.position.y, path_ref->poses[i].pose.position.z));
-    //     std::cout<<"x: "<<path_ref->poses[i].pose.position.x<<" y: "<<path_ref->poses[i].pose.position.y<<" z: "<<path_ref->poses[i].pose.position.z<<std::endl;
-    // }
-
-    // vec_E<Polyhedron<3>> polyhedron_vector = safe_corridor_generator_->getSafeCorridorPolyhedronVector(path_ref);
-
-    // polyhedronsToACADO(ocp, polyhedron_vector, path_ref_vector, px_, py_,pz_ );
-
     // Define objectives
     Function h_1;
 
@@ -331,15 +294,12 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
 
     r_1(0) = _desired_odometry.pose.pose.position.x;
     r_1(1) = _desired_odometry.pose.pose.position.y;
-    // r_1(2) = _desired_odometry.twist.twist.linear.x;
-    // r_1(3) = _desired_odometry.twist.twist.linear.y;
-    // r_1(4) = _desired_odometry.twist.twist.linear.y;
-    // r_1(5) = _desired_odometry.twist.twist.linear.z;
+
     //use target_x and targety_ptr
-    ocp.minimizeLagrangeTerm(5*(pz_-target_z)/sqrt(
+    ocp.minimizeLagrangeTerm(W_CIN*pow((pz_-target_z)/sqrt(
                                                    pow(px_-target_x,2)+
                                                    pow(py_-target_y,2)
-                                                   +eps)-CAMERA_PITCH);
+                                                   +eps)-CAMERA_PITCH,2));
     ocp.minimizeLSQEndTerm( S_1, h_1, r_1 );
 
     Function h;
