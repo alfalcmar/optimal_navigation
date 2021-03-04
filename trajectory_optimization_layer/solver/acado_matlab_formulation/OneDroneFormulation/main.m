@@ -1,4 +1,4 @@
-%% Main script
+%% Main script %%
 
 clear all
 close all
