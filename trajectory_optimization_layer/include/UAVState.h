@@ -40,6 +40,8 @@ struct State{
   Quaternion quaternion;
   Velocity velocity;
   Acc acc;
+  float heading;
+  float heading_rate;
 };
 
 class UavState{

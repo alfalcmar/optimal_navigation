@@ -546,6 +546,12 @@ void backendSolver::stateMachine() {
     }
     // predict yaw and pitch and publish trajectory
     logger->targetPathVisualization();
+    ros::spinOnce();
+    targetTrajectoryVelocityCTEModel();
+    // Eigen::Quaterniond q(uavs_pose_[drone_id_].state.quaternion.x,uavs_pose_[drone_id_].state.quaternion.y,uavs_pose_[drone_id_].state.quaternion.z,uavs_pose_[drone_id_].state.quaternion.w);
+    // Eigen::Vector3d roll_pitch_yaw = q.toRotationMatrix().eulerAngles(0, 1, 2);
+    // float actual_heading = roll_pitch_yaw(2);
+    // std::vector<double> yaw = solver_pt_->orientation(target_trajectory_,actual_heading, solution_);
     std::vector<double> yaw   = predictingYaw();
     std::vector<double> pitch = predictingPitch();
     publishSolvedTrajectory(yaw, pitch, closest_point);

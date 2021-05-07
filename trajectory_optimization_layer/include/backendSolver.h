@@ -117,7 +117,7 @@ protected:
 
 
   /* const float OFFSET_YAW = -0.5; */
-  const float OFFSET_YAW = 0.0;
+  const float OFFSET_YAW = -0.3;
 
   std::vector<int> drones;
   // services and topics

@@ -8,6 +8,83 @@ NumericalSolver::ACADOSolver::ACADOSolver(const float solving_rate, const int ti
 
 }
 
+std::vector<double> NumericalSolver::ACADOSolver::orientation(const std::vector<nav_msgs::Odometry> &_target_trajectory, float actual_heading, const std::unique_ptr<State[]> &_solution){
+  // // DifferentialState heading, v_heading;
+  DifferentialState heading, v_heading;
+  Control a_heading;
+
+  float a_limit     = 0.3;
+  float v_limit     = 0.5;
+
+  DifferentialEquation model;
+  model << dot(heading) == v_heading;
+  model << dot(v_heading) == a_heading;
+  
+  Grid my_grid( t_start,t_end,time_horizon_ );
+  OCP ocp(my_grid);  
+  ocp.subjectTo(model);
+  ocp.subjectTo(-a_limit <= a_heading <= a_limit);
+  ocp.subjectTo(-v_limit <= v_heading <= v_limit);
+
+  VariablesGrid reference_trajectory(2, my_grid); // 2 for pitch
+  DVector       reference_point(2); // 2 for pitch
+  reference_trajectory.setVector(0, reference_point);  // TODO: check indexing
+  Eigen::Vector3f q_camera_target;
+  for (int k = 0; k < time_horizon_; k++) {
+    q_camera_target = Eigen::Vector3f(_target_trajectory[k].pose.pose.position.x, _target_trajectory[k].pose.pose.position.y, _target_trajectory[k].pose.pose.position.z) - 
+                        Eigen::Vector3f(_solution[k].pose.x, _solution[k].pose.y, _solution[k].pose.z);
+    reference_point(0) = atan2(q_camera_target[1], q_camera_target[0]);
+    reference_point(1) = 0;
+    reference_trajectory.setVector(k, reference_point);  // TODO: check indexing
+  }
+
+         
+    ocp.subjectTo( AT_START, heading == actual_heading);
+    ocp.subjectTo( AT_START, v_heading == 0.0);
+    ocp.subjectTo( AT_START, a_heading == 0.0);
+    
+
+   Function rf;
+
+   rf << heading << a_heading;
+
+   DMatrix S(2, 2);
+
+   S.setIdentity();
+   S(0, 0) = 1.0;
+   S(1, 1) = 1.0;
+
+   ocp.minimizeLSQ(S, rf, reference_trajectory);
+
+ 
+   OptimizationAlgorithm solver_(ocp);
+
+  // // reference_trajectory.print();
+  // // call the solver
+  returnValue value = solver_.solve();
+  // // get solution
+  VariablesGrid output_states, output_control;
+
+  solver_.getDifferentialStates(output_states);
+  solver_.getControls(output_control);
+  // ROS_INFO("[Acado]: Output states: ");
+//   output_states.print();
+
+  std::cout<<"heading"<<std::endl;
+  std::vector<double> yaw;
+  for (uint i = 0; i < time_horizon_; i++) {
+    yaw.push_back(output_states(i, 0));
+  }
+  
+  heading.clearStaticCounters();
+  v_heading.clearStaticCounters();
+  a_heading.clearStaticCounters();
+  int success_value = value;
+//   ROS_INFO("[Acado]: Acado angular optimization took %.3f, success = %d ", (ros::Time::now() - start).toSec(), success_value);
+  return yaw;
+}
+
+
 int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const std::map<int,UavState> &_uavs_pose, const int _drone_id){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
 
