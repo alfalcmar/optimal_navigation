@@ -460,7 +460,6 @@ float backendSolver::checkRoundedTime(std::chrono::system_clock::time_point star
 
 
 void backendSolver::stateMachine() {
-  int                                   closest_point = 0;
   ros::Rate                             solver_timer(solver_rate_);  // Hz
   bool                                  loop_rate_violated = false;
   std::chrono::system_clock::time_point start;
@@ -503,7 +502,7 @@ void backendSolver::stateMachine() {
 
         // call the solver
         solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, pub_path_,
-                                                    pub_corridor_polyhedrons_, actual_cicle_time_,
+                                                    pub_corridor_polyhedrons_, closest_point_,
                                                     first_time_solving_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
@@ -540,9 +539,9 @@ void backendSolver::stateMachine() {
 
     // check if the trajectory last the planned time, if not discard the navigated points. First time does not discard points
     if (actual_cicle_time_ > 1 / solver_rate_ && !first_time_solving_) {
-      closest_point = (actual_cicle_time_ - 1 / solver_rate_) / STEP_SIZE;
+      closest_point_ = (actual_cicle_time_ - 1 / solver_rate_) / STEP_SIZE;
     } else {
-      closest_point = 0;
+      closest_point_ = 0;
     }
     // predict yaw and pitch and publish trajectory
     logger->targetPathVisualization();
@@ -554,7 +553,7 @@ void backendSolver::stateMachine() {
     // std::vector<double> yaw = solver_pt_->orientation(target_trajectory_,actual_heading, solution_);
     std::vector<double> yaw   = predictingYaw();
     std::vector<double> pitch = predictingPitch();
-    publishSolvedTrajectory(yaw, pitch, closest_point);
+    publishSolvedTrajectory(yaw, pitch, closest_point_);
     logger->publishPath();  // publish to visualize
 
     first_time_solving_ = false;

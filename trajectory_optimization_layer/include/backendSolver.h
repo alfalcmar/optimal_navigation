@@ -91,6 +91,8 @@ protected:
   std::vector<std::array<float, 2>> no_fly_zone_points_;
   const float                       max_vel                = 1.0; /**< Max velocity imposed as constraint */
   const float                       diagnostic_timer_rate_ = 0.5; /**< rate of the diagnostic timer for MRS system (s) */
+  int                                   closest_point_ = 0;
+
   // robots
   int                                              drone_id_;
   std::map<int, UavState>                uavs_pose_;      /**< Last uavs odometry <drone_id,odometry> */

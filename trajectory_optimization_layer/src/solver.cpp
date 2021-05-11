@@ -12,7 +12,7 @@ NumericalSolver::Solver::Solver(const float solving_rate, const int time_horizon
 
 }
 
-int NumericalSolver::Solver::solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, float time_initial_position, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::Solver::solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const int discarted_points, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
 
 }
 

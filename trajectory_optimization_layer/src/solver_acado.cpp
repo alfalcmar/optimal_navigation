@@ -290,13 +290,15 @@ int NumericalSolver::ACADOSolver::mpc(ros::Publisher &pub_path_, ros::Publisher 
     return solver_success;
 }
 
-int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, float time_initial_position, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
+int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const int discarted_points, bool first_time_solving,  int _drone_id, bool _target /*false*/,bool _multi/*false*/){
     DifferentialState px_,py_,pz_,vx_,vy_,vz_;
     //DifferentialState   dummy;  // dummy state
     Control ax_,ay_,az_;
     // AlgebraicState pitch;
     Control s  ;  // slack variable
     // Parameter tx,ty,tz;
+
+    float time_initial_position = 1/solving_rate_;
 
     DifferentialEquation model;
     Grid my_grid_( t_start,t_end,time_horizon_ );
@@ -343,12 +345,12 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
         ocp.subjectTo( AT_START, az_ == 0.0);
     }else{     
         // FIXME: I think that it does not make sense to put constraints on current acceleration if you penalize only its absolute value and not diff. It is a control input, so by these constraints you directly decide what will be the complete state in iteration AT_START + 1 
-        ocp.subjectTo( AT_START, px_ == solution_[(time_initial_position/step_size)+offset_].pose.x);
-        ocp.subjectTo( AT_START, py_ == solution_[(time_initial_position/step_size)+offset_].pose.y);
-        ocp.subjectTo( AT_START, pz_ == solution_[(time_initial_position/step_size)+offset_].pose.z);
-        ocp.subjectTo( AT_START, vx_ == solution_[(time_initial_position/step_size)+offset_].velocity.x);
-        ocp.subjectTo( AT_START, vy_ == solution_[(time_initial_position/step_size)+offset_].velocity.y);
-        ocp.subjectTo( AT_START, vz_ == solution_[(time_initial_position/step_size)+offset_].velocity.z);
+        ocp.subjectTo( AT_START, px_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].pose.x);
+        ocp.subjectTo( AT_START, py_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].pose.y);
+        ocp.subjectTo( AT_START, pz_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].pose.z);
+        ocp.subjectTo( AT_START, vx_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].velocity.x);
+        ocp.subjectTo( AT_START, vy_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].velocity.y);
+        ocp.subjectTo( AT_START, vz_ == solution_[(time_initial_position/step_size)+offset_+discarted_points].velocity.z);
         /* ocp.subjectTo( AT_START, ax_ == solution_[(time_initial_position/step_size)+offset_].acc.x); */
         /* ocp.subjectTo( AT_START, ay_ == solution_[(time_initial_position/step_size)+offset_].acc.y); */
         /* ocp.subjectTo( AT_START, az_ == solution_[(time_initial_position/step_size)+offset_].acc.z); */
@@ -438,7 +440,7 @@ int NumericalSolver::ACADOSolver::solverFunction( nav_msgs::Odometry &_desired_o
     solver_success_ = solver.solve();
     // get solution
 
-    getResults(time_initial_position, solver, first_time_solving);
+    getResults(time_initial_position, solver, first_time_solving, discarted_points);
 
     px_.clearStaticCounters();
     py_.clearStaticCounters();
@@ -514,7 +516,7 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
      return true;
  }
 
- bool NumericalSolver::ACADOSolver::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving){
+ bool NumericalSolver::ACADOSolver::getResults(const float time_initial_position, const OptimizationAlgorithm& solver, const bool first_time_solving, const int discarted_points){
     
     VariablesGrid output_states,output_control;
 
@@ -525,15 +527,15 @@ void NumericalSolver::ACADOSolver::polyhedronsToACADO(OCP &_ocp, const vec_E<Pol
         for(int i=0;i<time_horizon_;i++){
 
             if(i<offset_  && !first_time_solving){ 
-                solution_[i].pose.x=       solution_  [(time_initial_position/step_size)+i].pose.x;
-                solution_[i].pose.y=       solution_  [(time_initial_position/step_size)+i].pose.y;
-                solution_[i].pose.z=       solution_  [(time_initial_position/step_size)+i].pose.z;
-                solution_[i].velocity.x=   solution_[(time_initial_position/step_size)+i].velocity.x;
-                solution_[i].velocity.y=   solution_[(time_initial_position/step_size)+i].velocity.y;
-                solution_[i].velocity.z=   solution_[(time_initial_position/step_size)+i].velocity.z;
-                solution_[i].acc.x=      solution_[(time_initial_position/step_size)+i].acc.x;
-                solution_[i].acc.y=      solution_[(time_initial_position/step_size)+i].acc.y;
-                solution_[i].acc.z=      solution_[(time_initial_position/step_size)+i].acc.z;
+                solution_[i].pose.x=       solution_  [(time_initial_position/step_size)+i+discarted_points].pose.x;
+                solution_[i].pose.y=       solution_  [(time_initial_position/step_size)+i+discarted_points].pose.y;
+                solution_[i].pose.z=       solution_  [(time_initial_position/step_size)+i+discarted_points].pose.z;
+                solution_[i].velocity.x=   solution_[(time_initial_position/step_size)+i+discarted_points].velocity.x;
+                solution_[i].velocity.y=   solution_[(time_initial_position/step_size)+i+discarted_points].velocity.y;
+                solution_[i].velocity.z=   solution_[(time_initial_position/step_size)+i+discarted_points].velocity.z;
+                solution_[i].acc.x=      solution_[(time_initial_position/step_size)+i+discarted_points].acc.x;
+                solution_[i].acc.y=      solution_[(time_initial_position/step_size)+i+discarted_points].acc.y;
+                solution_[i].acc.z=      solution_[(time_initial_position/step_size)+i+discarted_points].acc.z;
             }else{
                 solution_[i].pose.x=output_states(i-offset_*(int)!first_time_solving,0);
                 solution_[i].pose.y=output_states(i-offset_*(int)!first_time_solving,1);

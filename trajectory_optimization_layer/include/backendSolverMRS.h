@@ -22,6 +22,7 @@ private:
   ros::Publisher  target_odometry_pub;
   ros::Publisher  mrs_trajectory_tracker_pub;
   ros::Publisher  mrs_status_pub;
+
   /*! \brief Callback function to the target topic. This function save the pose reveived for the first in has_poses[0] and upload target_pose_ member
    *  \param
    * */
