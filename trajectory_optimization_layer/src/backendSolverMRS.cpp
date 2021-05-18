@@ -26,7 +26,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   // node is not running
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
-  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav44");
+  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav1");
 
   is_initialized = true;
 
@@ -185,6 +185,7 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_ms
   if (response_pose && response_vel) {
     ROS_INFO_THROTTLE(1.0, "[%s]: Target odometry succesfully transformed", ros::this_node::getName().c_str());
     target_odometry_.pose.pose            = response_pose.value().pose;
+    target_odometry_.pose.pose.position.z = target_odometry_.pose.pose.position.z + 2.0;
     target_odometry_.twist.twist.linear.x = response_vel.value().vector.x;
     target_odometry_.twist.twist.linear.y = response_vel.value().vector.y;
     target_odometry_.twist.twist.linear.z = response_vel.value().vector.z;
