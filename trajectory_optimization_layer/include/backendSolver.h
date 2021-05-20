@@ -94,7 +94,7 @@ protected:
   int                                   closest_point_ = 0;
 
   // robots
-  int                                              drone_id_;
+  int                                              drone_id_ = 10;
   std::map<int, UavState>                uavs_pose_;      /**< Last uavs odometry <drone_id,odometry> */
   std::map<int, optimal_control_interface::Solver> uavs_trajectory; /**< Last trajectory solved by others <drone_id,odometry*/
   // target

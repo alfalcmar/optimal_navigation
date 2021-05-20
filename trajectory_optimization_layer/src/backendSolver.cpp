@@ -25,9 +25,9 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   } else {
     ROS_ERROR("fail to get no fly zone param");
   }
-  if (ros::param::has("~drone_id")) {
-    ros::param::get("~drone_id", drone_id_);
-  }
+  // if (ros::param::has("~drone_id")) {
+  //   ros::param::get("~drone_id", drone_id_);
+  // }
   if (ros::param::has("~trajectory_frame")) {
     ros::param::get("~trajectory_frame", trajectory_frame_);
   } else {
@@ -78,7 +78,7 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   param_loader.loadParam("map_center", _map_frame_coordinates);
   param_loader.loadParam("max_sampling_dist", max_sampling_distance);
   param_loader.loadParam("max_jps_expansions", max_jps_expansions);
-  param_loader.loadParam("uav_priority_list", drones); //TODO: read the param generally
+  param_loader.loadParam("drone_ids", drones); //TODO: read the param generally
 
 
   // initializa safe corridor generator
@@ -310,7 +310,6 @@ void backendSolver::targetTrajectoryVelocityCTEModel() {
 bool backendSolver::checkConnectivity() {
   // check the connectivity with drones and target
   size_t cont = 0;
-
   for (auto it = uavs_pose_.begin(); it != uavs_pose_.end(); it++) {
     if (it->second.has_pose)
       cont++;

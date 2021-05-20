@@ -28,7 +28,7 @@ protected:
     const float t_start = 0.0;
     const float t_end = 7.8; 
     const float CAMERA_PITCH = 0;
-    const float Z_RELATIVE_TARGET_DRONE =2.2;  /*! height of the drone with respect to the target */
+    const float Z_RELATIVE_TARGET_DRONE =1;  /*! height of the drone with respect to the target */
     float solving_rate_; // solving rate (s)
     const bool no_fly_zone = false;
     const bool debug = true;
@@ -60,7 +60,7 @@ public:
     std::unique_ptr<State[]> solution_;
 
     Solver(const float solving_rate, const int time_horizon, const std::shared_ptr<State[]> initial_guess, const std::shared_ptr<safe_corridor_generator::SafeCorridorGenerator> _safe_corridor_generator_ptr);
-    virtual int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const int discarted_points, bool first_time_solving = true ,const int _drone_id = 1, const bool _target = true, const bool _multi = false);
+    virtual int solverFunction(nav_msgs::Odometry &_desired_odometry, const std::vector<float> &_obst, const std::vector<nav_msgs::Odometry> &_target_trajectory, std::map<int,UavState> &_uavs_pose, ros::Publisher &pub_path_, ros::Publisher &pub_corridor_polyhedrons_, const int discarted_points, bool first_time_solving = true ,const int _drone_id = 10, const bool _target = true, const bool _multi = false);
 };
 
 }

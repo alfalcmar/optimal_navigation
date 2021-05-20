@@ -26,11 +26,13 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   // node is not running
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
-  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav1");
+  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav10");
 
   is_initialized = true;
 
   std::cout<<ANSI_COLOR_YELLOW<<"Drone "<<drone_id_<<": connecting to others and target..."<<std::endl;
+
+  
   while (!checkConnectivity()) {
     ros::spinOnce();
     std::this_thread::sleep_for(std::chrono::seconds(1));
