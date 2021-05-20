@@ -117,7 +117,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
   publishTargetOdometry();
   formation_church_planning::Diagnostic diag_msg;
   diag_msg.header.stamp               = ros::Time::now();
-  diag_msg.uav_name                   = "uav" + std::to_string(44);
+  diag_msg.uav_name                   = "uav" + std::to_string(10);
   diag_msg.robot_role                 = "leader";
   diag_msg.state                      = "waiting_in_initial_position";
   diag_msg.flying_mode                = "1";
@@ -138,7 +138,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
 void backendSolverMRS::publishState(const bool state) {
   formation_church_planning::Status msg;
   msg.ready    = state;
-  msg.uav_name = "uav" + std::to_string(44);
+  msg.uav_name = "uav" + std::to_string(10);
   try {
     mrs_status_pub.publish(msg);
   }
