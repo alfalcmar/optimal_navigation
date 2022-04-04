@@ -23,6 +23,7 @@
 #include <mrs_msgs/TrajectoryReference.h>
 #include <mrs_msgs/Reference.h>
 #include <mrs_lib/transformer.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_msgs/String.h>
 #include <algorithm>
 #define ZERO 0.000001

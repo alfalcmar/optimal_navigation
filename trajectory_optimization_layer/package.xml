@@ -58,6 +58,7 @@
   <depend>pcl_ros</depend>
   <depend>pcl_conversions</depend>
   <depend>jps3d</depend>
+  <depend>formation_church_planning</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
