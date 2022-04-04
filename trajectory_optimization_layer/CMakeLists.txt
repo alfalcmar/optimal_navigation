@@ -17,6 +17,7 @@ set(MRS_INTERFACE ON)
 
 
 find_package(catkin REQUIRED COMPONENTS
+  message_generation
   nodelet
   roscpp
   rospy

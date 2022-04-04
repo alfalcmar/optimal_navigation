@@ -14,7 +14,7 @@ public:
   backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon);
 
 private:
-  mrs_lib::Transformer transformer_;
+  std::unique_ptr<mrs_lib::Transformer> transformer_;
 
   ros::Subscriber uav_odometry_sub; /**< Subscriber to UAV's odometry*/
   ros::Publisher  diagnostics_pub;

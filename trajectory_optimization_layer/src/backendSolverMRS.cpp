@@ -26,7 +26,8 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   // node is not running
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
-  transformer_      = mrs_lib::Transformer("optimal_control_interface", "uav10");
+  transformer_      = std::make_unique<mrs_lib::Transformer>(_nh, "optimal_control_interface");
+  transformer_->setDefaultPrefix("uav1"); // TODO: add param
 
   is_initialized = true;
 
@@ -169,13 +170,13 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
 
 
 void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_msg) {
-  transformer_.setCurrentControlFrame(trajectory_frame_);
+  /* transformer_.setCurrentControlFrame(trajectory_frame_); */
   geometry_msgs::PoseStamped pose_tmp;
   pose_tmp.header = _msg->header;
   pose_tmp.pose   = _msg->pose.pose;
   ROS_WARN_THROTTLE(1.0, "[%s]: Target odometry local origin obtained - [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(), pose_tmp.pose.position.x,
                     pose_tmp.pose.position.y, pose_tmp.pose.position.z);
-  auto response_pose = transformer_.transformSingle(trajectory_frame_, pose_tmp);
+  auto response_pose = transformer_->transformSingle(pose_tmp, trajectory_frame_);
   ROS_WARN_THROTTLE(1.0, "[%s]: Target odometry transformed - [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(), response_pose->pose.position.x,
                     response_pose->pose.position.y, response_pose->pose.position.z);
   geometry_msgs::Vector3Stamped global_vel;
@@ -183,7 +184,7 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_ms
   global_vel.vector.x = _msg->twist.twist.linear.x;
   global_vel.vector.y = _msg->twist.twist.linear.y;
   global_vel.vector.z = _msg->twist.twist.linear.z;
-  auto response_vel   = transformer_.transformSingle(trajectory_frame_, global_vel);
+  auto response_vel   = transformer_->transformSingle(global_vel, trajectory_frame_);
   if (response_pose && response_vel) {
     ROS_INFO_THROTTLE(1.0, "[%s]: Target odometry succesfully transformed", ros::this_node::getName().c_str());
     target_odometry_.pose.pose            = response_pose.value().pose;
