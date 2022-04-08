@@ -25,14 +25,25 @@ backendSolver::backendSolver(ros::NodeHandle pnh, ros::NodeHandle nh, const int 
   } else {
     ROS_ERROR("fail to get no fly zone param");
   }
-  // if (ros::param::has("~drone_id")) {
-  //   ros::param::get("~drone_id", drone_id_);
-  // }
+
+  if (ros::param::has("~drone_id")) {
+    ros::param::get("~drone_id", drone_id_);
+  } else { 
+    ROS_ERROR("fail to get drone id");
+  }
+
+  if (ros::param::has("~uav_name")) {
+    ros::param::get("~uav_name", uav_name_);
+  } else { 
+    ROS_ERROR("fail to get uav_name");
+  }
+
   if (ros::param::has("~trajectory_frame")) {
     ros::param::get("~trajectory_frame", trajectory_frame_);
   } else {
     ROS_ERROR("fail to get the drones id");
   }
+
   if (ros::param::has("~solver_rate")) {
     ros::param::get("~solver_rate", solver_rate_);
   } else {
@@ -242,6 +253,9 @@ void backendSolver::publishSolvedTrajectory(const std::vector<double> &yaw, cons
   ROS_INFO("virtual definition of publish solved trajectory");
 }
 
+void backendSolver::publishInitialTrajectory() {
+  ROS_INFO("virtual definition of publish initial trajectory");
+}
 
 bool backendSolver::desiredPoseReached(const std::vector<double> desired_pos, const std::vector<double> last_traj_pos) {
   Eigen::Vector3f desired_pose = Eigen::Vector3f(desired_pos[0], desired_pos[1], desired_pos[2]);
@@ -315,10 +329,13 @@ bool backendSolver::checkConnectivity() {
       cont++;
   }
   if (target_) {
-    if (target_has_pose)
+    if (target_has_pose) {
       cont++;
+    }
+    ROS_INFO("[%s]: Received poses of %d from %lu UAVs and targets.", ros::this_node::getName().c_str(), cont, drones.size() + 1);
     return (cont == drones.size() + 1);
   } else {
+    ROS_INFO("[%s]: Received poses of %d from %lu UAVs.", ros::this_node::getName().c_str(), cont, drones.size());
     return (cont == drones.size());
   }
 }
@@ -471,6 +488,7 @@ void backendSolver::stateMachine() {
     ros::spinOnce();
     if (desired_type_ == shot_executer::DesiredShot::IDLE) {  // IDLE STATE
       IDLEState();
+      publishInitialTrajectory();
       std::this_thread::sleep_for(std::chrono::seconds(1));
       continue;
     } else if (desired_type_ == shot_executer::DesiredShot::GOTO || desired_type_ == shot_executer::DesiredShot::SHOT) {  // Shooting action
@@ -496,13 +514,13 @@ void backendSolver::stateMachine() {
           spheres_to_avoid.poses.push_back(p);
         }
 
-        safe_corridor_generator_->addPositionsOfRobotsToPclMap(spheres_to_avoid, 1.0, 50);
+        safe_corridor_generator_->addPositionsOfRobotsToPclMap(spheres_to_avoid, 1.0, 5.0, 50);
         safe_corridor_generator_->updateMaps();
 
         // call the solver
         solver_success = solver_pt_->solverFunction(desired_odometry_, no_fly_zone_center_, target_trajectory_, uavs_pose_, pub_path_,
                                                     pub_corridor_polyhedrons_, closest_point_,
-                                                    first_time_solving_);  // ACADO
+                                                    first_time_solving_, drone_id_);  // ACADO
         // solver_success = solver_.solverFunction(initial_guess_,ax_,ay_,az_,x_,y_,z_,vx_,vy_,vz_, desired_odometry_,
         // no_fly_zone_center_,target_trajectory_,uavs_pose_);   // call the solver function  FORCES_PRO.h
 

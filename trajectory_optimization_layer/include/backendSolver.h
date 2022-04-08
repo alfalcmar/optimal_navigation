@@ -9,6 +9,7 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
 #include <tf/tf.h>
 #include <math.h> /* sqrt */
 #include <solver_acado.h>
@@ -95,7 +96,8 @@ protected:
   int                                   closest_point_ = 0;
 
   // robots
-  int                                              drone_id_ = 10;
+  int                                              drone_id_ = 1;
+  std::string uav_name_;
   std::map<int, UavState>                uavs_pose_;      /**< Last uavs odometry <drone_id,odometry> */
   std::map<int, optimal_control_interface::Solver> uavs_trajectory; /**< Last trajectory solved by others <drone_id,odometry*/
   // target
@@ -143,10 +145,11 @@ protected:
   // aux flags
   // std::map<int, bool> has_poses; /**< map to register if the poses of the robots have been received <drone_id, received> drone_id = 0 -> target */
   std::map<int, bool> trajectory_solved_received; /**<  flags to receive the solved trajectories for others <drone_id, received> */
-  bool                is_initialized    = false;  /**< object inizialized */
-  bool                activated_        = false;  /**< planning activated */
-  bool                first_activation_ = true;   /**< first activation of the planning */
-  bool                planning_done_    = false;  /**< planning finished */
+  bool                is_initialized    = false; /**< object inizialized */
+  bool                activated_        = false; /**< planning activated */
+  bool                first_activation_ = true;  /**< first activation of the planning */
+  bool                planning_done_    = false; /**< planning finished */
+  bool                trajectory_following_activated_ = false; /**< trajectory following activated */
   // timers and threads
   ros::Timer  diagnostic_timer_; /**< timer to publish diagnostic topic */
 
@@ -243,6 +246,10 @@ protected:
   /*! \brief publish the solved trajectory for others
    **/
   virtual void publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int delayed_points = 0);
+
+  /*! \brief publish the initial trajectory for others
+   **/
+  virtual void publishInitialTrajectory();
 
   /** \brief Utility function to calculate if the trajectory calculated by the solver finishes in the desired pose
    *  \param desired_pos      This is the desired pose

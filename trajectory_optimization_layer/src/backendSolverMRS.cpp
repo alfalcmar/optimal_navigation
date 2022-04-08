@@ -1,11 +1,13 @@
-#include<backendSolverMRS.h>
+#include <backendSolverMRS.h>
 
-backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon) : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
+backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, const int time_horizon)
+    : backendSolver::backendSolver(_pnh, _nh, time_horizon) {
   ROS_INFO("Leader constructor");
 
-  for(int i=0;i<drones.size();i++){
-    if(drones[i]!=drone_id_){
-      drone_pose_sub[i] = _pnh.subscribe<nav_msgs::Odometry>("/uav"+std::to_string(drones[i]) + "/odometry/odom_main", 1, std::bind(&backendSolverMRS::uavPoseCallback, this, std::placeholders::_1, drones[i]));
+  for (int i = 0; i < drones.size(); i++) {
+    if (drones[i] != drone_id_) {
+      drone_pose_sub[i] = _pnh.subscribe<nav_msgs::Odometry>("/uav" + std::to_string(drones[i]) + "/odometry/odom_main", 1,
+                                                             std::bind(&backendSolverMRS::uavPoseCallback, this, std::placeholders::_1, drones[i]));
     }
   }
 
@@ -20,6 +22,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   target_odometry_pub        = _pnh.advertise<nav_msgs::Odometry>("target_odometry_out", 1);
   mrs_status_pub             = _pnh.advertise<formation_church_planning::Status>("mrs_status", 1);
   service_for_activation     = _pnh.advertiseService("toggle_state", &backendSolverMRS::activationServiceCallback, this);
+  service_for_trajectory_following_activation = _pnh.advertiseService("start_following", &backendSolverMRS::trajectoryFollowingStartServiceCallback, this);
 
   ros::Rate rate(1);  // hz
   // publish diag message before getting the target pose, otherwise the mission controller does not let the UAv to take off since is supposes that the planning
@@ -27,13 +30,14 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
   ROS_INFO("[%s]: Register diag timer", ros::this_node::getName().c_str());
   diagnostic_timer_ = _nh.createTimer(ros::Duration(diagnostic_timer_rate_), &backendSolverMRS::diagTimer, this);
   transformer_      = std::make_unique<mrs_lib::Transformer>(_nh, "optimal_control_interface");
-  transformer_->setDefaultPrefix("uav1"); // TODO: add param
+  transformer_->setDefaultPrefix(uav_name_);  // TODO: add param
+  transformer_->setDefaultFrame(trajectory_frame_);
 
   is_initialized = true;
 
-  std::cout<<ANSI_COLOR_YELLOW<<"Drone "<<drone_id_<<": connecting to others and target..."<<std::endl;
+  std::cout << ANSI_COLOR_YELLOW << "Drone " << drone_id_ << ": connecting to others and target..." << std::endl;
 
-  
+
   while (!checkConnectivity()) {
     ros::spinOnce();
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -48,7 +52,7 @@ backendSolverMRS::backendSolverMRS(ros::NodeHandle &_pnh, ros::NodeHandle &_nh, 
 /** \brief callback for the pose of uavs
  */
 void backendSolverMRS::uavPoseCallback(const nav_msgs::Odometry::ConstPtr &msg, int id) {
-  std::cout<<"pose uav "<<id<<"received"<<std::endl;
+  /* std::cout << "pose uav " << id << "received" << std::endl; */
   uavs_pose_[id].has_pose = true;
   if (!trajectory_solved_received[id]) {
     for (int i = 0; i < time_horizon_; i++) {
@@ -69,6 +73,41 @@ void backendSolverMRS::uavPoseCallback(const nav_msgs::Odometry::ConstPtr &msg, 
   uavs_pose_[id].state.quaternion.w = msg->pose.pose.orientation.w;
 }
 
+void backendSolverMRS::publishInitialTrajectory() {
+  publishState(true);
+  formation_church_planning::Point      aux_point_for_followers;
+  formation_church_planning::Trajectory traj_to_followers;
+
+  // check that _x _y _z are the same size
+  for (int i = 0; i < time_horizon_; i++) {
+
+    // trajectory to followers
+    geometry_msgs::Quaternion quat;
+    quat.x = uavs_pose_[drone_id_].state.quaternion.x;
+    quat.y = uavs_pose_[drone_id_].state.quaternion.y;
+    quat.z = uavs_pose_[drone_id_].state.quaternion.z;
+    quat.w = uavs_pose_[drone_id_].state.quaternion.w;
+    aux_point_for_followers.x     = uavs_pose_[drone_id_].state.pose.x;
+    aux_point_for_followers.y     = uavs_pose_[drone_id_].state.pose.y;
+    aux_point_for_followers.z     = uavs_pose_[drone_id_].state.pose.z;
+    aux_point_for_followers.yaw   = mrs_lib::AttitudeConverter(quat).getHeading();
+    aux_point_for_followers.pitch = mrs_lib::AttitudeConverter(quat).getPitch();
+    aux_point_for_followers.phi   = 0.0;
+    aux_point_for_followers.mode  = 3;
+
+    traj_to_followers.points.push_back(aux_point_for_followers);
+  }
+
+  for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
+    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x,
+             traj_to_followers.points[k].y, traj_to_followers.points[k].z);
+  }
+
+  traj_to_followers.stamp      = ros::Time::now();
+  publishTargetOdometry();
+  solved_trajectory_MRS_pub.publish(traj_to_followers);
+}
+
 void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, const std::vector<double> &pitch, const int closest_point) {
   publishState(true);
   mrs_msgs::Reference                   aux_point;
@@ -87,7 +126,7 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     aux_point.position.x = solution_[i].pose.x;
     aux_point.position.y = solution_[i].pose.y;
     aux_point.position.z = solution_[i].pose.z;
-    aux_point.heading    = yaw[i]+OFFSET_YAW;
+    aux_point.heading    = yaw[i] + OFFSET_YAW;
     // trajectory to followers
     aux_point_for_followers.x     = solution_[i].pose.x;
     aux_point_for_followers.y     = solution_[i].pose.y;
@@ -101,14 +140,18 @@ void backendSolverMRS::publishSolvedTrajectory(const std::vector<double> &yaw, c
     traj_to_command.points.push_back(aux_point);
   }
   for (size_t k = 0; k < traj_to_followers.points.size(); k++) {
-    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x, traj_to_followers.points[k].y,
-             traj_to_followers.points[k].z);
+    ROS_INFO("[%s]: Traj to followers %u: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), drone_id_, traj_to_followers.points[k].x,
+             traj_to_followers.points[k].y, traj_to_followers.points[k].z);
   }
   traj_to_command.header.stamp = ros::Time::now();
   traj_to_followers.stamp      = ros::Time::now();
   publishTargetOdometry();
   solved_trajectory_MRS_pub.publish(traj_to_followers);
-  mrs_trajectory_tracker_pub.publish(traj_to_command);
+  if (trajectory_following_activated_) { 
+    mrs_trajectory_tracker_pub.publish(traj_to_command);
+  } else { 
+    ROS_INFO("[%s]: Trajectory following was not started yet. Not publishing trajectory on mpc tracker.", ros::this_node::getName().c_str());
+  }
 }
 
 void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
@@ -118,7 +161,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
   publishTargetOdometry();
   formation_church_planning::Diagnostic diag_msg;
   diag_msg.header.stamp               = ros::Time::now();
-  diag_msg.uav_name                   = "uav" + std::to_string(10);
+  diag_msg.uav_name                   = uav_name_;
   diag_msg.robot_role                 = "leader";
   diag_msg.state                      = "waiting_in_initial_position";
   diag_msg.flying_mode                = "1";
@@ -139,7 +182,7 @@ void backendSolverMRS::diagTimer(const ros::TimerEvent &event) {
 void backendSolverMRS::publishState(const bool state) {
   formation_church_planning::Status msg;
   msg.ready    = state;
-  msg.uav_name = "uav" + std::to_string(10);
+  msg.uav_name = uav_name_;
   try {
     mrs_status_pub.publish(msg);
   }
@@ -168,7 +211,6 @@ void backendSolverMRS::uavCallback(const nav_msgs::Odometry::ConstPtr &msg) {
 }
 
 
-
 void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_msg) {
   /* transformer_.setCurrentControlFrame(trajectory_frame_); */
   geometry_msgs::PoseStamped pose_tmp;
@@ -192,7 +234,7 @@ void backendSolverMRS::targetCallbackMRS(const nav_msgs::Odometry::ConstPtr &_ms
     target_odometry_.twist.twist.linear.x = response_vel.value().vector.x;
     target_odometry_.twist.twist.linear.y = response_vel.value().vector.y;
     target_odometry_.twist.twist.linear.z = response_vel.value().vector.z;
-    target_has_pose                     = true;
+    target_has_pose                       = true;
   }
   /* target_odometry_ = *_msg; */
 }
@@ -202,7 +244,7 @@ void backendSolverMRS::publishTargetOdometry() {
     return;
   }
   nav_msgs::Odometry msg = target_odometry_;
-  msg.header.frame_id    = "uav2/gps_origin"; //FIXME
+  msg.header.frame_id    = "uav2/gps_origin";  // FIXME
   try {
     target_odometry_pub.publish(msg);
   }
@@ -220,33 +262,11 @@ bool backendSolverMRS::activationServiceCallback(std_srvs::SetBool::Request &req
   }
   res.message = "Planning activated.";
   res.success = true;
-  /* if (activated_ == req.data) { //if it was already in the state that is received */
-  /*   res.success = false; */
-  /*   if (req.data) { // activated */
-  /*     res.message = "Planning is already activated."; */
-  /*     ROS_ERROR("%s", res.message.c_str()); */
-  /*   } else {    // deactivated */
-  /*     res.message = "Planning is already deactivated."; */
-  /*     ROS_ERROR("%s", res.message.c_str()); */
-  /*   } */
-  /*   return true; */
-  /* } */
-  /* if (req.data) { */
-  /*   if (!planning_done_) { */
-  /*     res.message = "Planning activated."; */
-  /*     res.success = true; */
-  /*     ROS_WARN("%s", res.message.c_str()); */
-  /*     activated_ = req.data; */
-  /*   } else { */
-  /*     res.message = "Planning cannot be activated because it is finished. Call reset service."; */
-  /*     res.success = false; */
-  /*     ROS_ERROR("%s", res.message.c_str()); */
-  /*   } */
-  /* } else { */
-  /*   subida = true; */
-  /*   res.message = "Planning deactivated."; */
-  /*   res.success = true; */
-  /*   ROS_WARN("%s", res.message.c_str()); */
-  /*   activated_ = req.data; */
-  /* } */
+}
+
+bool backendSolverMRS::trajectoryFollowingStartServiceCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+  ROS_INFO("[%s]: Trajectory following activation service called.", ros::this_node::getName().c_str());
+  trajectory_following_activated_ = true;
+  res.message = "Trajectory following activated.";
+  res.success = true;
 }
